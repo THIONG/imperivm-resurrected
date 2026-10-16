@@ -2,79 +2,36 @@
   <img src="assets/banner.png" alt="Imperivm Resurrected" width="640">
 </p>
 
+<p align="center"><b>English</b> · <a href="README.es.md">Español</a></p>
+
 # Imperivm Resurrected
 
-Mod no oficial para **Imperivm: Great Battles of Rome HD** (Steam). Le da al juego lo que le faltaba para seguir vivo:
-online sin abrir puertos, mods con un clic, controles a tu gusto y muchos arreglos.
-
-*English below.*
-
-> **Estado:** en pruebas antes de la 1.0 (versiones 0.x). Si algo falla, mira [Si algo falla](#si-algo-falla).
-
-## Qué trae
-
-- **Online por Steam**, sin abrir puertos ni usar VPN: salas, invitaciones a amigos, chat y reconexión si alguien se cae.
-- **Mods con un clic** desde el propio juego, con perfiles, versiones y dependencias. Los mods se publican en
-  [GameBanana](https://gamebanana.com/games/26069).
-- **Controles configurables**: cualquier tecla del juego y de las órdenes, con preajustes.
-- **Imagen moderna**: Direct3D 11, resoluciones actuales, ventana o pantalla completa sin parpadeos y overlay de Steam.
-- **Sonido moderno**, autoguardado, panel de rendimiento y arreglos de cierres del juego original.
-- **Informe de problemas** desde el propio juego, con los datos privados tapados.
-- **Se actualiza solo**: el juego avisa cuando hay versión nueva.
-
-## Instalar
-
-1. Descarga el zip de la [última versión](https://github.com/THIONG/imperivm-resurrected/releases/latest).
-2. Descomprímelo en la carpeta del juego, donde está `gbr.exe`
-   (en Steam: clic derecho en el juego → Administrar → Ver archivos locales).
-3. Abre el juego desde Steam.
-
-Para quitarlo, borra `winmm.dll` de la carpeta del juego. No modifica ningún archivo del juego.
-
-Hace falta el juego original de Steam. Este mod no incluye ningún archivo del juego.
-
-## Si algo falla
-
-En el menú principal del juego, pulsa el corazón de abajo a la izquierda y **Crear informe**. Se crea un zip con los registros
-y los datos de tu equipo, sin tu usuario de Windows, tus IDs de Steam ni las IP. El mod no envía nada: lo adjuntas tú.
-
-Después, [abre una incidencia](https://github.com/THIONG/imperivm-resurrected/issues/new/choose) con el zip, o pregunta en el
-[Discord](https://discord.gg/76gee3GMB7). Los registros están en `Logs\imperivm\`, dentro de la carpeta del juego.
-
-## Hacer mods
-
-El **SDK** está en [`sdk/`](sdk): guías, herramientas y ejemplos para hacer contenido sin compilar nada, en
-[español](sdk/es/README.md), [inglés](sdk/en/README.md) e [italiano](sdk/it/README.md). Cada release lo adjunta como zip.
-Los mods terminados se publican en [GameBanana](https://gamebanana.com/games/26069).
-
-## Desarrollo
-
-El código del mod está en `src/` (C++ para Windows, 32 bits), sus pruebas en `tests/` y las comprobaciones en `tools/`.
-Cómo compilar, qué comprueba `tools\run-tests.bat` y cómo enviar un cambio: [CONTRIBUTING.md](CONTRIBUTING.md).
-Compilar la DLL necesita el SDK de Steamworks de Valve, que no se incluye en este repositorio.
-
-## Licencia
-
-- **Código** (`src/`, `tests/`, `tools/`): GPL-3.0-or-later con una excepción para Steamworks. Ver [LICENSE](LICENSE) y
-  [ADDITIONAL-PERMISSION.md](ADDITIONAL-PERMISSION.md). Software de terceros: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
-  Agradecimientos: [CREDITS.md](CREDITS.md).
-- **SDK** (`sdk/`): MIT para el código y CC BY-SA 4.0 para las guías. Ver el archivo de licencia de cada idioma
-  (por ejemplo [sdk/es/LICENCIA.md](sdk/es/LICENCIA.md)).
-- **Imágenes** (`assets/`): todos los derechos reservados. Ver [assets/LICENSE.md](assets/LICENSE.md).
-
----
-
-# Imperivm Resurrected (English)
-
-Unofficial mod for **Imperivm: Great Battles of Rome HD** (Steam): online play through Steam with no port forwarding,
-one-click mods from [GameBanana](https://gamebanana.com/games/26069), rebindable controls, modern graphics and sound,
-autosave, crash fixes, a problem report built into the game, and automatic updates.
+Unofficial mod for **Imperivm: Great Battles of Rome HD** (Steam). It gives the game what it needed to stay alive:
+online play with no port forwarding, one-click mods, rebindable controls and many fixes.
 
 > **Status:** in testing before 1.0 (0.x versions). If something fails, see [If something fails](#if-something-fails).
 
-**Install:** download the zip from the [latest release](https://github.com/THIONG/imperivm-resurrected/releases/latest),
-extract it into the game folder (where `gbr.exe` is) and start the game from Steam. To uninstall, delete `winmm.dll`.
-It doesn't change any game file, and you need your own copy of the game.
+## What it brings
+
+- **Online through Steam**, with no port forwarding or VPN: rooms, invitations to friends, chat and rejoining if someone drops.
+- **One-click mods** from inside the game, with profiles, versions and dependencies. Mods are published on
+  [GameBanana](https://gamebanana.com/games/26069).
+- **Rebindable controls**: any key of the game and of the commands, with presets.
+- **Modern display**: Direct3D 11, current resolutions, window or full screen without flicker, and the Steam overlay.
+- **Modern sound**, autosave, a performance panel and fixes for crashes of the original game.
+- **A problem report** built into the game, with private data hidden.
+- **Updates itself**: the game tells you when there is a new version.
+
+## Install
+
+1. Download the zip from the [latest release](https://github.com/THIONG/imperivm-resurrected/releases/latest).
+2. Extract it into the game folder, where `gbr.exe` is
+   (in Steam: right-click the game → Manage → Browse local files).
+3. Start the game from Steam.
+
+To uninstall, delete `winmm.dll` from the game folder. The mod does not change any game file.
+
+You need your own copy of the game from Steam. This mod includes no game file.
 
 ## If something fails
 
@@ -95,6 +52,9 @@ Finished mods are published on [GameBanana](https://gamebanana.com/games/26069).
 The mod's code is in `src/` (C++ for Windows, 32-bit), its tests in `tests/` and the checks in `tools/`.
 How to build, what `tools\run-tests.bat` checks and how to send a change: [CONTRIBUTING.md](CONTRIBUTING.md).
 Building the DLL needs Valve's Steamworks SDK, which is not in this repository.
+
+Every release is checked by `.github/workflows/release.yml` (tag, hashes, signature and contents of the zip). You can run the
+same check on a downloaded release with `node tools/verify-release.js <folder>`.
 
 ## License
 
