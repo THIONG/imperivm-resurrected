@@ -20,6 +20,63 @@ static void Compare()
 	CHECK_EQ(CompareVersions("0.31.10", "0.31.9"), 1);
 }
 
+static void Current()
+{
+	CHECK(VersionIsCurrent("11.3", "11.2.6"));
+	CHECK(VersionIsCurrent("11.2.6", "11.2.6"));
+	CHECK(VersionIsCurrent("1.0", "1.0.0"));
+	CHECK(VersionIsCurrent("1.10", "1.9"));
+	CHECK(!VersionIsCurrent("11.2.6", "11.3"));
+	CHECK(!VersionIsCurrent("1.9", "1.10"));
+	CHECK(!VersionIsCurrent("", "0.1"));
+	CHECK(VersionIsCurrent("1.0", ""));
+	CHECK(VersionIsCurrent("", ""));
+}
+
+static void Dates()
+{
+	CHECK(IsDateVersion("2026.10.16"));
+	CHECK(!IsDateVersion("1.2.3"));
+	CHECK(!IsDateVersion("2026.1.16"));
+	CHECK(!IsDateVersion("1999.10.16"));
+	CHECK(!IsDateVersion("2026.10.16a"));
+	CHECK(UpdateIsNewer("1.1", "1.0"));
+	CHECK(!UpdateIsNewer("1.0", "1.0"));
+	CHECK(!UpdateIsNewer("", "1.0"));
+	CHECK(!UpdateIsNewer("2026.10.16", "1.0"));
+	CHECK(!UpdateIsNewer("1.0", "2026.10.16"));
+	CHECK(UpdateIsNewer("2026.10.17", "2026.10.16"));
+	CHECK(!UpdateIsNewer("2026.10.16", "2026.10.17"));
+	CHECK(VersionIsCurrent("1.0", "2026.10.16"));
+}
+
+static void Titles()
+{
+	CHECK(TitleHasVersion("1.1", "1.1"));
+	CHECK(TitleHasVersion("Version 1.1", "1.1"));
+	CHECK(TitleHasVersion("v1.1: new maps", "1.1"));
+	CHECK(TitleHasVersion("Update 1.1 (hotfix)", "1.1"));
+	CHECK(!TitleHasVersion("1.10", "1.1"));
+	CHECK(!TitleHasVersion("11.1", "1.1"));
+	CHECK(!TitleHasVersion("1.1.2", "1.1"));
+	CHECK(TitleHasVersion("1.1.", "1.1"));
+	CHECK(!TitleHasVersion("", "1.1"));
+	CHECK(!TitleHasVersion("1.1", ""));
+}
+
+static void Newest()
+{
+	CHECK(FileIsNewer("11.3", 100, "11.2.6", 200) == true);
+	CHECK(FileIsNewer("11.2.6", 200, "11.3", 100) == false);
+	CHECK(FileIsNewer("1.0", 200, "1.0", 100) == true);
+	CHECK(FileIsNewer("1.0", 100, "1.0", 200) == false);
+	CHECK(FileIsNewer("1.0", 100, "", 200) == true);
+	CHECK(FileIsNewer("", 200, "1.0", 100) == false);
+	CHECK(FileIsNewer("", 200, "", 100) == true);
+	CHECK(FileIsNewer("", 100, "", 200) == false);
+	CHECK(FileIsNewer("1.10", 1, "1.9", 2) == true);
+}
+
 static void Matches()
 {
 	CHECK(VersionMatches("1.0", ""));
@@ -54,6 +111,10 @@ static void Release()
 int main()
 {
 	Compare();
+	Current();
+	Newest();
+	Dates();
+	Titles();
 	Matches();
 	Release();
 	return test::Summary("versions");

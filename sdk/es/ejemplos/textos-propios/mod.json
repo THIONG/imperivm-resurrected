@@ -6,8 +6,8 @@
     "italian": "Esempio: testi propri"
   },
   "version": "1.0",
-  "category": "Interface",
-  "tags": ["Cosmetic"],
+  "category": "Translations",
+  "tags": ["Spanish", "English", "Italian"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: cambia algunos textos del menú en español, inglés e italiano sin sustituir el archivo de textos del juego.",

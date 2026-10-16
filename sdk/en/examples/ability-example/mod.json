@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Units & Heroes",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: una habilidad nueva, 'Respiro' (tecla Y), para todos los soldados de infantería cuerpo a cuerpo: gasta 5 de energía y cura 60 de vida. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

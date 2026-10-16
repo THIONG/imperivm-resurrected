@@ -55,14 +55,12 @@ struct Sample {
 	int worstMs = 0;
 	int stutters = 0;
 	int turnAvg = -1, turnMax = 0;
-	int screenHz = 0;
 	int lagMs = -1;
 	int delaySec = 0;
 	double memUsed = 0, memTotal = 0;
 	std::vector<PeerSample> peers;
 };
 std::deque<Sample> g_hist;
-std::atomic<int> g_screenHz{0};
 
 std::mutex g_frameMx;
 LARGE_INTEGER g_qpf = {}, g_lastFrame = {};
@@ -223,7 +221,6 @@ std::vector<Row> BuildRows(bool perf, bool net, bool compact, const std::vector<
 		Row t;
 		t.kind = Row::kTitle;
 		t.cells.push_back({perf ? TrW(L"Performance") : TrW(L"Network"), kGold, true});
-		if (perf && last.screenHz > 0) t.cells.push_back({TrW(L"screen ") + std::to_wstring(last.screenHz), kDim});
 		rows.push_back(t);
 	}
 	if (perf) {
@@ -639,7 +636,6 @@ void TakeSample(int fps, bool net)
 {
 	Sample sm;
 	sm.fps = fps;
-	sm.screenHz = g_screenHz;
 	{
 		std::lock_guard<std::mutex> lock(g_frameMx);
 		sm.worstMs = g_secWorstMs;
@@ -881,11 +877,6 @@ float PanelScale(int w, int h, int outW, int outH)
 	const float onScreen = (std::max)(0.8f, (std::min)(2.0f, outH / 1080.0f * 1.15f));
 	const float shownH = (std::min)(static_cast<float>(outH), static_cast<float>(outW) * h / w);
 	return (std::max)(0.3f, onScreen * h / shownH);
-}
-
-void OverlaySetScreenRate(int hz)
-{
-	g_screenHz = hz;
 }
 
 void DrawPerfOverlay(uint32_t *buf, int w, int h, int fps, int outW, int outH)

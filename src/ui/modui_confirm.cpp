@@ -56,19 +56,6 @@ void PaintConfirm(Painter &p, const State &st)
 		text = Tr("Its folder will be deleted from disk (no recycle bin)") + std::string(mounted ? " when the game restarts (it is currently loaded)." : ".");
 		yes = "Uninstall";
 	}
-	else if (st.confirmKind == kConfirmConflict) {
-		const ModInfo *m = FindModIn(st.mods, st.conflictFolder);
-		std::string with;
-		for (const std::string &f : st.conflictWith) {
-			const ModInfo *o = FindModIn(st.mods, f);
-			with += (with.empty() ? "" : ", ") + (o ? o->name : f);
-		}
-		title = "Which one wins?";
-		text = Tr("You enabled ") + (m ? m->name : st.conflictFolder) + Tr(", which includes ") + std::to_string(st.conflictFiles) +
-			Tr(st.confirmItems.empty() ? " files also included in " : " files that these content packs also contain:") + (st.confirmItems.empty() ? with : std::string()) +
-			Tr(". Only one version of each is used: the one from the content higher in the list. You can change it later by dragging the content.");
-		yes = "New one wins";
-	}
 	else if (st.confirmKind == kConfirmDelete) {
 		title = "Delete profile";
 		text = Tr("Delete the profile \"") + st.profile.name + Tr("\"? Content is not uninstalled, only the profile's list.");
@@ -79,8 +66,8 @@ void PaintConfirm(Painter &p, const State &st)
 		const bool inMatch = *reinterpret_cast<void **>(addr::kGame) != nullptr;
 		std::string why;
 		if (!st.restartReason.empty()) why = Tr(st.restartReason);
-		else if (st.profile.name == "Original") why = Tr("The game will restart without additional content.");
-		else if (st.profile.name == "No profile") why = Tr("The game will restart to apply the content changes.");
+		else if (st.profile.name == kOriginalName) why = Tr("The game will restart without additional content.");
+		else if (st.profile.name == kNoProfileName) why = Tr("The game will restart to apply the content changes.");
 		else why = Tr("The game will restart to apply the profile ") + "\"" + st.profile.name + "\".";
 		text = why + (inMatch ? Tr(" Anything you have not saved will be lost.") : std::string());
 		yes = "Restart now";
@@ -94,10 +81,6 @@ void PaintConfirm(Painter &p, const State &st)
 		const int rows = std::min<int>(kConfirmListRows, static_cast<int>(lines.size()));
 		ListState ls = st.confirmList;
 		ListPaint(p, d.BodyX(), d.BodyTop() + textH + 4, d.BodyW(), rows * kConfirmRowH + 8, lines, ls, g_confirmGeomOut, 0, kConfirmRowH, mx, my);
-	}
-	if (st.confirmKind == kConfirmConflict) {
-		DialogButtons(p, d, {{yes, kConfirmYes, 0, true}, {st.conflictWith.size() > 1 ? "Others win" : "Other one wins", kConflictOld}}, mx, my);
-		return;
 	}
 	DialogButtons(p, d, {{yes, kConfirmYes, 0, true}, {st.confirmKind == kConfirmRestart ? "Later" : "Cancel", kConfirmNo}}, mx, my);
 }

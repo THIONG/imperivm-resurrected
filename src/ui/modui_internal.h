@@ -31,6 +31,7 @@ const int kListY = 122;
 const int kListW = 520;
 
 const int kListH = 430;
+const int kInstalledListH = kListH + 32;
 
 const int kDetailX = kListX + kListW + 16;
 
@@ -41,11 +42,11 @@ const char kOriginalName[] = "Original";
 const char kNoProfileName[] = "No profile";
 
 enum Action {
-	kNone, kNewProfile, kDupProfile, kDelProfile, kToggle, kSelect,
-	kOpenMods, kOpenMod, kRescan, kPublish, kApply, kClose, kConfirmYes, kConfirmNo,
-	kTabInstalled, kPickArchive, kCancelDownload, kUpdateMod,
-	kDropOpen, kDropClose, kDropPick, kSaveAs, kRenameProfile, kFocusName, kNameOk, kNameCancel, kFocusSearch,
-	kUninstall, kDragStart, kDropRow, kAutoOrder, kConflictOld,
+	kNone, kDelProfile, kToggle, kSelect,
+	kOpenMods, kOpenMod, kRescan, kApply, kClose, kConfirmYes, kConfirmNo,
+	kTabInstalled, kPickArchive, kUpdateMod,
+	kDropOpen, kDropClose, kDropPick, kSaveAs, kFocusName, kNameOk, kNameCancel, kFocusSearch,
+	kUninstall,
 	kTabExplore, kIoFocusSearch, kIoPrev, kIoNext, kIoOpen, kIoBack, kIoInstall, kIoPage, kIoRetry, kOpenSource,
 	kIoShotOpen, kIoShotClose, kIoShotStep,
 	kRichLink, kShowProblems, kUpdateAll,
@@ -56,44 +57,25 @@ enum Field { kNoField, kSearchField, kNameField, kIoSearchField };
 
 enum Drop { kDropNone, kDropProfile, kDropMenu, kDropFilter, kDropIoSort, kDropVersions };
 
-struct IoFilter {
-	const char *value;
-	const char *label;
-	int group;
-};
-
-const char *const kIoGroupNames[] = {"Type", "Impact", "Players", "Language", "Verified"};
-
-const int kIoGroupCount = 5;
-
-const IoFilter kIoFilters[] = {
-	{"Map", "Maps", 0}, {"Scenario", "Scenarios", 0}, {"Campaign", "Campaigns", 0}, {"Conquest", "Conquest", 0},
-	{"Balance", "Rules and balance", 0}, {"Units", "Units", 0}, {"Civilization", "Civilizations", 0},
-	{"Graphics", "Graphics", 0}, {"Audio", "Audio", 0}, {"Voices", "Voices", 0}, {"Interface", "Interface", 0},
-	{"Translation", "Translations", 0}, {"Total conversion", "Total conversion", 0},
-	{"Gameplay", "Changes gameplay", 1}, {"Cosmetic", "Cosmetic only", 1},
-	{"2", "2", 2}, {"3", "3", 2}, {"4", "4", 2}, {"5", "5", 2}, {"6", "6", 2}, {"7", "7", 2}, {"8", "8", 2},
-	{"Spanish", "Spanish", 3}, {"English", "English", 3}, {"Italian", "Italian", 3}, {"German", "German", 3},
-	{"French", "French", 3}, {"Polish", "Polish", 3}, {"Multilingual", "Several languages", 3},
-	{"Online tested", "Tested online", 4}};
-
-const int kIoFilterCount = static_cast<int>(sizeof(kIoFilters) / sizeof(kIoFilters[0]));
+const int kIoFilterTypes = 0;
+const int kIoFilterPlayers = 1;
+const int kIoFilterLanguages = 2;
+const int kIoFilterGroupStride = 64;
 
 const char *const kIoSortNames[] = {"Popular", "Most liked", "Recent", "Recently updated"};
 
 const int kIoPerPage = 8;
 
-std::string IoTagName(const std::string &tag);
-enum NameMode { kNameNone, kNameSaveAs, kNameRename, kNameNew, kNameDup };
+std::string IoTagsText(const GbMod &m);
+enum NameMode { kNameNone, kNameSaveAs, kNameRename, kNameNew };
 
-enum Confirm { kConfirmRestart, kConfirmUninstall, kConfirmDelete, kConfirmConflict };
+enum Confirm { kConfirmRestart, kConfirmUninstall, kConfirmDelete };
 
 const char *const kFilterNames[] = {"All", "Active", "Disabled", "Gameplay", "Maps", "Cosmetics", "With errors"};
 
 struct Row {
 	std::string folder;
 	bool active = false;
-	int priority = -1;
 };
 
 struct State {
@@ -105,9 +87,6 @@ struct State {
 	std::string confirmItemsTitle;
 	ListState confirmList;
 	ListGeom confirmGeom;
-	std::string conflictFolder;
-	std::vector<std::string> conflictWith;
-	int conflictFiles = 0;
 	ModProfile profile;
 	std::vector<std::string> profileNames;
 	std::vector<ModInfo> mods;
@@ -135,7 +114,6 @@ struct State {
 	std::string nameText;
 	std::string searchText;
 	int filter = 0;
-	int dragRow = -1;
 
 	int tab = 0;
 	int focus = kNoField;
@@ -146,7 +124,7 @@ struct State {
 	EditState edit;
 	int tabAction = -1, tabArg = 0;
 	int ioSort = 0, ioPage = 0;
-	uint32_t ioFilterMask = 0;
+	CatalogFilter ioFilter;
 	bool ioFilterOpen = false;
 	int ioDetail = -1;
 	int ioShot = -1;
@@ -179,6 +157,7 @@ const COLORREF kLink = RGB(130, 182, 238);
 
 const ModInfo *FindModIn(const std::vector<ModInfo> &mods, const std::string &folder);
 const ModInfo *FindMod(const std::string &folder);
+std::string OverlapText(const State &st, const std::string &folder, const ModIssues &is);
 bool Pending(const State &st, const std::string &folder);
 std::vector<int> VisibleRows(const State &st);
 void BuildRows();
@@ -191,7 +170,6 @@ void FocusField(int field);
 void SetStatus(const std::string &s);
 bool FindUpdateFor(const State &st, const ModInfo &m, CatalogEntry &out);
 void SwitchProfile(const std::string name);
-void PlaceConflict(bool newWins);
 void CommitProfile();
 void SelectFolder(const std::string &folder);
 void FinishName();
@@ -201,8 +179,6 @@ void IoSearch();
 void OpenWeb(const std::string &url);
 void OpenFolderAsync(const std::string &folder);
 void PickDrop(int index);
-void MoveActive(int fromRow, int toRow);
-void DiscardPendingChanges();
 void DoAction(int action, int arg);
 struct DropListState {
 	int rows = 0;
@@ -231,6 +207,7 @@ void PaintConfirm(Painter &p, const State &st);
 extern Canvas g_canvas;
 extern Canvas g_toastCanvas;
 int UpdatesAvailable();
+void ResetUpdatesCache();
 struct CardState {
 	RECT close = {};
 	bool shown = false;

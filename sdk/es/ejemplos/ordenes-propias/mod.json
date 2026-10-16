@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: añade un archivo de órdenes nuevo (un segundo botón de hastatus en el cuartel romano) y le pone nombre en la pantalla de Controles. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

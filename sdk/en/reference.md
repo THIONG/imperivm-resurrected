@@ -33,7 +33,7 @@ A mod is a folder in `mods\`. Folders starting with `.` or `_` are ignored. With
 
 - Forbidden extensions: `.exe .dll .asi .bat .cmd .com .scr .ps1 .vbs .js .msi .sys .cpl .lnk .reg .jar .hta .wsf .pif`. With one of them, the mod doesn't load.
 - An extension that isn't a known one, and isn't forbidden, is allowed and never executed.
-- If two mods ship the same file, the one that comes first in the profile wins.
+- If two mods ship the same file, the one that comes first in the **load order** wins. The game works that order out, nobody picks it: first what the mods ask for (a mod goes above the ones it needs in `requires` and the ones in its `loadAfter`, and below the ones in its `loadBefore`); then cosmetic mods go above content (maps, battles, conquest), and content above mods that change gameplay; on a tie, by `id`. The same mods give the same order on every computer. The content manager warns when two active mods change the same files and says whose files are used.
 
 Test folder `<game>\mod\` (no mod needed; it beats all mods):
 
@@ -56,10 +56,10 @@ Test folder `<game>\mod\` (no mod needed; it beats all mods):
 | `redistributable` | boolean | `false` | The host may send the mod to someone who doesn't have it |
 | `requires` | list of ids, or `{"id", "version"}` objects | empty | Mods it needs. `version` accepts `>=`, `<=`, `>`, `<`, `=`, `*`, or a number (equal) |
 | `incompatibleWith` | list of ids | empty | Mods it can't be enabled with |
-| `loadAfter` | list of ids | empty | Your mod goes above those |
+| `loadAfter` | list of ids | empty | Your mod goes above those: its files, patches and texts win |
 | `loadBefore` | list of ids | empty | Your mod goes below those |
 | `category` | text | empty | GameBanana category ([Publishing](publishing.md)) |
-| `tags` | list of texts | empty | GameBanana tags |
+| `tags` | list of texts | empty | GameBanana tags: players (maps) and language (campaigns, translations, audio) |
 | `sources` | object | none | `url` (or `page`), `gamebanana` (number) and `tags` (list, added to the ones above) |
 | `language` | object, list of objects or text | none | `code`, `name` and `base` (`english` by default). Plain text = just the code. See [Languages](languages.md) |
 | `commands` | object | none | `{"<orders file without extension>": {"name": text or object per language}}`. See [Keys](keys.md) |
@@ -127,7 +127,7 @@ Guide: [Game options](options.md).
 
 ## 6. Patches
 
-Guide: [Patches](patches.md). A patch goes in `patches\<path of the game file>`. Only `.xml`, `.ini` and `.vs`. Order: from lowest to highest priority; `mod\patches` last.
+Guide: [Patches](patches.md). A patch goes in `patches\<path of the game file>`. Only `.xml`, `.ini` and `.vs`. Order: from the last mod in the load order to the first, so the first one has the last word; `mod\patches` last.
 
 ### XML
 
@@ -240,7 +240,7 @@ It's in the game folder. It's read at startup.
 | `[Debug]` | `Dump` | comma-separated paths, or `*` | empty | Copies each file to `mod-dump\<path>` exactly as the game reads it (patches and mod texts already applied), the first time it opens it. Exact name, no wildcards except `*` (all) |
 | `[Debug]` | `DumpAtStartup` | comma-separated paths | empty | Copies those files to `mod-dump\` at startup, without waiting for the game to open them |
 | `[Mods]` | `Override` | `0` or `1` | `1` | Enables `<game>\mod\<path>` as a file replacement |
-| `[Mods]` | `Perfil` | profile name | `Original` | Mod profile the game starts with. The content manager changes it |
+| `[Mods]` | `Profile` | profile name, `Original` or `No profile` | `Original` | Profile the game starts with (`No profile` is "My content" in the manager). The content manager changes it; a change applies on restart |
 
 ## 10. Limits
 

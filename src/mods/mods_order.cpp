@@ -6,6 +6,7 @@
 #include "MinHook.h"
 #include "i18n/tr.h"
 #include "mods/features.h"
+#include "mods/modorder.h"
 #include "mods/patch.h"
 
 #include "mods/mods_internal.h"
@@ -14,137 +15,29 @@ using namespace mods_impl;
 
 namespace mods_impl {
 namespace {
-bool HasTag(const ModInfo &m, const char *tag)
-{
-	for (const std::string &t : m.tags) {
-		if (_stricmp(t.c_str(), tag) == 0) return true;
-	}
-	return false;
-}
-
-int OrderRank(const ModInfo *m)
-{
-	if (!m) return 3;
-	static const struct {
-		const char *name;
-		int rank;
-	} kRanks[] = {{"Translations", 0}, {"Interface", 0}, {"Graphics", 1}, {"Audio & Voices", 1}, {"Maps", 2}, {"Scenarios", 2},
-		{"Campaigns", 2}, {"Conquest", 2}, {"Units & Heroes", 3}, {"Civilizations", 3}, {"Gameplay & Balance", 3},
-		{"Total Conversions", 4}};
-	for (const auto &r : kRanks) {
-		if (_stricmp(m->category.c_str(), r.name) == 0) return r.rank;
-	}
-	if (HasTag(*m, "Total conversion") || HasTag(*m, "Total Conversions")) return 4;
-	if (HasTag(*m, "Interface") || HasTag(*m, "Translation") || HasTag(*m, "Translations") || HasTag(*m, "Voices")) return 0;
-	if (m->kind == kModContent) return 2;
-	if (m->gameplay) {
-		bool onlyMaps = !m->paths.empty();
-		for (const std::string &p : m->paths) {
-			if (p.compare(0, 10, "scenarios/") != 0) {
-				onlyMaps = false;
-				break;
-			}
-		}
-		return onlyMaps ? 2 : 3;
-	}
-	{
-		bool onlyUi = !m->paths.empty();
-		for (const std::string &p : m->paths) {
-			if (p.compare(0, 6, "local/") != 0 && p.compare(0, 3, "ui/") != 0 && p.compare(0, 12, "currentlang/") != 0) {
-				onlyUi = false;
-				break;
-			}
-		}
-		return onlyUi ? 0 : 1;
-	}
-	return 2;
-}
-
 bool SameId(const std::string &a, const std::string &b) { return !a.empty() && _stricmp(a.c_str(), b.c_str()) == 0; }
-
-bool MustBeAbove(const ModInfo *a, const ModInfo *b)
-{
-	if (!a || !b || a == b) return false;
-	for (const ModDependency &d : a->requires) {
-		if (SameId(d.id, b->id)) return true;
-	}
-	for (const std::string &x : a->loadAfter) {
-		if (SameId(x, b->id)) return true;
-	}
-	for (const std::string &x : b->loadBefore) {
-		if (SameId(x, a->id)) return true;
-	}
-	return false;
-}
 }
 }
 
-std::vector<std::string> ModsAutoOrder(const std::vector<std::string> &folders)
+std::vector<std::string> ModsLoadOrder(const std::vector<std::string> &folders)
 {
 	const std::vector<ModInfo> all = ModsList();
-	const size_t n = folders.size();
-	std::vector<const ModInfo *> info(n, nullptr);
-	for (size_t i = 0; i < n; i++) {
+	std::vector<OrderItem> items;
+	for (const std::string &folder : folders) {
+		OrderItem item;
+		item.folder = folder;
 		for (const ModInfo &m : all) {
-			if (_stricmp(m.folder.c_str(), folders[i].c_str()) == 0) info[i] = &m;
-		}
-	}
-	std::vector<size_t> base(n);
-	for (size_t i = 0; i < n; i++) base[i] = i;
-	std::stable_sort(base.begin(), base.end(), [&](size_t a, size_t b) {
-		const int ra = OrderRank(info[a]), rb = OrderRank(info[b]);
-		if (ra != rb) return ra < rb;
-		const unsigned fa = info[a] ? info[a]->fileCount : 0, fb = info[b] ? info[b]->fileCount : 0;
-		return fa < fb;
-	});
-	std::vector<size_t> basePos(n);
-	for (size_t k = 0; k < n; k++) basePos[base[k]] = k;
-	std::vector<std::string> out;
-	std::vector<bool> placed(n, false);
-	for (size_t step = 0; step < n; step++) {
-		size_t best = n;
-		for (size_t i = 0; i < n; i++) {
-			if (placed[i]) continue;
-			bool blocked = false;
-			for (size_t j = 0; j < n && !blocked; j++) {
-				if (!placed[j] && j != i && MustBeAbove(info[j], info[i])) blocked = true;
-			}
-			if (!blocked && (best == n || basePos[i] < basePos[best])) best = i;
-		}
-		if (best == n) {
-			for (size_t k = 0; k < n; k++) {
-				if (!placed[base[k]]) {
-					out.push_back(folders[base[k]]);
-					placed[base[k]] = true;
-				}
-			}
+			if (_stricmp(m.folder.c_str(), folder.c_str()) != 0) continue;
+			item.id = m.id;
+			item.kind = m.kind;
+			for (const ModDependency &d : m.requires) item.above.push_back(d.id);
+			item.above.insert(item.above.end(), m.loadAfter.begin(), m.loadAfter.end());
+			item.below = m.loadBefore;
 			break;
 		}
-		placed[best] = true;
-		out.push_back(folders[best]);
+		items.push_back(item);
 	}
-	return out;
-}
-
-size_t ModsInsertPosition(const std::vector<std::string> &folders, const std::string &folder)
-{
-	const std::vector<ModInfo> all = ModsList();
-	auto find = [&](const std::string &f) -> const ModInfo * {
-		for (const ModInfo &m : all) {
-			if (_stricmp(m.folder.c_str(), f.c_str()) == 0) return &m;
-		}
-		return nullptr;
-	};
-	const ModInfo *added = find(folder);
-	const int rank = OrderRank(added);
-	size_t lo = 0, hi = folders.size(), pos = folders.size();
-	for (size_t i = 0; i < folders.size(); i++) {
-		const ModInfo *other = find(folders[i]);
-		if (MustBeAbove(other, added)) lo = (std::max)(lo, i + 1);
-		if (MustBeAbove(added, other)) hi = (std::min)(hi, i);
-		if (pos == folders.size() && OrderRank(other) > rank) pos = i;
-	}
-	return (std::max)(lo, (std::min)(pos, (std::max)(lo, hi)));
+	return CanonicalOrder(items);
 }
 
 ModIssues ModsIssuesFor(const ModProfile &p, const std::string &folder)

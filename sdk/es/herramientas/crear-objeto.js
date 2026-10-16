@@ -150,7 +150,7 @@ if (!fs.existsSync(modJson)) {
 	const dir = path.basename(path.resolve(modDir));
 	outputs.set(modJson, JSON.stringify({
 		id: dir.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'mi-mod', name: dir, version: '1.0', category: 'Gameplay & Balance',
-		tags: ['Gameplay'], authors: [],
+		tags: [], authors: [],
 		description: T('Objeto nuevo ' + id + '. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.', 'New item ' + id + '. It changes gameplay: in multiplayer everyone must have it.', 'Nuovo oggetto ' + id + '. Cambia il gameplay: in multigiocatore tutti devono averlo.'), redistribuible: false,
 	}, null, 2) + '\n');
 }

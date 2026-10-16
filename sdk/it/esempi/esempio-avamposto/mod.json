@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: un fortín neutral nuevo, el Fortín de arqueros, que sale repartido por los mapas aleatorios junto a los del juego (se captura como los demás). Hecho con strumenti/crea-avamposto.js. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

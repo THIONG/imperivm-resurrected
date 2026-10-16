@@ -36,6 +36,6 @@ struct RulesPart {
 	std::string gameplayHash;
 };
 
-std::string RulesFingerprint(const std::vector<RulesPart> &parts);
+std::string RulesFingerprint(std::vector<RulesPart> parts);
 
 }

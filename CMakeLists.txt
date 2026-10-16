@@ -103,6 +103,8 @@ if(IMPERIVM_BUILD_TESTS)
 	imperivm_test(test_log src/core/logcore.cpp)
 	imperivm_test(test_logfiles src/core/logfiles.cpp)
 	imperivm_test(test_logredact src/core/logredact.cpp)
+	imperivm_test(test_modorder src/mods/modorder.cpp)
+	imperivm_test(test_catalogfilter src/mods/catalogfilter.cpp)
 	imperivm_test(test_logreport src/core/logreport.cpp src/core/logfiles.cpp src/core/logredact.cpp tests/log_stub.cpp)
 
 	find_program(NODE_EXE node)

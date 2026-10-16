@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: la IA que juega con Dacia (el mod 'Ejemplo: civilización') usa la táctica TS_GaulTactic2, que trae el juego pero que ninguna IA usa. Muestra cómo elegir una táctica distinta por civilización con Mod_TrueRace. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

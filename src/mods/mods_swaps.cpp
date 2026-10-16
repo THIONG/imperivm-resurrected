@@ -133,14 +133,32 @@ void ModsApplyPendingSwaps()
 	}
 }
 
+namespace mods_impl {
+namespace {
+void RemoveFromProfiles(const std::string &folder)
+{
+	for (const std::string &n : ModsProfilesUsing(folder)) {
+		ModProfile p = ModsLoadProfile(n);
+		p.mods.erase(std::remove_if(p.mods.begin(), p.mods.end(), [&](const std::string &f) { return _stricmp(f.c_str(), folder.c_str()) == 0; }),
+			p.mods.end());
+		ModsSaveProfile(p);
+	}
+}
+}
+}
+
 void ModsApplyPendingUninstalls()
 {
 	std::vector<std::string> left;
 	for (const std::string &folder : PendingUninstalls()) {
 		const std::string path = ModsDir() + "\\" + folder;
-		if (GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
-		if (RemoveFolder(path)) LogI("content", "%s uninstalled (deleted from disk)", folder.c_str());
-		else left.push_back(folder);
+		const bool exists = GetFileAttributesA(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+		if (exists && !RemoveFolder(path)) {
+			left.push_back(folder);
+			continue;
+		}
+		if (exists) LogI("content", "%s uninstalled (deleted from disk)", folder.c_str());
+		RemoveFromProfiles(folder);
 	}
 	SetPendingUninstalls(left);
 }
@@ -229,13 +247,7 @@ std::string ModsUninstall(const std::string &folder)
 	}
 	ModInfo m;
 	const std::string name = ModsFind(folder, m) ? m.name : folder;
-	for (const std::string &n : ModsProfilesUsing(folder)) {
-		ModProfile p = ModsLoadProfile(n);
-		p.mods.erase(std::remove_if(p.mods.begin(), p.mods.end(),
-						 [&](const std::string &f) { return _stricmp(f.c_str(), folder.c_str()) == 0; }),
-			p.mods.end());
-		ModsSaveProfile(p);
-	}
+	RemoveFromProfiles(folder);
 	bool mounted = false;
 	for (const std::string &f : ModsMountedProfile().mods) {
 		if (_stricmp(f.c_str(), folder.c_str()) == 0) mounted = true;
@@ -262,4 +274,15 @@ bool ModsUninstallPending(const std::string &folder)
 {
 	const std::vector<std::string> pending = PendingUninstalls();
 	return std::find(pending.begin(), pending.end(), folder) != pending.end();
+}
+
+void ModsCancelUninstall(const std::string &folder)
+{
+	std::vector<std::string> pending = PendingUninstalls();
+	const size_t before = pending.size();
+	pending.erase(std::remove_if(pending.begin(), pending.end(), [&](const std::string &f) { return _stricmp(f.c_str(), folder.c_str()) == 0; }),
+		pending.end());
+	if (pending.size() == before) return;
+	SetPendingUninstalls(pending);
+	LogI("content", "%s installed again: it is no longer uninstalled on restart", folder.c_str());
 }

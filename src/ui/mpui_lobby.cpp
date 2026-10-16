@@ -226,6 +226,7 @@ void MpUiRejoinInGame()
 
 void MpUiRefreshMainMenuButton()
 {
+	ModUiResetUpdates();
 	g_menuRefresh = true;
 	if (g_wakeWnd) PostMessageW(g_wakeWnd, kMsgMpUiWake, 0, 0);
 }

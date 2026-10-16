@@ -29,6 +29,6 @@ node examples\unit-graphics-generator\draw-soldier.js
    - Whether it faces the way it walks. If it walks backwards or turns the wrong way, the game's 8-direction order is different (see "Direction order" in [Custom graphics](../../graphics.md)).
    - Whether the feet are at the unit's point and it has a shadow.
    - Whether it walks, attacks, dies and stays down, and whether it returns to idle after combat.
-5. If something fails, remove the folder from `mods\` and go back to the profile with no mods.
+5. If something fails, remove the folder from `mods\` and go back to the Original profile.
 
 It changes gameplay: in multiplayer every player must have the mod.

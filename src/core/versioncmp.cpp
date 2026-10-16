@@ -35,6 +35,52 @@ int CompareVersions(const std::string &a, const std::string &b)
 	return 0;
 }
 
+bool IsDateVersion(const std::string &v)
+{
+	if (v.size() != 10 || v[4] != '.' || v[7] != '.') return false;
+	for (size_t i : {0u, 1u, 2u, 3u, 5u, 6u, 8u, 9u}) {
+		if (!isdigit(static_cast<unsigned char>(v[i]))) return false;
+	}
+	const int year = atoi(v.c_str());
+	return year >= 2000 && year <= 2100;
+}
+
+bool UpdateIsNewer(const std::string &available, const std::string &installed)
+{
+	if (available.empty()) return false;
+	if (IsDateVersion(available) != IsDateVersion(installed)) return false;
+	return CompareVersions(available, installed) > 0;
+}
+
+bool VersionIsCurrent(const std::string &installed, const std::string &available)
+{
+	return !UpdateIsNewer(available, installed);
+}
+
+bool TitleHasVersion(const std::string &title, const std::string &version)
+{
+	if (title.empty() || version.empty()) return false;
+	const auto partOfNumber = [](char c) { return isdigit(static_cast<unsigned char>(c)) || c == '.'; };
+	for (size_t at = title.find(version); at != std::string::npos; at = title.find(version, at + 1)) {
+		const bool startOk = at == 0 || !partOfNumber(title[at - 1]);
+		const size_t end = at + version.size();
+		const bool endOk = end == title.size() || !isdigit(static_cast<unsigned char>(title[end])) &&
+			!(title[end] == '.' && end + 1 < title.size() && isdigit(static_cast<unsigned char>(title[end + 1])));
+		if (startOk && endOk) return true;
+	}
+	return false;
+}
+
+bool FileIsNewer(const std::string &versionA, unsigned long long dateA, const std::string &versionB, unsigned long long dateB)
+{
+	if (versionA.empty() != versionB.empty()) return !versionA.empty();
+	if (!versionA.empty()) {
+		const int order = CompareVersions(versionA, versionB);
+		if (order != 0) return order > 0;
+	}
+	return dateA > dateB;
+}
+
 bool VersionMatches(const std::string &have, const std::string &spec)
 {
 	if (spec.empty() || spec == "*") {

@@ -17,7 +17,7 @@ mods\mi-mod\
 ```
 
 - Ogni volta che il gioco apre quel file, gli vengono applicate le patch delle mod attive. Gli originali non si toccano mai.
-- Con più mod, si applicano dalla priorità più bassa alla più alta: quella che sta prima nel profilo ha l'ultima parola. L'ordine delle mod conta anche nel controllo del multiplayer.
+- Con più mod, si applicano dall'ultima alla prima dell'[ordine di caricamento](riferimento.md#1-struttura-di-una-mod): la prima ha l'ultima parola. Quell'ordine lo calcola il gioco ed è lo stesso su tutti i computer con le stesse mod; il controllo del multiplayer non dipende da esso.
 - Se la tua mod porta anche una sua copia del file (senza `patches`), le patch delle altre mod si applicano su quella.
 - Per provare una patch senza creare una mod, mettila in `<gioco>\mod\patches\<percorso>`. Si applica per ultima, sopra tutte.
 - Una patch cambia il gameplay se il file lo cambia (`data\...`, mappe, unità). Allora tutti i giocatori devono avere la stessa mod.

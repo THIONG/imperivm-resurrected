@@ -1,6 +1,15 @@
-# Cambios
+# Cambiamenti
 
 Versione dell'SDK e quali mod si possono fare con ognuna. La versione dell'API degli script (`Mod_ApiVersion()`) è a parte: ora è la 6.
+
+## 1.2
+
+Richiede Imperivm Resurrected 0.32.2 o successiva.
+
+- Nove categorie di GameBanana in tre tipi: Gameplay & Balance, Units & Heroes, Civilizations · Maps, Campaigns, Conquest · Graphics, Audio & Voices, Translations. `Scenarios`, `Interface` e `Total Conversions` valgono ancora come Maps, Graphics e Gameplay & Balance, ma il validatore chiede il nome nuovo.
+- I tag servono solo per il filtro dei giocatori (`4 players`, `2-4 players`, nelle mappe) e per quello della lingua (`Spanish`…, in campagne, traduzioni e audio). `Gameplay`, `Cosmetic` e `Online tested` non servono più. Il validatore avvisa di una mappa senza giocatori e di una campagna, traduzione o audio senza lingua, e un tag sconosciuto ora è un avviso, non un errore.
+- Il gestore non ha più il pulsante Pubblica: lo zip si fa a mano (vedi [Pubblicare](pubblicare.md)).
+- L'ordine delle mod lo calcola il gioco ([Riferimento](riferimento.md#1-struttura-di-una-mod)): non si ordina più a mano nel profilo, e il controllo del multiplayer non dipende dall'ordine. La chiave di `imperivm-mod.ini` è `[Mods] Profile`.
 
 ## 1.1
 

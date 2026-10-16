@@ -21,7 +21,7 @@ Un errore è qualcosa che il gioco rifiuterebbe o che fallirà. Un avviso è un 
 
 ## Cosa controlla
 
-- **`mod.json`**: JSON rotto, categoria o tag che non sono di GameBanana, testi con il tipo sbagliato (errori). Mancanza di `id`, `name`, `version` o `category` (avvisi).
+- **`mod.json`**: JSON rotto, categoria che non è di GameBanana, testi con il tipo sbagliato (errori). Mancanza di `id`, `name`, `version` o `category`, nome di categoria vecchio, tag che il gioco non usa, mappa senza tag dei giocatori e campagna, traduzione o audio senza tag della lingua (avvisi).
 - **File**: estensioni di eseguibili e script di sistema (errore: la mod non si caricherebbe) e percorsi con `..`. Un'estensione strana ma innocua (`.psd`, `.gif`, `.zip`…) dà solo un avviso: la mod si carica, il file occupa solo spazio.
 - **`civs\*.json`**: `id` non valido, `index` fuori da 10–99 o ripetuto, `base` che non esiste, `letter` di più di una lettera, `biome` sconosciuto, `template` scritta male o senza il suo file. Con `"ai": true` senza tabella `alias` avvisa, e controlla che l'`alias` punti a classi e comandi che la mod ha.
 - **`specials\*.json`**: `id` non valido o che è una specialità del gioco, `bit` fuori da 36–63 o ripetuto.

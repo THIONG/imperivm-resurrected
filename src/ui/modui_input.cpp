@@ -16,7 +16,7 @@ using namespace modui_impl;
 
 bool TabSkip(int a)
 {
-	return a == kNone || a == kDropClose || a == kDropRow || a == kDragStart || a == kSelect || a == kToggle || a == kRichLink ||
+	return a == kNone || a == kDropClose || a == kSelect || a == kToggle || a == kRichLink ||
 		a == kIoFilterClose;
 }
 
@@ -281,7 +281,6 @@ bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 		for (auto it = g_s.hits.rbegin(); it != g_s.hits.rend(); ++it) {
 			if (PtInRect(&it->r, pt)) {
 				const Hit hit = *it;
-				if (hit.action == kDropRow) continue;
 				hitSomething = true;
 				if (hit.action == kPickArchive) {
 					g_s.focus = kNoField;
@@ -319,17 +318,6 @@ bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 		{
 			std::lock_guard<std::mutex> rich(g_rich.mx);
 			ListUp(g_rich.list);
-		}
-		if (g_s.dragRow >= 0) {
-			g_s.mouseX = static_cast<short>(LOWORD(lp));
-			g_s.mouseY = static_cast<short>(HIWORD(lp));
-			POINT pt = {g_s.mouseX, g_s.mouseY};
-			int target = -1;
-			for (const Hit &h : g_s.hits) {
-				if (h.action == kDropRow && PtInRect(&h.r, pt)) target = h.arg;
-			}
-			if (target >= 0) DoAction(kDropRow, target);
-			g_s.dragRow = -1;
 		}
 		return true;
 	case WM_RBUTTONDOWN:
@@ -453,7 +441,7 @@ bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 		for (size_t i = 0; i < view.size(); i++) {
 			if (view[i] == g_s.selected) pos = static_cast<int>(i);
 		}
-		const int visible = kListH / kRowH;
+		const int visible = kInstalledListH / kRowH;
 		if (pos < g_s.list.scroll) g_s.list.scroll = pos;
 		if (pos >= g_s.list.scroll + visible) g_s.list.scroll = pos - visible + 1;
 		return true;

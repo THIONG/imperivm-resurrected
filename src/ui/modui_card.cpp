@@ -4,31 +4,36 @@
 #define NOMINMAX
 #include <windows.h>
 
+#include <atomic>
+
 #include "ui/modui_internal.h"
 
 using namespace modui_impl;
 
 namespace modui_impl {
+namespace {
+std::atomic<DWORD> g_updatesAt{0};
+std::atomic<int> g_updatesCount{0};
+}
+
+void ResetUpdatesCache()
+{
+	g_updatesAt = 0;
+}
+
 int UpdatesAvailable()
 {
-	static DWORD at = 0;
-	static int count = 0;
 	const DWORD now = GetTickCount();
-	if (at && now - at < 5000) return count;
-	at = now;
+	if (g_updatesAt && now - g_updatesAt < 5000) return g_updatesCount;
+	g_updatesAt = now;
 	const std::vector<ModInfo> mods = ModsList();
 	int n = 0;
 	for (const ModInfo &m : mods) {
 		CatalogEntry e;
-		if (!DlFindUpdate(m.id, m.version, e, m.gbId)) continue;
-		bool already = false;
-		for (const ModInfo &o : mods) {
-			if (&o != &m && ModsSameMod(o, m) && ModsCompareVersions(o.version, e.version) >= 0) already = true;
-		}
-		if (!already) n++;
+		if (DlUpdateFor(m, mods, e)) n++;
 	}
-	count = n;
-	return count;
+	g_updatesCount = n;
+	return n;
 }
 
 DiscordIconState g_icon;

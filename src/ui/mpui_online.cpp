@@ -180,7 +180,7 @@ void TryJoinNow(const OnlineLobby &g, const std::string &password)
 	if (!SameGameplay(g_s, g) || ScenarioModMissing(g)) {
 		std::vector<std::string> blockedNames;
 		for (const OnlineMod &m : MissingMods(g_s, g)) {
-			if (!m.redistributable && !(m.gbId && GbAvailable())) blockedNames.push_back(m.name + " " + m.version);
+			if (!m.redistributable && !m.gbId) blockedNames.push_back(m.name + " " + m.version);
 		}
 		if (!blockedNames.empty()) {
 			ModUiToast(Tr("This room uses content whose author doesn't allow sharing: ") + ShortList(blockedNames) +

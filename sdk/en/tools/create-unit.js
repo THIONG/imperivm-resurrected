@@ -335,7 +335,7 @@ const modJson = path.join(modDir, 'mod.json');
 if (!fs.existsSync(modJson)) {
 	const mid = path.basename(path.resolve(modDir)).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'mi-mod';
 	outputs.set(modJson, JSON.stringify({
-		id: mid, name: path.basename(path.resolve(modDir)), version: '1.0', category: 'Units & Heroes', tags: ['Gameplay'], authors: [],
+		id: mid, name: path.basename(path.resolve(modDir)), version: '1.0', category: 'Units & Heroes', tags: [], authors: [],
 		description: T('Unidad nueva ' + nameEs + '. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.', 'New unit ' + nameEs + '. It changes gameplay: in multiplayer everyone must have it.', 'Nuova unità ' + nameEs + '. Cambia il gameplay: in multigiocatore tutti devono averla.'), redistribuible: false,
 	}, null, 2) + '\n');
 }

@@ -20,6 +20,9 @@ std::string ModsActiveProfileName()
 void ModsSetActiveProfileName(const std::string &name)
 {
 	WritePrivateProfileStringA("Mods", "Profile", name.c_str(), IniPath().c_str());
+	const ModProfile p = ModsLoadProfile(name);
+	std::lock_guard<std::mutex> lock(g_lock);
+	if (g_mount.known && g_mount.profile.name != p.name && ModsSameSet(p.mods, g_mount.profile.mods)) g_mount.profile.name = p.name;
 }
 
 bool ModsScenarioProvider(const std::string &scenarioPath, std::string &id, std::string &version, std::string &name)
@@ -63,7 +66,16 @@ bool ModsRestartNeeded()
 {
 	const ModProfile active = ModsLoadProfile(ModsActiveProfileName());
 	const ModProfile &mounted = ModsMountedProfile();
-	return active.name != mounted.name || active.mods != mounted.mods;
+	return !ModsSameSet(active.mods, mounted.mods);
+}
+
+bool ModsSameSet(std::vector<std::string> a, std::vector<std::string> b)
+{
+	for (std::string &s : a) s = Lower(s);
+	for (std::string &s : b) s = Lower(s);
+	std::sort(a.begin(), a.end());
+	std::sort(b.begin(), b.end());
+	return a == b;
 }
 
 std::vector<ModConflict> ModsConflicts(const ModProfile &p)
@@ -91,57 +103,13 @@ std::vector<ModConflict> ModsConflicts(const ModProfile &p)
 std::vector<std::string> ModsProblems(const ModProfile &p)
 {
 	std::vector<std::string> out;
-	std::lock_guard<std::mutex> lock(g_lock);
-	auto find = [&](const std::string &key, bool byId) -> const ModInfo * {
-		for (const ModInfo &m : g_mods) {
-			if (_stricmp((byId ? m.id : m.folder).c_str(), key.c_str()) == 0) return &m;
-		}
-		return nullptr;
-	};
-	std::vector<const ModInfo *> active;
 	for (const std::string &folder : p.mods) {
-		const ModInfo *m = find(folder, false);
-		if (!m) {
+		ModInfo m;
+		if (!ModsFind(folder, m)) {
 			out.push_back(Tr("Missing content pack \"") + folder + Tr("\" (not in the content folder)"));
 			continue;
 		}
-		active.push_back(m);
-		if (!m->forbidden.empty()) {
-			out.push_back(m->name + Tr(": contains disallowed files (") + m->forbidden[0] + Tr("), it will not be loaded"));
-		}
-		if (!m->manifestError.empty()) {
-			out.push_back(m->name + Tr(": mod.json has errors (") + m->manifestError + ")");
-		}
-	}
-	for (size_t i = 0; i < active.size(); i++) {
-		for (size_t j = i + 1; j < active.size(); j++) {
-			if (_stricmp(active[i]->id.c_str(), active[j]->id.c_str()) == 0) {
-				out.push_back(active[i]->name + Tr(": two versions are active (") + active[i]->version + Tr(" and ") + active[j]->version +
-					Tr("); keep only one"));
-			}
-		}
-	}
-	for (const ModInfo *m : active) {
-		for (const ModDependency &d : m->requires) {
-			const ModInfo *dep = nullptr;
-			for (const ModInfo *a : active) {
-				if (_stricmp(a->id.c_str(), d.id.c_str()) == 0) dep = a;
-			}
-			if (!dep) {
-				out.push_back(m->name + Tr(" needs \"") + d.id + "\"" + (d.version.empty() ? "" : " " + d.version) +
-					(find(d.id, true) ? Tr(" (installed but not enabled)") : Tr(" (not installed)")));
-			}
-			else if (!VersionMatches(dep->version, d.version)) {
-				out.push_back(m->name + Tr(" needs ") + d.id + " " + d.version + Tr(" (you have ") + dep->version + ")");
-			}
-		}
-		for (const std::string &x : m->incompatible) {
-			for (const ModInfo *a : active) {
-				if (a != m && _stricmp(a->id.c_str(), x.c_str()) == 0) {
-					out.push_back(m->name + Tr(" is not compatible with ") + a->name);
-				}
-			}
-		}
+		for (const std::string &problem : ModsIssuesFor(p, folder).problems) out.push_back(m.name + ": " + problem);
 	}
 	return out;
 }

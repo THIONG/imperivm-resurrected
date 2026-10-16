@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <algorithm>
 #include "MinHook.h"
+#include "i18n/tr.h"
 #include "core/legacy.h"
 #include "core/guard.h"
 #include "mods/modvars.h"
@@ -145,7 +146,7 @@ bool ModsSaveProfile(const ModProfile &p)
 	Json j = Json::MakeObject();
 	j.Set("name", Json::MakeString(p.name));
 	Json mods = Json::MakeArray();
-	for (const std::string &m : p.mods) {
+	for (const std::string &m : ModsLoadOrder(p.mods)) {
 		mods.arr.push_back(Json::MakeString(m));
 	}
 	j.Set("mods", mods);
@@ -163,17 +164,39 @@ bool ModsDeleteProfile(const std::string &name)
 
 bool ModsRenameProfile(const std::string &from, const std::string &to)
 {
-	if (to.empty() || _stricmp(to.c_str(), kOriginal) == 0 || _stricmp(to.c_str(), kNoProfile) == 0) return false;
+	if (to.empty() || ModsIsReservedProfileName(to)) return false;
 	if (_stricmp(from.c_str(), kOriginal) == 0 || _stricmp(from.c_str(), kNoProfile) == 0) return false;
-	for (const std::string &n : ModsProfileNames()) {
-		if (_stricmp(n.c_str(), to.c_str()) == 0) return false;
+	const bool caseOnly = _stricmp(from.c_str(), to.c_str()) == 0;
+	if (!caseOnly) {
+		for (const std::string &n : ModsProfileNames()) {
+			if (_stricmp(n.c_str(), to.c_str()) == 0) return false;
+		}
 	}
 	ModProfile p = ModsLoadProfile(from);
 	p.name = to;
 	if (!ModsSaveProfile(p)) return false;
-	ModsDeleteProfile(from);
+	if (!caseOnly) ModsDeleteProfile(from);
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		if (g_mount.known && g_mount.profile.name == from) g_mount.profile.name = to;
+	}
 	if (ModsActiveProfileName() == from) ModsSetActiveProfileName(to);
 	return true;
+}
+
+std::string ModsProfileLabel(const std::string &name)
+{
+	if (_stricmp(name.c_str(), kNoProfile) == 0) return Tr("My content");
+	if (_stricmp(name.c_str(), kOriginal) == 0) return Tr("Original");
+	return name;
+}
+
+bool ModsIsReservedProfileName(const std::string &name)
+{
+	for (const std::string &r : {std::string(kOriginal), std::string(kNoProfile), std::string("My content"), Tr("Original"), Tr("My content")}) {
+		if (_stricmp(name.c_str(), r.c_str()) == 0) return true;
+	}
+	return false;
 }
 
 std::vector<std::string> ModsProfilesUsing(const std::string &folder)

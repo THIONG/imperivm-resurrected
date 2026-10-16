@@ -3,7 +3,7 @@
 Una carpeta mínima para empezar. Cópiala a `<juego>\mods\`, cámbiale el nombre y rellena `mod.json`.
 
 1. Cambia `id` (letras minúsculas, números y guiones: es lo que te identifica), `name`, `authors` y `description`.
-2. Elige `category` y `tags` de la lista de [Publicar](../publicar.md).
+2. Elige `category` de la lista de [Publicar](../publicar.md). `tags` solo hace falta en un mapa (jugadores) o en una campaña, traducción o audio (idioma).
 3. Añade las carpetas que necesites. Con las mismas rutas que usa el juego:
 
 ```

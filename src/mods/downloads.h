@@ -7,6 +7,9 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "mods/catalogfilter.h"
+
+struct ModInfo;
 
 struct CatalogEntry {
 	std::string source;
@@ -20,7 +23,6 @@ struct CatalogEntry {
 	std::string page;
 	std::vector<std::string> authors;
 	uint64_t bytes = 0;
-	bool gameplay = false;
 	uint64_t gbId = 0;
 	std::vector<std::string> tags;
 	std::string replaceFolder;
@@ -39,14 +41,13 @@ struct DownloadStatus {
 };
 
 void DlRefreshCatalogs();
-std::vector<CatalogEntry> DlCatalog();
-std::string DlCatalogStatus();
 bool DlFindUpdate(const std::string &modId, const std::string &installedVersion, CatalogEntry &out, uint64_t gbId = 0);
+bool DlUpdateFor(const ModInfo &m, const std::vector<ModInfo> &installed, CatalogEntry &out);
+void DlUpdateMod(const std::string &folder, const CatalogEntry &e);
 
 void DlStartUpdateCheck();
 
 void DlInstallEntry(const CatalogEntry &e);
-void DlInstallUrl(const std::string &url);
 void DlInstallArchive(const std::string &path);
 std::string DlPickArchive();
 DownloadStatus DlStatus();
@@ -70,11 +71,12 @@ struct GbMod {
 	bool details = false;
 	bool dependencies = false;
 	std::vector<uint64_t> deps;
+	CatalogFacts facts;
 	CatalogEntry entry;
 };
 struct GbQuery {
 	std::string search;
-	std::string tag;
+	CatalogFilter filter;
 	int sort = 0;
 	int page = 0;
 	int perPage = 8;
@@ -85,13 +87,13 @@ struct GbResults {
 	GbQuery query;
 	std::vector<GbMod> mods;
 	int total = 0;
+	CatalogCounts counts;
 	uint64_t serial = 0;
 };
 struct GbImage {
 	int width = 0, height = 0;
 	std::vector<uint32_t> bgra;
 };
-bool GbAvailable();
 void GbSearch(const GbQuery &q);
 GbResults GbGetResults();
 std::shared_ptr<const GbImage> GbLogo(const std::string &url);
@@ -102,6 +104,7 @@ struct GbFile {
 	std::string version, changelog, md5;
 	uint64_t bytes = 0;
 	uint64_t date = 0;
+	bool unversioned = false;
 };
 struct GbFiles {
 	bool loading = true;
@@ -109,11 +112,11 @@ struct GbFiles {
 	std::vector<GbFile> files;
 };
 GbFiles GbGetFiles(uint64_t modId);
+const GbFile *GbLatestFile(const std::vector<GbFile> &files);
 bool GbChangelog(uint64_t modId, const std::string &version, std::string &text, std::string &foundVersion);
 void GbInstallVersion(const GbMod &m, const GbFile &f);
 
 std::shared_ptr<const GbMod> GbInfo(uint64_t id);
-std::string GbAddModPage();
 
 struct RoomModRequest {
 	std::string id;

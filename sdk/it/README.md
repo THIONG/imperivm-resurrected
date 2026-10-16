@@ -28,7 +28,7 @@ mods\
     loc\spanish.loc.xml              <- testi che si sommano a quelli del gioco
 ```
 
-Non inserire eseguibili né script di sistema (`.exe .dll .asi .bat .cmd .com .scr .ps1 .vbs .js .msi .sys .cpl .lnk .reg .jar .hta .wsf .pif`). Se ce n'è uno, la mod non si carica e non si può pubblicare. Vale anche un `.js` sciolto, come un tuo generatore.
+Non inserire eseguibili né script di sistema (`.exe .dll .asi .bat .cmd .com .scr .ps1 .vbs .js .msi .sys .cpl .lnk .reg .jar .hta .wsf .pif`). Se ce n'è uno, la mod non si carica. Vale anche un `.js` sciolto, come un tuo generatore.
 
 ## `mod.json`
 
@@ -40,7 +40,6 @@ Non inserire eseguibili né script di sistema (`.exe .dll .asi .bat .cmd .com .s
   "authors": ["Yo"],
   "description": {"spanish": "Qué hace mi mod.", "english": "What my mod does."},
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay", "Spanish"],
   "redistributable": true
 }
 ```
@@ -48,12 +47,12 @@ Non inserire eseguibili né script di sistema (`.exe .dll .asi .bat .cmd .com .s
 | Campo | A cosa serve |
 |---|---|
 | `id`, `name`, `version`, `authors`, `description` | La scheda della mod nel gestore. `name` e `description` valgono come testo singolo o come oggetto con un testo per lingua (si vede quello della lingua del gioco; se manca, l'inglese; se manca, il primo). |
-| `category`, `tags` | Quelle di GameBanana. Vedi [Pubblicare](pubblicare.md). |
+| `category`, `tags` | La categoria di GameBanana e, per mappe, campagne, traduzioni e audio, i tag dei giocatori o della lingua. Vedi [Pubblicare](pubblicare.md). |
 | `redistributable` | Con `true`, l'host di una stanza può inviare la mod a chi non ce l'ha. Di default è `false`. |
 | `license` | Testo libero con la licenza. |
 | `requires` | Le mod che servono: un elenco di id, o di oggetti `{"id": "...", "version": "..."}`. |
 | `incompatibleWith` | Elenco di id di mod con cui non si può attivare. |
-| `loadAfter`, `loadBefore` | L'ordine di caricamento che chiedi, per id. Con `loadAfter` la tua mod sta sopra quella. |
+| `loadAfter`, `loadBefore` | Ciò che chiedi all'[ordine di caricamento](riferimento.md#1-struttura-di-una-mod), per id; il resto lo calcola il gioco. Con `loadAfter` la tua mod sta sopra quella: vincono i suoi file, patch e testi. |
 | `sources` | `{"url": "...", "gamebanana": 123456}`. Lo scrive il gioco quando installi da Sfoglia contenuti; serve per avvisare delle versioni nuove. |
 | `language` | Dichiara una lingua nuova. Vedi [Lingue](lingue.md). |
 | `commands` | Nome di ogni file di comandi nella schermata Controlli. Vedi [Tasti](tasti.md). |

@@ -17,7 +17,7 @@ mods\mi-mod\
 ```
 
 - Cada vez que el juego abre ese archivo, se le aplican los parches de los mods activos. Los originales no se tocan nunca.
-- Con varios mods, se aplican de menos a más prioridad: el que va primero en el perfil tiene la última palabra. El orden de los mods también cuenta en la comprobación de multijugador.
+- Con varios mods, se aplican del último al primero del [orden de carga](referencia.md#1-estructura-de-un-mod): el primero tiene la última palabra. Ese orden lo calcula el juego y es el mismo en todos los ordenadores con los mismos mods; la comprobación de multijugador no depende de él.
 - Si tu mod trae además su propia copia del archivo (sin `patches`), los parches de los demás mods se aplican sobre ella.
 - Para probar un parche sin crear un mod, ponlo en `<juego>\mod\patches\<ruta>`. Se aplica el último, por encima de todos.
 - Un parche cambia la jugabilidad si el archivo la cambia (`data\...`, mapas, unidades). Entonces todos los jugadores tienen que llevar el mismo mod.

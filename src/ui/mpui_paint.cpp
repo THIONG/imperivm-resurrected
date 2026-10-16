@@ -116,7 +116,7 @@ void PaintHeader(Painter &p, const State &st)
 	p.Font(1);
 	p.Text(74, 14, 300, 24, st.player, kText);
 	p.Font(3);
-	p.Text(74, 38, 400, 20, Tr("Content profile: ") + ModsMountedProfile().name, kDim);
+	p.Text(74, 38, 400, 20, Tr("Content profile: ") + ModsProfileLabel(ModsMountedProfile().name), kDim);
 	if (!st.ready) {
 		p.Text(500, 14, 480, 22, st.status.empty() ? "Connecting to Steam..." : st.status, kBad, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 	}
@@ -482,7 +482,7 @@ void PaintCreate(Painter &p, const State &st)
 	y += 42;
 	p.Font(0);
 	p.Text(lx, y, 140, 30, "Content", kDim);
-	Combo(p, st, fx, y, fw, 30, st.createProfile, kDropProfile, 0, st.profiles.size() > 1);
+	Combo(p, st, fx, y, fw, 30, ModsProfileLabel(st.createProfile), kDropProfile, 0, st.profiles.size() > 1);
 	y += 38;
 	{
 		const std::vector<ListLine> lines = BuildModLines(st.createProfileInfo.rows, "None: the original game.");
@@ -534,8 +534,7 @@ void PaintSyncConfirm(Painter &p, const State &st)
 		ListPaint(p, d.x + 24, d.y + 56, d.w - 48, 6 * 24 + 8, lines, ls, g_syncGeomOut, 3, 24, mx, my);
 	}
 	p.Font(0);
-	const std::string where = GbAvailable() ? "They will be downloaded from GameBanana; whatever isn't there, the host sends you through Steam"
-																					: "The host will send you the missing ones through Steam";
+	const std::string where = "They will be downloaded from GameBanana; whatever isn't there, the host sends you through Steam";
 	p.TextWrapped(d.x + 24, d.y + d.h - 130, d.w - 48, 64,
 		missing.empty() ? "You already have all its content. The game will restart with it and you'll return to the room automatically."
 										: where + " (" + HumanBytes(bytes) + Tr("). Then the game will restart with that content and you'll return to the room automatically."),
@@ -737,10 +736,12 @@ std::vector<std::string> DropItems(const State &st, int &sel)
 		return {"2 players", "3 players", "4 players", "5 players", "6 players", "7 players", "8 players"};
 	}
 	if (st.dropKind == kDropProfile) {
+		std::vector<std::string> labels;
 		for (size_t i = 0; i < st.profiles.size(); i++) {
 			if (st.profiles[i] == st.createProfile) sel = static_cast<int>(i);
+			labels.push_back(ModsProfileLabel(st.profiles[i]));
 		}
-		return st.profiles;
+		return labels;
 	}
 	if (st.dropKind == kDropColor) {
 		sel = st.game.slots[idx & 7].color;

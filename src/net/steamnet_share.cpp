@@ -131,7 +131,7 @@ void HostOnRequest(uint64 peer, const std::string &text)
 		bool found = false;
 		for (const std::string &folder : ModsMountedProfile().mods) {
 			ModInfo m;
-			if (ModsFind(folder, m) && m.id == id && m.version == version) {
+			if (ModsFind(folder, m) && _stricmp(m.id.c_str(), id.c_str()) == 0 && m.version == version) {
 				mod = m;
 				found = true;
 			}

@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: dos opciones de partida propias en la lista de reglas de la sala. Un interruptor, 'Héroes veloces' (+50 % de velocidad), y una lista, 'Velocidad de héroes' (Normal, Rápida, Muy rápida). Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

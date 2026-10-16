@@ -29,6 +29,6 @@ node esempi\generatore-unita-grafica\disegna-soldato.js
    - Se guarda dove cammina. Se va di spalle o gira al contrario, l'ordine delle 8 direzioni del gioco è un altro (vedi "Ordine delle direzioni" in [Grafica personalizzata](../../grafica.md)).
    - Se i piedi sono nel punto dell'unità e se ha l'ombra.
    - Se cammina, attacca, muore e resta a terra, e se torna a riposo dopo il combattimento.
-5. Se qualcosa non va, togli la cartella da `mods\` e torna al profilo senza mod.
+5. Se qualcosa non va, togli la cartella da `mods\` e torna al profilo Originale.
 
 Cambia il gameplay: in multigiocatore tutti i giocatori devono avere la mod.

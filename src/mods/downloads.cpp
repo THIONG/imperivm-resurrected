@@ -177,11 +177,10 @@ std::mutex g_lock;
 DownloadStatus g_status;
 std::atomic<bool> g_cancel{false};
 std::vector<CatalogEntry> g_catalog;
-std::string g_catalogStatus = "Catalog not read";
 bool g_catalogBusy = false;
 
 struct Job {
-	enum Kind { Entry, Url, Archive } kind;
+	enum Kind { Entry, Archive } kind;
 	CatalogEntry entry;
 	std::string text;
 };
@@ -206,6 +205,7 @@ void Finish(bool ok, const std::string &msg)
 	}
 	LogAt(ok ? kLogInfo : kLogWarn, "download", "%s", TrSource(msg).c_str());
 	UiToast(msg, !ok);
+	if (ok) UiRefreshMainMenuButton();
 }
 
 std::string HttpGet(const std::string &url, const std::vector<std::wstring> &headers, std::string *toMemory,
@@ -267,6 +267,7 @@ std::string HttpGet(const std::string &url, const std::vector<std::wstring> &hea
 			Json j;
 			if (Json::Parse(body, j)) {
 				if (const Json *e = j.Get("error")) detail = e->GetString("message");
+				else detail = j.GetString("_sErrorMessage", j.GetString("_sErrorCode"));
 			}
 		}
 		close();
@@ -331,48 +332,6 @@ std::string HttpGetJson(const std::string &url, const std::vector<std::wstring> 
 	std::string perr;
 	if (!Json::Parse(body, out, &perr)) return TrFmt("invalid response (%s)", {perr});
 	return "";
-}
-
-CatalogEntry EntryFromJson(const Json &m, const std::string &source)
-{
-	CatalogEntry e;
-	e.source = source;
-	e.id = m.GetString("id");
-	e.name = m.GetString("name", e.id);
-	e.version = m.GetString("version");
-	e.description = m.GetString("description");
-	e.url = m.GetString("url");
-	e.sha256 = Lower(m.GetString("sha256"));
-	e.page = m.GetString("page");
-	e.bytes = static_cast<uint64_t>(m.GetNumber("bytes"));
-	e.gameplay = m.GetBool("affectsGameplay", false);
-	if (const Json *a = m.Get("authors")) {
-		for (const Json &v : a->arr) {
-			if (v.type == Json::String) e.authors.push_back(v.str);
-		}
-	}
-	return e;
-}
-
-void ReadCatalogInto(const std::string &url, const std::string &source, std::vector<CatalogEntry> &out, std::string &errors)
-{
-	Json j;
-	std::string err = HttpGetJson(url, {}, j);
-	if (!err.empty()) {
-		errors += (errors.empty() ? "" : "; ") + url + ": " + err;
-		return;
-	}
-	const Json *mods = j.Get("mods");
-	if (!mods && j.Get("id")) {
-		out.push_back(EntryFromJson(j, source));
-		return;
-	}
-	if (mods) {
-		for (const Json &m : mods->arr) {
-			CatalogEntry e = EntryFromJson(m, source);
-			if (!e.id.empty() && !e.url.empty()) out.push_back(e);
-		}
-	}
 }
 
 const char kGbApi[] = "https://gamebanana.com/apiv11";
@@ -508,6 +467,7 @@ void GbFillSummary(GbMod &r, const Json &m)
 			if (!n.empty() && std::find(r.tags.begin(), r.tags.end(), n) == r.tags.end()) r.tags.push_back(n);
 		}
 	}
+	r.facts = CatalogFactsOf(r.category, r.tags);
 	CatalogEntry &e = r.entry;
 	e.source = "GameBanana";
 	e.id = "gamebanana-" + std::to_string(r.id);
@@ -517,15 +477,27 @@ void GbFillSummary(GbMod &r, const Json &m)
 	e.authors.clear();
 	if (!r.author.empty()) e.authors.push_back(r.author);
 	e.tags = r.tags;
-	e.gameplay = false;
-	for (const std::string &t : r.tags) {
-		const std::string l = Lower(t);
-		if (l.find("gameplay") != std::string::npos || l.find("rules") != std::string::npos || l.find("balance") != std::string::npos) {
-			e.gameplay = true;
-		}
-	}
 	e.version = m.GetString("_sVersion");
 	if (e.version.empty()) e.version = DateVersion(r.updated);
+}
+
+size_t GbUsableFiles(const Json *files)
+{
+	size_t n = 0;
+	if (files) {
+		for (const Json &f : files->arr) {
+			if (!f.GetBool("_bIsArchived", false)) n++;
+		}
+	}
+	return n;
+}
+
+std::string GbFileVersion(const Json &file, const std::string &modVersion, size_t usableFiles)
+{
+	const std::string v = file.GetString("_sVersion");
+	if (!v.empty()) return v;
+	if (usableFiles == 1 && !modVersion.empty()) return modVersion;
+	return DateVersion(static_cast<uint64_t>(file.GetNumber("_tsDateAdded")));
 }
 
 void GbFillDetails(GbMod &r, const Json &p)
@@ -539,19 +511,21 @@ void GbFillDetails(GbMod &r, const Json &p)
 	e.description = r.summary.empty() ? r.description.substr(0, 300) : r.summary;
 	e.url.clear();
 	const Json *best = nullptr;
-	if (const Json *files = p.Get("_aFiles")) {
+	const Json *files = p.Get("_aFiles");
+	if (files) {
 		for (const Json &f : files->arr) {
 			if (f.GetBool("_bIsArchived", false) || f.GetString("_sDownloadUrl").empty()) continue;
-			if (!best || f.GetNumber("_tsDateAdded") > best->GetNumber("_tsDateAdded")) best = &f;
+			if (!best || FileIsNewer(f.GetString("_sVersion"), static_cast<unsigned long long>(f.GetNumber("_tsDateAdded")), best->GetString("_sVersion"),
+					static_cast<unsigned long long>(best->GetNumber("_tsDateAdded")))) {
+				best = &f;
+			}
 		}
 	}
 	if (best) {
 		e.url = best->GetString("_sDownloadUrl");
 		e.bytes = static_cast<uint64_t>(best->GetNumber("_nFilesize"));
 		e.md5 = Lower(best->GetString("_sMd5Checksum"));
-		const std::string fv = best->GetString("_sVersion");
-		if (!fv.empty()) e.version = fv;
-		else if (p.GetString("_sVersion").empty()) e.version = DateVersion(static_cast<uint64_t>(best->GetNumber("_tsDateAdded")));
+		e.version = GbFileVersion(*best, p.GetString("_sVersion"), GbUsableFiles(files));
 	}
 	r.hasFile = !e.url.empty();
 	r.deps.clear();
@@ -624,35 +598,7 @@ void RefreshCatalogsNow()
 {
 	std::vector<CatalogEntry> entries;
 	std::string errors;
-	std::string list = IniGet("Mods", "Catalogs");
-	size_t start = 0;
-	int sources = 0;
-	while (start < list.size()) {
-		size_t end = list.find(';', start);
-		std::string url = list.substr(start, end == std::string::npos ? std::string::npos : end - start);
-		url.erase(0, url.find_first_not_of(' '));
-		url.erase(url.find_last_not_of(' ') + 1);
-		if (!url.empty()) {
-			ReadCatalogInto(url, "catalog", entries, errors);
-			sources++;
-		}
-		if (end == std::string::npos) break;
-		start = end + 1;
-	}
-	for (const ModInfo &m : ModsList()) {
-		Json j;
-		if (!ReadJsonFile(ModsDir() + "\\" + m.folder + "\\mod.json", j)) continue;
-		const Json *f = j.Get("sources");
-		std::string url = f ? f->GetString("update") : "";
-		if (!url.empty()) {
-			ReadCatalogInto(url, Tr("updates for ") + m.name, entries, errors);
-			sources++;
-		}
-	}
-	if (GbAvailable()) {
-		ReadGb(entries, errors);
-		sources++;
-	}
+	ReadGb(entries, errors);
 	std::vector<CatalogEntry> unique;
 	for (const CatalogEntry &e : entries) {
 		auto it = std::find_if(unique.begin(), unique.end(), [&](const CatalogEntry &u) { return _stricmp(u.id.c_str(), e.id.c_str()) == 0; });
@@ -660,16 +606,13 @@ void RefreshCatalogsNow()
 		else if (CompareVersions(e.version, it->version) > 0) *it = e;
 	}
 	std::sort(unique.begin(), unique.end(), [](const CatalogEntry &a, const CatalogEntry &b) { return Lower(a.name) < Lower(b.name); });
-	std::string status = sources == 0 ? "No catalogs configured ([Mods] Catalogs in imperivm-mod.ini)"
-									  : std::to_string(unique.size()) + Tr(" content packs in ") + std::to_string(sources) + Tr(" sources");
-	if (!errors.empty()) status += ". Errors: " + errors;
 	const size_t found = unique.size();
 	std::lock_guard<std::mutex> lock(g_lock);
 	g_catalog = std::move(unique);
-	g_catalogStatus = status;
 	g_catalogBusy = false;
-	LogAt(errors.empty() ? kLogInfo : kLogWarn, "download", "catalog: %u content packs from %d sources%s%s", static_cast<unsigned>(found), sources,
+	LogAt(errors.empty() ? kLogInfo : kLogWarn, "download", "catalog: %u installed content packs checked on GameBanana%s%s", static_cast<unsigned>(found),
 		errors.empty() ? "" : ". Errors: ", errors.c_str());
+	UiRefreshMainMenuButton();
 }
 
 bool IsMarker(const std::string &name)
@@ -951,6 +894,7 @@ bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, con
 		return false;
 	}
 	DeleteTree(tmp);
+	ModsCancelUninstall(folder);
 	ModsScan();
 	const std::string label = name + (version.empty() || name.find(version) != std::string::npos ? "" : " " + version);
 	msg = pending ? label + Tr(" downloaded (applied on restart)") : label + Tr(" installed");
@@ -1017,13 +961,6 @@ void Worker()
 			}
 			RunInstall(job.entry, sources);
 		}
-		else if (job.kind == Job::Url) {
-			CatalogEntry e;
-			e.url = job.text;
-			Json sources = Json::MakeObject();
-			sources.Set("url", Json::MakeString(job.text));
-			RunInstall(e, sources);
-		}
 		else if (job.kind == Job::Archive) {
 			std::string msg;
 			const bool ok = InstallArchiveNow(job.text, CatalogEntry(), Json(), msg);
@@ -1055,7 +992,6 @@ void DlRefreshCatalogs()
 		std::lock_guard<std::mutex> lock(g_lock);
 		if (g_catalogBusy) return;
 		g_catalogBusy = true;
-		g_catalogStatus = "Reading catalogs...";
 	}
 	SafeThread(RefreshCatalogsNow).detach();
 }
@@ -1075,12 +1011,7 @@ void DlStartUpdateCheck()
 		std::vector<std::string> news;
 		for (const ModInfo &m : mods) {
 			CatalogEntry e;
-			if (!DlFindUpdate(m.id, m.version, e, m.gbId)) continue;
-			bool newer = false;
-			for (const ModInfo &o : mods) {
-				if (&o != &m && ModsSameMod(o, m) && CompareVersions(o.version, e.version) >= 0) newer = true;
-			}
-			if (!newer) news.push_back(m.name + " " + e.version);
+			if (DlUpdateFor(m, mods, e)) news.push_back(m.name + " " + e.version);
 		}
 		if (news.empty()) {
 			LogI("download", "mods up to date");
@@ -1088,36 +1019,24 @@ void DlStartUpdateCheck()
 		}
 		std::string text;
 		if (news.size() == 1) {
-			text = Tr("Update available: ") + news[0];
+			text = TrFmt("Update available: %s", {news[0]});
 		}
 		else {
-			text = "Updates available:";
+			text = Tr("Updates available:");
 			for (size_t i = 0; i < news.size() && i < 4; i++) text += "\n" + news[i];
-			if (news.size() > 4) text += "\ny " + std::to_string(news.size() - 4) + Tr(" more");
+			if (news.size() > 4) text += "\n" + TrFmt("and %s more", {std::to_string(news.size() - 4)});
 		}
 		UiToast(text);
 		UiRefreshMainMenuButton();
 	}).detach();
 }
 
-std::vector<CatalogEntry> DlCatalog()
-{
-	std::lock_guard<std::mutex> lock(g_lock);
-	return g_catalog;
-}
-
-std::string DlCatalogStatus()
-{
-	std::lock_guard<std::mutex> lock(g_lock);
-	return g_catalogStatus;
-}
-
 bool DlFindUpdate(const std::string &modId, const std::string &installedVersion, CatalogEntry &out, uint64_t gbId)
 {
 	std::lock_guard<std::mutex> lock(g_lock);
 	for (const CatalogEntry &e : g_catalog) {
-		const bool same = (gbId && e.gbId == gbId) || _stricmp(e.id.c_str(), modId.c_str()) == 0;
-		if (same && CompareVersions(e.version, installedVersion) > 0) {
+		const bool same = gbId && e.gbId ? e.gbId == gbId : _stricmp(e.id.c_str(), modId.c_str()) == 0;
+		if (same && UpdateIsNewer(e.version, installedVersion)) {
 			out = e;
 			return true;
 		}
@@ -1128,12 +1047,6 @@ bool DlFindUpdate(const std::string &modId, const std::string &installedVersion,
 void DlInstallEntry(const CatalogEntry &e)
 {
 	Job j{Job::Entry, e, ""};
-	Enqueue(j);
-}
-
-void DlInstallUrl(const std::string &url)
-{
-	Job j{Job::Url, CatalogEntry(), url};
 	Enqueue(j);
 }
 
@@ -1148,10 +1061,20 @@ std::string DlPickArchive()
 	wchar_t file[MAX_PATH] = {};
 	OPENFILENAMEW ofn = {sizeof(ofn)};
 	ofn.hwndOwner = GetActiveWindow();
-	ofn.lpstrFilter = L"Compressed content (*.zip;*.7z;*.tar;*.gz)\\0*.zip;*.7z;*.tar;*.gz;*.tgz\\0All files\\0*.*\\0";
+	std::wstring filter = Wide(Tr("Compressed content") + " (*.zip;*.7z;*.rar;*.tar;*.gz)");
+	filter.push_back(L'\0');
+	filter += L"*.zip;*.7z;*.rar;*.tar;*.gz;*.tgz";
+	filter.push_back(L'\0');
+	filter += Wide(Tr("All files"));
+	filter.push_back(L'\0');
+	filter += L"*.*";
+	filter.push_back(L'\0');
+	filter.push_back(L'\0');
+	const std::wstring title = Wide(Tr("Install content from a file"));
+	ofn.lpstrFilter = filter.c_str();
 	ofn.lpstrFile = file;
 	ofn.nMaxFile = MAX_PATH;
-	ofn.lpstrTitle = L"Install content from a file";
+	ofn.lpstrTitle = title.c_str();
 	ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
 	if (!GetOpenFileNameW(&ofn)) return "";
 	return Narrow(file, CP_ACP);
@@ -1222,24 +1145,6 @@ std::string Fold(const std::string &s)
 	return out;
 }
 
-bool HasTag(const GbMod &m, const std::string &want)
-{
-	size_t start = 0;
-	while (start <= want.size()) {
-		size_t end = want.find('|', start);
-		if (end == std::string::npos) end = want.size();
-		const std::string w = Fold(want.substr(start, end - start));
-		if (!w.empty()) {
-			for (const std::string &t : m.tags) {
-				const std::string ft = Fold(t);
-				if (w.size() <= 2 ? ft == w || ft.compare(0, w.size() + 1, w + " ") == 0 : ft.find(w) != std::string::npos) return true;
-			}
-		}
-		start = end + 1;
-	}
-	return false;
-}
-
 void RunSearch(GbQuery q, uint64_t serial)
 {
 	GbResults r;
@@ -1271,18 +1176,11 @@ void RunSearch(GbQuery q, uint64_t serial)
 			if (!search.empty()) {
 				std::string hay = Fold(m.name + " " + m.author);
 				for (const std::string &t : m.tags) hay += " " + Fold(t);
+				if (m.facts.category >= 0) hay += " " + Fold(Tr(CatalogCategoryLabel(m.facts.category)));
 				if (hay.find(search) == std::string::npos) continue;
 			}
-			bool ok = true;
-			size_t start = 0;
-			while (ok && start < q.tag.size()) {
-				size_t end = q.tag.find(',', start);
-				if (end == std::string::npos) end = q.tag.size();
-				const std::string want = q.tag.substr(start, end - start);
-				if (!want.empty() && !HasTag(m, want)) ok = false;
-				start = end + 1;
-			}
-			if (ok) found.push_back(m);
+			CatalogCount(m.facts, r.counts);
+			if (CatalogMatches(m.facts, q.filter)) found.push_back(m);
 		}
 		std::stable_sort(found.begin(), found.end(), [&](const GbMod &a, const GbMod &b) {
 			switch (q.sort) {
@@ -1456,7 +1354,8 @@ void FetchGbFiles(uint64_t id)
 				file.bytes = static_cast<uint64_t>(f.GetNumber("_nFilesize"));
 				file.date = static_cast<uint64_t>(f.GetNumber("_tsDateAdded"));
 				file.md5 = Lower(f.GetString("_sMd5Checksum"));
-				if (file.version.empty()) file.version = files->arr.size() == 1 && !modVersion.empty() ? modVersion : DateVersion(file.date);
+				file.unversioned = file.version.empty();
+				if (file.unversioned) file.version = GbFileVersion(f, modVersion, GbUsableFiles(files));
 				if (file.id) r->files.push_back(file);
 			}
 		}
@@ -1467,7 +1366,7 @@ void FetchGbFiles(uint64_t id)
 				for (GbFile &f : r->files) {
 					for (const Json &up : recs->arr) {
 						const std::string name = up.GetString("_sName");
-						if (name.empty() || (name != f.version && name.find(f.version) == std::string::npos)) continue;
+						if (!TitleHasVersion(name, f.version)) continue;
 						std::string text = StripHtml(up.GetString("_sText"));
 						if (const Json *cl = up.Get("_aChangeLog")) {
 							for (const Json &c : cl->arr) {
@@ -1522,25 +1421,36 @@ bool GbChangelog(uint64_t modId, const std::string &version, std::string &text, 
 	std::lock_guard<std::mutex> lock(g_ioLock);
 	const auto it = g_ioFiles.find(modId);
 	if (it == g_ioFiles.end() || !it->second.files || it->second.files->loading) return false;
-	for (const GbFile &f : it->second.files->files) {
-		if (version.empty() || f.version == version) {
-			if (f.changelog.empty()) return false;
-			text = f.changelog;
-			foundVersion = f.version;
-			return true;
+	const GbFile *pick = nullptr;
+	if (version.empty()) {
+		pick = GbLatestFile(it->second.files->files);
+	}
+	else {
+		for (const GbFile &f : it->second.files->files) {
+			if (f.version == version) {
+				pick = &f;
+				break;
+			}
 		}
 	}
-	return false;
+	if (!pick || pick->changelog.empty()) return false;
+	text = pick->changelog;
+	foundVersion = pick->version;
+	return true;
+}
+
+const GbFile *GbLatestFile(const std::vector<GbFile> &files)
+{
+	const GbFile *best = nullptr;
+	for (const GbFile &f : files) {
+		if (!best || FileIsNewer(f.unversioned ? "" : f.version, f.date, best->unversioned ? "" : best->version, best->date)) best = &f;
+	}
+	return best;
 }
 
 void GbInstallVersion(const GbMod &m, const GbFile &f)
 {
 	SafeThread(RunGbInstallVersion, m, f).detach();
-}
-
-bool GbAvailable()
-{
-	return !GbGame().empty();
 }
 
 void GbSearch(const GbQuery &q)
@@ -1597,6 +1507,28 @@ std::shared_ptr<const GbImage> GbLogo(const std::string &url)
 	return nullptr;
 }
 
+bool DlUpdateFor(const ModInfo &m, const std::vector<ModInfo> &installed, CatalogEntry &out)
+{
+	if (!DlFindUpdate(m.id, m.version, out, m.gbId)) return false;
+	for (const ModInfo &o : installed) {
+		if (o.folder != m.folder && ModsSameMod(o, m) && !UpdateIsNewer(out.version, o.version)) return false;
+	}
+	return true;
+}
+
+void DlUpdateMod(const std::string &folder, const CatalogEntry &e)
+{
+	SafeThread([folder, e] {
+		CatalogEntry entry = e;
+		entry.replaceFolder = folder;
+		if (entry.gbId) {
+			GbMod g;
+			if (GbFetchMod(entry.gbId, g).empty()) InstallGbDependencies(g);
+		}
+		DlInstallEntry(entry);
+	}).detach();
+}
+
 void GbInstall(const GbMod &m)
 {
 	if (!m.hasFile) return;
@@ -1605,6 +1537,8 @@ void GbInstall(const GbMod &m)
 
 namespace {
 std::map<uint64_t, std::shared_ptr<const GbMod>> g_ioInfo;
+std::map<uint64_t, DWORD> g_ioInfoAsked;
+const DWORD kGbInfoRetryMs = 30000;
 
 void FetchGbInfo(uint64_t id)
 {
@@ -1617,18 +1551,15 @@ void FetchGbInfo(uint64_t id)
 
 std::shared_ptr<const GbMod> GbInfo(uint64_t id)
 {
-	if (!id || !GbAvailable()) return nullptr;
+	if (!id) return nullptr;
 	std::lock_guard<std::mutex> lock(g_ioLock);
 	const auto it = g_ioInfo.find(id);
-	if (it != g_ioInfo.end()) return it->second && it->second->id ? it->second : nullptr;
+	if (it != g_ioInfo.end() && it->second && it->second->id) return it->second;
+	if (it != g_ioInfo.end() && GetTickCount() - g_ioInfoAsked[id] < kGbInfoRetryMs) return nullptr;
 	g_ioInfo[id] = nullptr;
+	g_ioInfoAsked[id] = GetTickCount();
 	SafeThread(FetchGbInfo, id).detach();
 	return nullptr;
-}
-
-std::string GbAddModPage()
-{
-	return "https://gamebanana.com/mods/add?_idGameRow=" + GbGame();
 }
 
 namespace {

@@ -13,7 +13,6 @@
 void DrawPerfOverlay(uint32_t *buf, int w, int h, int fps, int outW, int outH);
 bool OverlayNeedsRedraw();
 void OverlayInstall(bool knownExe);
-void OverlaySetScreenRate(int hz);
 void OverlayNoteFrame();
 bool OverlayHandleMouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM &lp);
 bool OverlayHandleKey(UINT msg, WPARAM wp, LPARAM lp);

@@ -122,8 +122,12 @@ bool IsContentPath(const std::string &p)
 	return StartsWith(p, "scenarios/") || StartsWith(p, "adventures/") || StartsWith(p, "conquests/") || StartsWith(p, "conquestmaps/");
 }
 
-std::string RulesFingerprint(const std::vector<RulesPart> &parts)
+std::string RulesFingerprint(std::vector<RulesPart> parts)
 {
+	std::sort(parts.begin(), parts.end(), [](const RulesPart &a, const RulesPart &b) {
+		const std::string ia = Lower(a.id), ib = Lower(b.id);
+		return ia != ib ? ia < ib : a.gameplayHash < b.gameplayHash;
+	});
 	std::string text = std::string(kGameId) + "|sim:" + std::to_string(kSimLevel) + "|esq:" + std::to_string(kRulesSchema) + "|";
 	for (const RulesPart &p : parts) {
 		if (p.gameplayHash.empty()) {

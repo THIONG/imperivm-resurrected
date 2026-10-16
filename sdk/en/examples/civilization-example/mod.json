@@ -7,7 +7,6 @@
   },
   "version": "0.2",
   "category": "Civilizations",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: Dacia, una civilización nueva (índice 10, letra D) clonada de Galia con tools/clone-civilization.js. Tiene sus propias clases y órdenes. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

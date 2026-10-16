@@ -276,7 +276,7 @@ DWORD WINAPI RenderThread(LPVOID)
 	bool samplerLinear = linearFor(GetConfig().scaleMode);
 	bool haveFrame = false;
 	int fw = 0, fh = 0;
-	int fps = 0, framesThisSecond = 0, presentsThisSecond = 0;
+	int fps = 0, framesThisSecond = 0;
 	DWORD secondStart = GetTickCount();
 	bool overlayWasOn = false;
 	bool uiWasOn = false;
@@ -357,8 +357,6 @@ DWORD WINAPI RenderThread(LPVOID)
 		bool overlayTick = false;
 		if (now - secondStart >= 1000) {
 			fps = framesThisSecond;
-			OverlaySetScreenRate(presentsThisSecond);
-			presentsThisSecond = 0;
 			framesThisSecond = 0;
 			secondStart = now;
 			overlayTick = true;
@@ -486,7 +484,6 @@ DWORD WINAPI RenderThread(LPVOID)
 		ctx->PSSetSamplers(0, 1, &sampler);
 		ctx->Draw(4, 0);
 		swap->Present(vsync ? 1 : 0, 0);
-		presentsThisSecond++;
 	}
 	return 0;
 }

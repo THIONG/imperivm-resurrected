@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: una formación nueva para los héroes, la Cuña (+3 de daño y +1 de armadura a su ejército parado, con la caballería delante). Aparece junto a las formaciones del juego. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

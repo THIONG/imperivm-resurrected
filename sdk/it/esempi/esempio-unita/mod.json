@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Units & Heroes",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: el Veterano romano, una unidad nueva que se recluta en el cuartel de Roma republicana (tecla V). Tiene sus estadísticas, su retrato y su botón propios. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

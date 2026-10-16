@@ -107,7 +107,7 @@ void StartSyncReceive(const std::vector<OnlineMod> &missing)
 	g_s.speedTick = 0;
 	g_s.speed = 0;
 	for (const OnlineMod &m : missing) {
-		if (GbAvailable() && m.gbId) io.push_back({m.id, m.gbId, m.version});
+		if (m.gbId) io.push_back({m.id, m.gbId, m.version});
 		else g_s.syncHostList.push_back(m);
 	}
 	g_s.syncPhase = 2;

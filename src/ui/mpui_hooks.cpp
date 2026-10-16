@@ -25,7 +25,16 @@ BoolFn_t g_origIsNewUpdate = nullptr;
 
 bool __cdecl HookUpdateXmlExists() { return true; }
 
-bool __cdecl HookIsNewUpdateAvailable() { return ModUiUpdatesAvailable() > 0; }
+bool __cdecl HookIsNewUpdateAvailable()
+{
+	static int last = -1;
+	const int n = ModUiUpdatesAvailable();
+	if (n != last) {
+		last = n;
+		LogI("ui", "main menu update indicator: %d content packs have an update", n);
+	}
+	return n > 0;
+}
 }
 }
 

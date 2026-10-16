@@ -7,12 +7,11 @@
   },
   "version": "1.0",
   "category": "Units & Heroes",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: el Soldado simple, una unidad nueva con sus propios sprites (8 direcciones, 6 hojas de animación, color de jugador) que se recluta en el cuartel de Roma republicana (tecla X). Los gráficos los dibuja un script de ejemplo y los convierten las herramientas del SDK. Comprobado: el juego lo carga y la unidad se ve; sin comprobar: direcciones, color de jugador, sombra y animaciones. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",
-    "english": "SDK example: the Simple Soldier, a new unit with its own sprites (8 directions, 6 animation sheets, player colour) recruited at the Republican Rome barracks (key X). The graphics are drawn by an example script and converted by the SDK tools. Changes gameplay: everyone must have it in multiplayer.",
-    "italian": "Esempio dell'SDK: il Soldato semplice, una nuova unità con sprite propri (8 direzioni, 6 fogli di animazione, colore del giocatore) che si recluta nella caserma di Roma repubblicana (tasto X). Verificato: il gioco la carica e l'unità si vede; non verificati: direzioni, colore del giocatore, ombra e animazioni. Cambia il gioco: in multigiocatore devono averlo tutti."
+    "english": "SDK example: the Simple Soldier, a new unit with its own sprites (8 directions, 6 animation sheets, player colour) recruited at the Republican Rome barracks (key X). The graphics are drawn by an example script and converted by the SDK tools. Checked: the game loads it and the unit shows on screen; not checked: directions, player colour, shadow and animations. Changes gameplay: everyone must have it in multiplayer.",
+    "italian": "Esempio dell'SDK: il Soldato semplice, una nuova unità con sprite propri (8 direzioni, 6 fogli di animazione, colore del giocatore) che si recluta nella caserma di Roma repubblicana (tasto X). La grafica la disegna uno script di esempio e la convertono gli strumenti dell'SDK. Verificato: il gioco la carica e l'unità si vede; non verificati: direzioni, colore del giocatore, ombra e animazioni. Cambia il gioco: in multigiocatore devono averlo tutti."
   },
   "redistributable": true
 }

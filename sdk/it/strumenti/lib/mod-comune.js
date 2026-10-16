@@ -178,7 +178,7 @@ function modJsonMinimo(plan, modDir, categoria, descripcion) {
 	const ruta = path.join(modDir, 'mod.json');
 	if (plan.existe(ruta)) return false;
 	const id = lower(path.basename(path.resolve(modDir))).replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'mi-mod';
-	const j = { id, name: path.basename(path.resolve(modDir)), version: '1.0', category: categoria, tags: ['Gameplay'], authors: ['Me'], description: descripcion, redistributable: true };
+	const j = { id, name: path.basename(path.resolve(modDir)), version: '1.0', category: categoria, tags: [], authors: ['Me'], description: descripcion, redistributable: true };
 	plan.poner(ruta, JSON.stringify(j, null, 2) + '\n');
 	return true;
 }

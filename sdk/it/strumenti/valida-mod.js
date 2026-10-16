@@ -196,16 +196,24 @@ else {
 				`"${k}" has to be a string or an object with one string per language`,
 				`"${k}" deve essere una stringa o un oggetto con una stringa per lingua`));
 		}
-		// categoria e etiquetas: solo quelle di GameBanana che la scheda Sfoglia contenuti comprende (vedi pubblicare.md)
-		const kCategorias = ['Maps', 'Scenarios', 'Campaigns', 'Conquest', 'Gameplay & Balance', 'Units & Heroes', 'Civilizations',
-			'Graphics', 'Audio & Voices', 'Interface', 'Translations', 'Total Conversions'];
-		const kEtiquetas = ['Gameplay', 'Cosmetic', '2 players', '3 players', '4 players', '5 players', '6 players', '7 players',
-			'8 players', 'Spanish', 'English', 'Italian', 'German', 'French', 'Polish', 'Multilingual', 'Online tested'];
+		// categoria ed etichette (vedi pubblicare.md): la categoria è il tipo in Sfoglia contenuti; le etichette alimentano i filtri di giocatori (Maps) e lingua
+		const kCategorias = ['Gameplay & Balance', 'Units & Heroes', 'Civilizations', 'Maps', 'Campaigns', 'Conquest', 'Graphics',
+			'Audio & Voices', 'Translations'];
+		const kCategoriasAntiguas = { 'Scenarios': 'Maps', 'Interface': 'Graphics', 'Total Conversions': 'Gameplay & Balance' };
+		const kConIdioma = ['Campaigns', 'Audio & Voices', 'Translations'];
+		const kIdiomas = ['Spanish', 'English', 'Italian', 'German', 'French', 'Polish', 'Multilingual'];
+		const esJugadores = t => /^[2-8](-[2-8])? players$/.test(t);
 		if (m.category === undefined) {
 			warn('mod.json', 0, T(
 				`falta "category": la que elegirás al subirlo a GameBanana (${kCategorias.join(', ')})`,
 				`"category" is missing: the one you will pick when uploading to GameBanana (${kCategorias.join(', ')})`,
 				`manca "category": quella che sceglierai caricando su GameBanana (${kCategorias.join(', ')})`));
+		}
+		else if (kCategoriasAntiguas[m.category]) {
+			warn('mod.json', 0, T(
+				`"category": "${m.category}" es un nombre antiguo: usa "${kCategoriasAntiguas[m.category]}"`,
+				`"category": "${m.category}" is an old name: use "${kCategoriasAntiguas[m.category]}"`,
+				`"category": "${m.category}" è un nome vecchio: usa "${kCategoriasAntiguas[m.category]}"`));
 		}
 		else if (!kCategorias.includes(m.category)) {
 			error('mod.json', 0, T(
@@ -213,21 +221,43 @@ else {
 				`"category": "${m.category}" is not a GameBanana category (${kCategorias.join(', ')})`,
 				`"category": "${m.category}" non è una categoria di GameBanana (${kCategorias.join(', ')})`));
 		}
-		if (m.tags !== undefined) {
-			if (!Array.isArray(m.tags)) error('mod.json', 0, T('"tags" tiene que ser una lista', '"tags" has to be a list', '"tags" deve essere una lista'));
+		const categoria = kCategoriasAntiguas[m.category] || m.category;
+		const etiquetas = Array.isArray(m.tags) ? m.tags : [];
+		if (m.tags !== undefined && !Array.isArray(m.tags)) error('mod.json', 0, T('"tags" tiene que ser una lista', '"tags" has to be a list', '"tags" deve essere una lista'));
+		for (const t of etiquetas) {
+			if (t === 'Gameplay' || t === 'Cosmetic' || t === 'Online tested') {
+				warn('mod.json', 0, T(
+					`etiqueta "${t}": ya no hace falta (el juego sabe por los archivos si cambia la jugabilidad)`,
+					`tag "${t}": no longer needed (the game knows from the files whether it changes gameplay)`,
+					`etichetta "${t}": non serve più (il gioco capisce dai file se cambia il gameplay)`));
+			}
+			else if (esJugadores(t)) {
+				if (categoria !== 'Maps') warn('mod.json', 0, T(
+					`etiqueta "${t}": los jugadores solo se filtran en la categoría Maps`,
+					`tag "${t}": players are only filtered in the Maps category`,
+					`etichetta "${t}": i giocatori si filtrano solo nella categoria Maps`));
+			}
+			else if (kIdiomas.includes(t)) {
+				if (!kConIdioma.includes(categoria)) warn('mod.json', 0, T(
+					`etiqueta "${t}": el idioma solo se filtra en ${kConIdioma.join(', ')}`,
+					`tag "${t}": the language is only filtered in ${kConIdioma.join(', ')}`,
+					`etichetta "${t}": la lingua si filtra solo in ${kConIdioma.join(', ')}`));
+			}
 			else {
-				for (const t of m.tags) {
-					if (!kEtiquetas.includes(t)) error('mod.json', 0, T(
-						`etiqueta "${t}" no vale: usa solo estas (${kEtiquetas.join(', ')})`,
-						`tag "${t}" is not valid: use only these (${kEtiquetas.join(', ')})`,
-						`l'etichetta "${t}" non è valida: usa solo queste (${kEtiquetas.join(', ')})`));
-				}
-				if (m.tags.includes('Gameplay') && m.tags.includes('Cosmetic')) error('mod.json', 0, T(
-					'tags: "Gameplay" y "Cosmetic" a la vez',
-					'tags: "Gameplay" and "Cosmetic" together',
-					'tags: "Gameplay" e "Cosmetic" insieme'));
+				warn('mod.json', 0, T(
+					`etiqueta "${t}": el juego no la usa para filtrar (valen "4 players", "2-4 players" y ${kIdiomas.join(', ')})`,
+					`tag "${t}": the game doesn't filter by it (valid ones: "4 players", "2-4 players" and ${kIdiomas.join(', ')})`,
+					`etichetta "${t}": il gioco non la usa per filtrare (valgono "4 players", "2-4 players" e ${kIdiomas.join(', ')})`));
 			}
 		}
+		if (categoria === 'Maps' && !etiquetas.some(esJugadores)) warn('mod.json', 0, T(
+			'mapa sin etiqueta de jugadores: añade "4 players" (o "2-4 players") en "tags" y en las etiquetas de GameBanana, o no saldrá al filtrar por jugadores',
+			'map without a players tag: add "4 players" (or "2-4 players") to "tags" and to the GameBanana tags, or it won\'t show up when filtering by players',
+			'mappa senza etichetta dei giocatori: aggiungi "4 players" (o "2-4 players") in "tags" e nelle etichette di GameBanana, altrimenti non comparirà filtrando per giocatori'));
+		if (kConIdioma.includes(categoria) && !etiquetas.some(t => kIdiomas.includes(t))) warn('mod.json', 0, T(
+			`sin etiqueta de idioma: añade el idioma (${kIdiomas.join(', ')}) en "tags" y en las etiquetas de GameBanana, o no saldrá al filtrar por idioma`,
+			`no language tag: add the language (${kIdiomas.join(', ')}) to "tags" and to the GameBanana tags, or it won't show up when filtering by language`,
+			`nessuna etichetta della lingua: aggiungi la lingua (${kIdiomas.join(', ')}) in "tags" e nelle etichette di GameBanana, altrimenti non comparirà filtrando per lingua`));
 	}
 	catch (e) { error('mod.json', 0, T('no es JSON válido: ', 'not valid JSON: ', 'JSON non valido: ') + e.message); }
 }

@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: hace más barato al hastatus romano y añade una orden nueva al cuartel, sin sustituir el archivo de órdenes entero. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

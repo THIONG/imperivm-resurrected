@@ -65,7 +65,7 @@ mods\mi-mod\
 - Salva in UTF-8. Se è in ANSI, la mod lo converte, ma UTF-8 è la scelta sicura.
 - Una riga scritta male viene saltata e annotata in `Logs\imperivm\imperivm-mod.log` con il suo numero di riga. Il resto del file si carica.
 - `<gioco>\mod\loc\<idioma>.loc.xml` serve per provare senza creare una mod, e vince su tutte le mod.
-- Se due mod cambiano lo stesso testo, dovrebbe vincere quella che sta più in alto nel profilo.
+- Se due mod cambiano lo stesso testo, dovrebbe vincere quella che viene prima nell'[ordine di caricamento](riferimento.md#1-struttura-di-una-mod), come per i file.
 - I testi si leggono all'avvio: riavvia dopo averli cambiati.
 
 I nomi di unità, edifici e comandi della tua mod si scrivono in inglese nei loro file (`display_name`, `rollover`…). Quella è la chiave. Per tradurli, aggiungi la traduzione in `loc\spanish.loc.xml`, `loc\italian.loc.xml`, ecc.

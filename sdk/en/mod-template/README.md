@@ -3,7 +3,7 @@
 A bare-bones folder to start from. Copy it to `<game>\mods\`, rename it and fill in `mod.json`.
 
 1. Change `id` (lowercase letters, numbers and hyphens: it's what identifies you), `name`, `authors` and `description`.
-2. Pick `category` and `tags` from the list in [Publishing](../publishing.md).
+2. Pick `category` from the list in [Publishing](../publishing.md). `tags` is only needed for a map (players) or a campaign, translation or audio pack (language).
 3. Add the folders you need, using the same paths the game does:
 
 ```

@@ -29,6 +29,6 @@ node ejemplos\unidad-graficos-generador\dibujar-soldado.js
    - Si mira hacia donde camina. Si va de espaldas o gira al revés, el orden de las 8 direcciones del juego es otro (ver "Orden de las direcciones" en [Gráficos propios](../../graficos.md)).
    - Si los pies están en el punto de la unidad y tiene sombra.
    - Si anda, ataca, muere y se queda tumbada, y si vuelve a reposo tras el combate.
-5. Si algo falla, quita la carpeta de `mods\` y vuelve al perfil sin mods.
+5. Si algo falla, quita la carpeta de `mods\` y vuelve al perfil Original.
 
 Cambia la jugabilidad: en multijugador todos los jugadores tienen que llevar el mod.

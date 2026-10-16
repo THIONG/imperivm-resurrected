@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: un modo de victoria nuevo, Dominio. Gana quien controla un número de asentamientos, a elegir en el desplegable Límite de la sala (2 a 5; por defecto 3). Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

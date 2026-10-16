@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: un objeto nuevo (el Amuleto de ejemplo, +10 de daño y +5 de armadura) que cada héroe recibe al aparecer en el mapa. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

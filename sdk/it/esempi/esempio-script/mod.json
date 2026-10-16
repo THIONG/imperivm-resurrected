@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Gameplay & Balance",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: eventos y comportamientos de script que escriben en el registro. Cambia el equilibrio: los hastatus hacen el doble de daño y se curan 25 al matar a un soldado. No lo actives en una partida en serio. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

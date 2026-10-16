@@ -13,6 +13,7 @@ void ModUiAskRestart(const std::string &reason = "", int largeAddress = -1, cons
 	const std::string &itemsTitle = "");
 bool ModUiIsOpen();
 int ModUiUpdatesAvailable();
+void ModUiResetUpdates();
 void ModUiToast(const std::string &text, bool error = false);
 
 bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp);

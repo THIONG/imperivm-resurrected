@@ -296,7 +296,7 @@ std::string ResurrectedCredits()
 	t += bar + nl + nl + nl;
 	t += "Imperivm Resurrected" + nl;
 	t += "THIONG" + nl + nl;
-	t += Tr("Modern rendering and audio, Steam multiplayer, content manager with mod.io,") + nl;
+	t += Tr("Modern rendering and audio, Steam multiplayer, content manager with GameBanana,") + nl;
 	t += Tr("saved-games screens and much more") + nl + nl + nl;
 	t += Tr("Thanks to") + nl + nl;
 	t += "Syncrash - AlvaroPeyleth" + nl;
@@ -305,7 +305,7 @@ std::string ResurrectedCredits()
 	t += "MinHook - Tsuda Kageyu" + nl;
 	t += "miniaudio - David Reid" + nl;
 	t += "Steamworks SDK - Valve" + nl;
-	t += "mod.io" + nl + nl + nl;
+	t += nl + nl;
 	t += bar + nl + nl + nl;
 	return t;
 }

@@ -21,7 +21,7 @@ An error is something the game would reject or that will fail. A warning is a su
 
 ## What it checks
 
-- **`mod.json`**: broken JSON, a category or tags that aren't GameBanana's, wrongly typed texts (errors). Missing `id`, `name`, `version` or `category` (warnings).
+- **`mod.json`**: broken JSON, a category that isn't GameBanana's, wrongly typed texts (errors). Missing `id`, `name`, `version` or `category`, an old category name, tags the game doesn't use, a map without a players tag and a campaign, translation or audio pack without a language tag (warnings).
 - **Files**: executable and system script extensions (error: the mod wouldn't load) and paths with `..`. An odd but harmless extension (`.psd`, `.gif`, `.zip`…) only gives a warning: the mod loads, the file just takes up space.
 - **`civs\*.json`**: an invalid `id`, `index` outside 10–99 or duplicated, a `base` that doesn't exist, a `letter` longer than one letter, an unknown `biome`, a misspelled `template` or one without its file. With `"ai": true` and no `alias` table it warns, and it checks that the `alias` points to classes and commands the mod has.
 - **`specials\*.json`**: an invalid `id` or one that's a game unit special, a `bit` outside 36–63 or duplicated.

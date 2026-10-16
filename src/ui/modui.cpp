@@ -12,36 +12,22 @@
 using namespace modui_impl;
 
 namespace modui_impl {
-namespace {
-const char *const kIoTagValues[] = {"", "Map", "Scenario", "Campaign", "Conquest", "Balance", "Units", "Civilization",
-	"Graphics", "Audio", "Voices", "Interface", "Translation", "Total conversion"};
-const char *const kIoTagNames[] = {"All types", "Maps", "Scenarios", "Campaigns", "Conquest", "Rules and balance", "Units",
-	"Civilizations", "Graphics", "Audio", "Voices", "Interface", "Translations", "Total conversion"};
-const int kIoTagCount = 14;
-}
-}
-
-namespace modui_impl {
-std::string IoTagName(const std::string &tag)
+std::string IoTagsText(const GbMod &m)
 {
-	for (int i = 1; i < kIoTagCount; i++) {
-		if (tag == kIoTagValues[i]) return kIoTagNames[i];
+	std::vector<std::string> parts;
+	if (m.facts.category >= 0) parts.push_back(Tr(CatalogCategoryLabel(m.facts.category)));
+	else if (!m.category.empty()) parts.push_back(m.category);
+	if (m.facts.players) parts.push_back(CatalogPlayersText(m.facts.players) + Tr(" players"));
+	for (int l = 0; l < kLangCount; l++) {
+		if ((m.facts.languages >> l) & 1) parts.push_back(Tr(CatalogLanguageLabel(l)));
 	}
-	static const char *const kCats[][2] = {{"Maps", "Maps"}, {"Scenarios", "Scenarios"}, {"Campaigns", "Campaigns"}, {"Conquest", "Conquest"},
-		{"Gameplay & Balance", "Rules and balance"}, {"Units & Heroes", "Units & Heroes"}, {"Civilizations", "Civilizations"},
-		{"Graphics", "Graphics"}, {"Audio & Voices", "Audio & Voices"}, {"Interface", "Interface"}, {"Translations", "Translations"},
-		{"Total Conversions", "Total conversion"}};
-	for (const auto &c : kCats) {
-		if (tag == c[0]) return c[1];
+	for (const std::string &t : m.tags) {
+		if (t == m.category || CatalogCategoryFromName(t) >= 0 || CatalogPlayersFromTag(t) || CatalogLanguagesFromTag(t)) continue;
+		parts.push_back(Tr(t));
 	}
-	static const char *const kOther[][2] = {{"Gameplay", "Gameplay"}, {"Cosmetic", "Cosmetic"}, {"Spanish", "Spanish"},
-		{"English", "English"}, {"Italian", "Italian"}, {"German", "German"}, {"French", "French"}, {"Polish", "Polish"},
-		{"Multilingual", "Several languages"}, {"Online tested", "Tested online"}};
-	for (const auto &o : kOther) {
-		if (tag == o[0]) return o[1];
-	}
-	if (tag.size() == 1 && isdigit(static_cast<unsigned char>(tag[0]))) return tag + Tr(" players");
-	return tag;
+	std::string out;
+	for (const std::string &s : parts) out += (out.empty() ? "" : ", ") + s;
+	return out;
 }
 }
 
@@ -81,6 +67,24 @@ const ModInfo *FindModIn(const std::vector<ModInfo> &mods, const std::string &fo
 
 const ModInfo *FindMod(const std::string &folder) { return FindModIn(g_s.mods, folder); }
 
+std::string OverlapText(const State &st, const std::string &folder, const ModIssues &is)
+{
+	std::vector<std::string> group = is.overlapFolders;
+	group.push_back(folder);
+	std::string used = folder;
+	for (const std::string &f : ModsLoadOrder(st.profile.mods)) {
+		if (std::find(group.begin(), group.end(), f) != group.end()) {
+			used = f;
+			break;
+		}
+	}
+	const ModInfo *m = FindModIn(st.mods, folder);
+	const ModInfo *u = FindModIn(st.mods, used);
+	std::string with;
+	for (const std::string &o : is.overlapWith) with += (with.empty() ? "" : ", ") + o;
+	return TrFmt("%s changes the same files as %s; the files of %s are used", {m ? m->name : folder, with, u ? u->name : used});
+}
+
 bool Pending(const State &st, const std::string &folder)
 {
 	return std::find(st.pendingUninstall.begin(), st.pendingUninstall.end(), folder) != st.pendingUninstall.end();
@@ -97,14 +101,15 @@ std::vector<int> VisibleRows(const State &st)
 			const std::string hay = LowerAscii((m ? m->name : "") + " " + r.folder);
 			if (hay.find(q) == std::string::npos) continue;
 		}
-		const bool bad = m && (!m->forbidden.empty() || !m->manifestError.empty());
+		const auto issues = st.issues.find(r.folder);
+		const bool bad = !m || (issues != st.issues.end() && !issues->second.problems.empty());
 		switch (st.filter) {
 		case 1: if (!r.active) continue; break;
 		case 2: if (r.active) continue; break;
 		case 3: if (!m || !m->gameplay) continue; break;
 		case 4: if (!m || m->kind != kModContent) continue; break;
 		case 5: if (!m || m->kind != kModCosmetic) continue; break;
-		case 6: if (m && !bad) continue; break;
+		case 6: if (!bad) continue; break;
 		default: break;
 		}
 		out.push_back(static_cast<int>(i));
@@ -115,20 +120,29 @@ std::vector<int> VisibleRows(const State &st)
 void BuildRows()
 {
 	g_s.rows.clear();
-	for (size_t i = 0; i < g_s.profile.mods.size(); i++) {
+	const auto isActive = [](const std::string &folder) {
+		return std::find(g_s.profile.mods.begin(), g_s.profile.mods.end(), folder) != g_s.profile.mods.end();
+	};
+	for (const ModInfo &m : g_s.mods) {
 		Row r;
-		r.folder = g_s.profile.mods[i];
-		r.active = true;
-		r.priority = static_cast<int>(i);
+		r.folder = m.folder;
+		r.active = isActive(m.folder);
 		g_s.rows.push_back(r);
 	}
-	for (const ModInfo &m : g_s.mods) {
-		if (std::find(g_s.profile.mods.begin(), g_s.profile.mods.end(), m.folder) == g_s.profile.mods.end()) {
-			Row r;
-			r.folder = m.folder;
-			g_s.rows.push_back(r);
-		}
+	for (const std::string &folder : g_s.profile.mods) {
+		if (FindMod(folder)) continue;
+		Row r;
+		r.folder = folder;
+		r.active = true;
+		g_s.rows.push_back(r);
 	}
+	const auto key = [](const Row &r) {
+		const ModInfo *m = FindMod(r.folder);
+		std::string k = (m ? m->name : r.folder) + "\x01" + r.folder;
+		for (char &c : k) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+		return k;
+	};
+	std::sort(g_s.rows.begin(), g_s.rows.end(), [&](const Row &a, const Row &b) { return key(a) < key(b); });
 	if (g_s.selected >= static_cast<int>(g_s.rows.size())) {
 		g_s.selected = static_cast<int>(g_s.rows.size()) - 1;
 	}
@@ -191,11 +205,7 @@ void SetStatus(const std::string &s)
 
 bool FindUpdateFor(const State &st, const ModInfo &m, CatalogEntry &out)
 {
-	if (!DlFindUpdate(m.id, m.version, out, m.gbId)) return false;
-	for (const ModInfo &o : st.mods) {
-		if (&o != &m && ModsSameMod(o, m) && ModsCompareVersions(o.version, out.version) >= 0) return false;
-	}
-	return true;
+	return DlUpdateFor(m, st.mods, out);
 }
 }
 
@@ -224,42 +234,19 @@ void SwitchProfile(const std::string name)
 {
 	ModsSetActiveProfileName(name);
 	Reload();
-	SetStatus(ModsRestartNeeded() ? Tr("Profile \"") + name + Tr("\" selected: applied on restart") : "");
-}
-
-void PlaceConflict(bool newWins)
-{
-	auto &mods = g_s.profile.mods;
-	const std::string folder = g_s.conflictFolder;
-	const auto it = std::find(mods.begin(), mods.end(), folder);
-	if (it == mods.end()) return;
-	mods.erase(it);
-	size_t lo = mods.size(), hi = 0;
-	bool any = false;
-	for (size_t i = 0; i < mods.size(); i++) {
-		if (std::find(g_s.conflictWith.begin(), g_s.conflictWith.end(), mods[i]) == g_s.conflictWith.end()) continue;
-		lo = (std::min)(lo, i);
-		hi = (std::max)(hi, i + 1);
-		any = true;
-	}
-	mods.insert(mods.begin() + static_cast<std::ptrdiff_t>(!any ? mods.size() : newWins ? lo : hi), folder);
-	CommitProfile();
-	SelectFolder(folder);
-	const ModInfo *m = FindMod(folder);
-	std::string with;
-	for (const std::string &f : g_s.conflictWith) {
-		const ModInfo *o = FindMod(f);
-		with += (with.empty() ? "" : ", ") + (o ? o->name : f);
-	}
-	const std::string name = m ? m->name : folder;
-	SetStatus(newWins ? name + Tr(" takes priority over ") + with : with + Tr(" takes priority over ") + name);
+	SetStatus(ModsRestartNeeded() ? Tr("Profile \"") + ModsProfileLabel(name) + Tr("\" selected: applied on restart") : "");
 }
 
 void CommitProfile()
 {
 	if (g_s.profile.name == kOriginalName) {
-		g_s.profile.name = kNoProfileName;
-		SetStatus("Changes saved to \"No profile\" (the Original is not changed). Click \"Save as profile\" to name it.");
+		ModProfile mine = ModsLoadProfile(kNoProfileName);
+		for (const std::string &f : g_s.profile.mods) {
+			const bool has = std::find_if(mine.mods.begin(), mine.mods.end(), [&](const std::string &m) { return _stricmp(m.c_str(), f.c_str()) == 0; }) != mine.mods.end();
+			if (!has) mine.mods.push_back(f);
+		}
+		g_s.profile = mine;
+		SetStatus("Enabled in \"My content\". The Original always stays without content.");
 	}
 	ModsSaveProfile(g_s.profile);
 	ModsSetActiveProfileName(g_s.profile.name);
@@ -288,7 +275,7 @@ void FinishName()
 		SetStatus("The name cannot contain \\ / : * ? \" < > |");
 		return;
 	}
-	if (_stricmp(name.c_str(), kOriginalName) == 0 || _stricmp(name.c_str(), kNoProfileName) == 0 ||
+	if (ModsIsReservedProfileName(name) ||
 		(ProfileExists(name) && !(g_s.nameMode == kNameRename && _stricmp(name.c_str(), g_s.profile.name.c_str()) == 0))) {
 		SetStatus(Tr("There is already a profile named \"") + name + "\"");
 		return;
@@ -310,7 +297,7 @@ void FinishName()
 	}
 	ModProfile p;
 	p.name = name;
-	if (mode == kNameSaveAs || mode == kNameDup) p.mods = g_s.profile.mods;
+	if (mode == kNameSaveAs) p.mods = g_s.profile.mods;
 	ModsSaveProfile(p);
 	SwitchProfile(name);
 	SetStatus(mode == kNameNew ? Tr("Profile \"") + name + Tr("\" created (empty): enable its content in the list")
@@ -324,9 +311,7 @@ void StartName(int mode)
 	g_s.tabAction = -1;
 	g_s.drop = kDropNone;
 	g_s.nameText = mode == kNameRename ? g_s.profile.name
-		: mode == kNameDup			   ? UniqueProfileName(g_s.profile.name + Tr(" (copy)"))
-		: mode == kNameNew			   ? UniqueProfileName("Profile")
-									   : UniqueProfileName("My content");
+		: UniqueProfileName(Tr("Profile"));
 	EditSelectAll(g_s.nameText, g_s.edit);
 }
 }
@@ -365,28 +350,25 @@ std::vector<std::string> DropItems(const State &st)
 		if (f.loading) return {"Loading versions..."};
 		if (!f.error.empty()) return {"Could not read the versions"};
 		if (f.files.empty()) return {"This content pack has no published versions"};
-		size_t newest = 0;
-		for (size_t i = 1; i < f.files.size(); i++) {
-			if (ModsCompareVersions(f.files[i].version, f.files[newest].version) > 0) newest = i;
-		}
+		const GbFile *latest = GbLatestFile(f.files);
 		for (size_t i = 0; i < f.files.size(); i++) {
 			const GbFile &v = f.files[i];
 			std::string s = v.version.empty() ? std::string("No version") : v.version;
 			if (v.bytes) s += "  ·  " + HumanBytes(v.bytes);
 			const std::string d = DateText(v.date);
 			if (!d.empty()) s += "  ·  " + d;
-			if (i == newest) s += "  ·  latest";
+			if (&v == latest) s += "  ·  latest";
 			if (InstalledVersionOf(st, st.verMod, v.version)) s += "  ·  installed";
 			items.push_back(s);
 		}
 		return items;
 	}
 	if (st.drop == kDropProfile) {
-		items = st.profileNames;
+		for (const std::string &n : st.profileNames) items.push_back(ModsProfileLabel(n));
 		items.push_back("+ New profile");
 	}
 	else if (st.drop == kDropMenu) {
-		items = {"Rename", "Duplicar", "Remove"};
+		items = {"Rename", "Remove"};
 	}
 	else if (st.drop == kDropFilter) {
 		for (int i = 0; i < kFilterCount; i++) items.push_back(kFilterNames[i]);
@@ -401,9 +383,7 @@ void IoSearch()
 {
 	GbQuery q;
 	q.search = g_s.ioSearch;
-	for (int i = 0; i < kIoFilterCount; i++) {
-		if (g_s.ioFilterMask & (1u << i)) q.tag += std::string(q.tag.empty() ? "" : ",") + kIoFilters[i].value + "|" + kIoFilters[i].label;
-	}
+	q.filter = g_s.ioFilter;
 	q.sort = g_s.ioSort;
 	q.page = g_s.ioPage;
 	q.perPage = kIoPerPage;
@@ -460,8 +440,7 @@ void PickDrop(int index)
 	}
 	else if (drop == kDropMenu) {
 		if (index == 0) StartName(kNameRename);
-		else if (index == 1) StartName(kNameDup);
-		else if (index == 2) {
+		else if (index == 1) {
 			g_s.confirm = true;
 			g_s.confirmKind = kConfirmDelete;
 		}
@@ -488,32 +467,6 @@ void PickDrop(int index)
 	}
 }
 
-void MoveActive(int fromRow, int toRow)
-{
-	if (fromRow < 0 || toRow < 0 || fromRow >= static_cast<int>(g_s.rows.size()) || toRow >= static_cast<int>(g_s.rows.size())) return;
-	const Row from = g_s.rows[fromRow], to = g_s.rows[toRow];
-	if (!from.active || !to.active || from.priority == to.priority) return;
-	auto &mods = g_s.profile.mods;
-	const std::string folder = mods[from.priority];
-	mods.erase(mods.begin() + from.priority);
-	mods.insert(mods.begin() + to.priority, folder);
-	CommitProfile();
-	SelectFolder(folder);
-}
-
-void DiscardPendingChanges()
-{
-	const ModProfile mounted = ModsMountedProfile();
-	if (mounted.name == kOriginalName) {
-		if (ModsActiveProfileName() == kNoProfileName) ModsDeleteProfile(kNoProfileName);
-	}
-	else {
-		ModsSaveProfile(mounted);
-	}
-	ModsSetActiveProfileName(mounted.name);
-	Reload();
-}
-
 
 ListGeom g_confirmGeomOut;
 
@@ -523,7 +476,6 @@ Canvas g_toastCanvas;
 
 namespace modui_impl {
 namespace {
-Canvas g_specBarCanvas;
 }
 }
 
@@ -554,7 +506,6 @@ void ModUiOpen()
 	g_s.confirmOnly = false;
 	g_s.drop = kDropNone;
 	g_s.nameMode = kNameNone;
-	g_s.dragRow = -1;
 	g_s.dlFinished = DlStatus().finished;
 	if (!g_s.catalogRequested) {
 		g_s.catalogRequested = true;
@@ -585,6 +536,11 @@ void ModUiAskRestart(const std::string &reason, int largeAddress, const std::vec
 int ModUiUpdatesAvailable()
 {
 	return UpdatesAvailable();
+}
+
+void ModUiResetUpdates()
+{
+	ResetUpdatesCache();
 }
 
 bool ModUiIsOpen()

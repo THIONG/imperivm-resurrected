@@ -65,7 +65,7 @@ mods\mi-mod\
 - Save as UTF-8. If it's ANSI, the mod converts it, but UTF-8 is the safe choice.
 - A malformed line is skipped and logged in `Logs\imperivm\imperivm-mod.log` with its line number. The rest of the file loads.
 - `<game>\mod\loc\<language>.loc.xml` works for testing without creating a mod, and beats all mods.
-- If two mods change the same text, the one higher in the profile should win.
+- If two mods change the same text, the one first in the [load order](reference.md#1-mod-structure) should win, as with files.
 - Texts are read at startup: restart after changing them.
 
 The names of your mod's units, buildings and commands are written in English in their files (`display_name`, `rollover`…). That's the key. To translate them, add the translation to `loc\spanish.loc.xml`, `loc\italian.loc.xml`, etc.

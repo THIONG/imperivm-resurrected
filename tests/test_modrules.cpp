@@ -107,7 +107,10 @@ static void Fingerprint()
 	CHECK(one != RulesFingerprint({{"mod-a", "aaab"}}));
 	CHECK(one != RulesFingerprint({{"mod-b", "aaaa"}}));
 	const std::string two = RulesFingerprint({{"mod-a", "aaaa"}, {"mod-b", "bbbb"}});
-	CHECK(two != RulesFingerprint({{"mod-b", "bbbb"}, {"mod-a", "aaaa"}}));
+	CHECK_EQ(two, RulesFingerprint({{"mod-b", "bbbb"}, {"mod-a", "aaaa"}}));
+	const std::string three = RulesFingerprint({{"mod-a", "aaaa"}, {"mod-b", "bbbb"}, {"mod-c", "cccc"}});
+	CHECK_EQ(three, RulesFingerprint({{"mod-c", "cccc"}, {"mod-a", "aaaa"}, {"mod-b", "bbbb"}}));
+	CHECK(three != two);
 	CHECK_EQ(RulesFingerprint({{"mod-a", "aaaa"}, {"mod-b", ""}}), "");
 	CHECK_EQ(RulesFingerprint({{"mod-a", ""}}), "");
 	CHECK_EQ(empty, HashString(std::string(kGameId) + "|sim:1|esq:2|"));

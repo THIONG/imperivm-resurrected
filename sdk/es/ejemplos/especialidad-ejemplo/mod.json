@@ -7,7 +7,6 @@
   },
   "version": "1.0",
   "category": "Units & Heroes",
-  "tags": ["Gameplay"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: una especialidad de unidad nueva, 'Golpe crítico' (bit 36), que se asigna al hastatus romano. Con el evento OnAttackResolved, uno de cada cuatro de sus golpes hace el triple de daño. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

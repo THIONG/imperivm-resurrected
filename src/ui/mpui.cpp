@@ -177,15 +177,6 @@ std::vector<int> Visible(const State &st)
 
 namespace mpui_impl {
 namespace {
-std::string MissingModsText(const State &st, const OnlineLobby &g)
-{
-	std::string list;
-	for (const OnlineMod &m : g.mods) {
-		if (!Installed(st, m)) list += (list.empty() ? "" : ", ") + m.name + " " + m.version;
-	}
-	return list;
-}
-
 const ModInfo *ExactMod(const State &st, const OnlineMod &m)
 {
 	for (const ModInfo &i : st.mods) {

@@ -39,9 +39,6 @@ void DoAction(int action, int arg)
 	case kDropClose: g_s.drop = kDropNone; break;
 	case kDropPick: PickDrop(arg); break;
 	case kSaveAs: StartName(kNameSaveAs); break;
-	case kNewProfile: StartName(kNameNew); break;
-	case kDupProfile: StartName(kNameDup); break;
-	case kRenameProfile: StartName(kNameRename); break;
 	case kFocusName: FocusField(kNameField); break;
 	case kNameOk: FinishName(); break;
 	case kNameCancel:
@@ -71,7 +68,7 @@ void DoAction(int action, int arg)
 			mods.erase(std::remove(mods.begin(), mods.end(), r.folder), mods.end());
 		}
 		else {
-			mods.insert(mods.begin() + static_cast<std::ptrdiff_t>(ModsInsertPosition(mods, r.folder)), r.folder);
+			mods.push_back(r.folder);
 		}
 		CommitProfile();
 		SelectFolder(r.folder);
@@ -83,44 +80,11 @@ void DoAction(int action, int arg)
 				SetStatus(name + ": " + is.problems[0]);
 			}
 			else if (is.overwrites > 0 && !is.overlapFolders.empty()) {
-				g_s.conflictFolder = r.folder;
-				g_s.conflictWith = is.overlapFolders;
-				g_s.conflictFiles = is.overwrites;
-				g_s.confirm = true;
-				g_s.confirmKind = kConfirmConflict;
-				g_s.confirmItems.clear();
-				g_s.confirmItemsTitle.clear();
-				g_s.confirmList = ListState();
-				for (const std::string &f : is.overlapFolders) {
-					const ModInfo *o = FindMod(f);
-					g_s.confirmItems.push_back(o ? o->name : f);
-				}
+				SetStatus(OverlapText(g_s, r.folder, is));
 			}
 		}
 		break;
 	}
-	case kAutoOrder: {
-		auto &mods = g_s.profile.mods;
-		const std::vector<std::string> ordered = ModsAutoOrder(mods);
-		if (ordered == mods) {
-			SetStatus("The order was already the recommended one");
-			break;
-		}
-		const std::string sel = g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size()) ? g_s.rows[g_s.selected].folder : "";
-		mods = ordered;
-		CommitProfile();
-		SelectFolder(sel);
-		SetStatus("Content sorted");
-		break;
-	}
-	case kDragStart:
-		g_s.selected = arg;
-		if (arg >= 0 && arg < static_cast<int>(g_s.rows.size()) && g_s.rows[arg].active) g_s.dragRow = arg;
-		break;
-	case kDropRow:
-		MoveActive(g_s.dragRow, arg);
-		g_s.dragRow = -1;
-		break;
 	case kUninstall:
 		if (g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size())) {
 			g_s.confirm = true;
@@ -129,7 +93,9 @@ void DoAction(int action, int arg)
 			g_s.confirmItemsTitle = "It will be removed from these profiles:";
 			g_s.confirmList = ListState();
 			const auto used = g_s.usedBy.find(g_s.rows[g_s.selected].folder);
-			if (used != g_s.usedBy.end()) g_s.confirmItems = used->second;
+			if (used != g_s.usedBy.end()) {
+				for (const std::string &n : used->second) g_s.confirmItems.push_back(ModsProfileLabel(n));
+			}
 		}
 		break;
 	case kOpenMods: OpenFolderAsync(""); break;
@@ -140,30 +106,10 @@ void DoAction(int action, int arg)
 		break;
 	case kRescan:
 		ModsScan();
+		DlRefreshCatalogs();
 		Reload();
 		SetStatus(Tr("List updated: ") + std::to_string(g_s.mods.size()) + (g_s.mods.size() == 1 ? Tr(" content pack") : Tr(" content packs")));
 		break;
-	case kPublish: {
-		if (g_s.busy || g_s.selected < 0 || g_s.selected >= static_cast<int>(g_s.rows.size())) break;
-		const std::string folder = g_s.rows[g_s.selected].folder;
-		g_s.busy = true;
-		SetStatus(Tr("Preparing ") + folder + Tr(" for publishing..."));
-		SafeThread([folder] {
-			std::string msg = ModsPreparePublish(folder);
-			const bool ok = msg.compare(0, 6, "Creado") == 0;
-			std::lock_guard<std::mutex> lock(g_lock);
-			g_s.busy = false;
-			if (ok) {
-				SetStatus(msg + ". Upload it on the GameBanana page that has opened.");
-				OpenFolderAsync("_publish");
-				OpenWeb(GbAddModPage());
-			}
-			else {
-				SetStatus(msg);
-			}
-		}).detach();
-		break;
-	}
 	case kApply:
 		if (ModsRestartNeeded()) {
 			g_s.confirm = true;
@@ -174,19 +120,9 @@ void DoAction(int action, int arg)
 		}
 		break;
 	case kClose:
-		if (ModsRestartNeeded()) DiscardPendingChanges();
 		g_s.open = false;
 		break;
-	case kConflictOld:
-		g_s.confirm = false, g_s.confirmItems.clear();
-		PlaceConflict(false);
-		break;
 	case kConfirmYes:
-		if (g_s.confirmKind == kConfirmConflict) {
-			g_s.confirm = false, g_s.confirmItems.clear();
-			PlaceConflict(true);
-			break;
-		}
 		if (g_s.confirmKind == kConfirmUninstall) {
 			g_s.confirm = false, g_s.confirmItems.clear();
 			if (g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size())) {
@@ -219,15 +155,18 @@ void DoAction(int action, int arg)
 		break;
 	case kIoFilterOpen: g_s.ioFilterOpen = !g_s.ioFilterOpen; break;
 	case kIoFilterClose: g_s.ioFilterOpen = false; break;
-	case kIoFilterToggle:
-		if (arg >= 0 && arg < kIoFilterCount) {
-			g_s.ioFilterMask ^= 1u << arg;
-			g_s.ioPage = 0;
-			IoSearch();
-		}
+	case kIoFilterToggle: {
+		const int group = arg / kIoFilterGroupStride, bit = arg % kIoFilterGroupStride;
+		if (arg < 0 || group > kIoFilterLanguages || bit >= 32) break;
+		uint32_t &mask = group == kIoFilterTypes ? g_s.ioFilter.types : group == kIoFilterPlayers ? g_s.ioFilter.players : g_s.ioFilter.languages;
+		mask ^= 1u << bit;
+		g_s.ioFilter = CatalogNormalize(g_s.ioFilter);
+		g_s.ioPage = 0;
+		IoSearch();
 		break;
+	}
 	case kIoFilterClear:
-		g_s.ioFilterMask = 0;
+		g_s.ioFilter = CatalogFilter();
 		g_s.ioPage = 0;
 		IoSearch();
 		break;
@@ -236,7 +175,7 @@ void DoAction(int action, int arg)
 		g_s.ioFilterOpen = false;
 		break;
 	case kTabExplore:
-		if (g_s.tab != 2 && GbAvailable()) {
+		if (g_s.tab != 2) {
 			g_s.tab = 2;
 			IoSearch();
 		}
@@ -313,33 +252,38 @@ void DoAction(int action, int arg)
 		}
 		break;
 	}
-	case kCancelDownload: DlCancel(); break;
 	case kUpdateAll: {
-		int n = 0;
+		std::vector<const ModInfo *> targets;
+		std::vector<CatalogEntry> entries;
 		for (const ModInfo &m : g_s.mods) {
 			CatalogEntry e;
 			if (!FindUpdateFor(g_s, m, e)) continue;
-			e.replaceFolder = m.folder;
-			DlInstallEntry(e);
-			n++;
+			bool merged = false;
+			for (size_t k = 0; k < targets.size(); k++) {
+				if (!ModsSameMod(*targets[k], m)) continue;
+				merged = true;
+				if (ModsCompareVersions(m.version, targets[k]->version) > 0) targets[k] = &m;
+			}
+			if (!merged) {
+				targets.push_back(&m);
+				entries.push_back(e);
+			}
 		}
-		if (!n) SetStatus("No pending updates");
+		for (size_t k = 0; k < targets.size(); k++) DlUpdateMod(targets[k]->folder, entries[k]);
+		if (targets.empty()) SetStatus("No pending updates");
 		break;
 	}
 	case kUpdateMod: {
 		if (g_s.selected < 0 || g_s.selected >= static_cast<int>(g_s.rows.size())) break;
 		const ModInfo *m = FindMod(g_s.rows[g_s.selected].folder);
 		CatalogEntry e;
-		if (m && FindUpdateFor(g_s, *m, e)) {
-			e.replaceFolder = m->folder;
-			DlInstallEntry(e);
-		}
+		if (m && FindUpdateFor(g_s, *m, e)) DlUpdateMod(m->folder, e);
 		break;
 	}
 	}
 	const bool keepsFocus =
-		action == kFocusName || action == kFocusSearch || action == kIoFocusSearch || action == kNone || action == kSaveAs || action == kNewProfile ||
-		action == kDupProfile || action == kRenameProfile || (action == kNameOk && g_s.nameMode != kNameNone) ||
+		action == kFocusName || action == kFocusSearch || action == kIoFocusSearch || action == kNone || action == kSaveAs ||
+		(action == kNameOk && g_s.nameMode != kNameNone) ||
 		(action == kDropPick && g_s.nameMode != kNameNone);
 	if (!keepsFocus) {
 		g_s.focus = kNoField;
@@ -347,7 +291,7 @@ void DoAction(int action, int arg)
 	if (action != kDropOpen && action != kNone) {
 		if (action != kDropPick) g_s.drop = kDropNone;
 	}
-	const int maxScroll = std::max(0, static_cast<int>(VisibleRows(g_s).size()) - kListH / kRowH);
+	const int maxScroll = std::max(0, static_cast<int>(VisibleRows(g_s).size()) - kInstalledListH / kRowH);
 	g_s.list.scroll = std::max(0, std::min(g_s.list.scroll, maxScroll));
 	if (action != kNone && action != kSelect) {
 		g_s.restartNeeded = ModsRestartNeeded();

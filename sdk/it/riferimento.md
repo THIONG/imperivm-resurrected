@@ -33,7 +33,7 @@ Una mod è una cartella di `mods\`. Le cartelle che iniziano con `.` o `_` vengo
 
 - Estensioni vietate: `.exe .dll .asi .bat .cmd .com .scr .ps1 .vbs .js .msi .sys .cpl .lnk .reg .jar .hta .wsf .pif`. Con una di queste, la mod non si carica.
 - Un'estensione che non è tra quelle note e non è vietata viene accettata e non viene mai eseguita.
-- Se due mod hanno lo stesso file, vince quella che viene prima nel profilo.
+- Se due mod hanno lo stesso file, vince quella che viene prima nell'**ordine di caricamento**. Quell'ordine lo calcola il gioco, non si sceglie: prima conta ciò che chiedono le mod (una mod sta sopra a quelle di cui ha bisogno in `requires` e a quelle del suo `loadAfter`, e sotto a quelle del suo `loadBefore`); poi le estetiche stanno sopra ai contenuti (mappe, battaglie, conquista) e questi sopra alle mod che cambiano il gameplay; a parità, per `id`. Con le stesse mod esce lo stesso ordine su tutti i computer. Il gestore avvisa quando due mod attive cambiano gli stessi file e dice quali file si usano.
 
 Cartella di prova `<gioco>\mod\` (senza creare una mod; vince su tutte le mod):
 
@@ -56,10 +56,10 @@ Cartella di prova `<gioco>\mod\` (senza creare una mod; vince su tutte le mod):
 | `redistributable` | booleano | `false` | L'host può inviare la mod a chi non ce l'ha |
 | `requires` | elenco di id, o di oggetti `{"id", "version"}` | vuoto | Mod di cui ha bisogno. `version` accetta `>=`, `<=`, `>`, `<`, `=`, `*`, o un numero (uguale) |
 | `incompatibleWith` | elenco di id | vuoto | Mod con cui non si può attivare |
-| `loadAfter` | elenco di id | vuoto | La tua mod sta sopra a quelle |
+| `loadAfter` | elenco di id | vuoto | La tua mod sta sopra a quelle: vincono i suoi file, patch e testi |
 | `loadBefore` | elenco di id | vuoto | La tua mod sta sotto a quelle |
 | `category` | testo | vuoto | Categoria di GameBanana ([Pubblicare](pubblicare.md)) |
-| `tags` | elenco di testi | vuoto | Tag di GameBanana |
+| `tags` | elenco di testi | vuoto | Tag di GameBanana: giocatori (mappe) e lingua (campagne, traduzioni, audio) |
 | `sources` | oggetto | nessuno | `url` (o `page`), `gamebanana` (numero) ed `tags` (elenco, si sommano a quelle sopra) |
 | `language` | oggetto, elenco di oggetti o testo | nessuno | `code`, `name` e `base` (di default `english`). Solo testo = solo il codice. Vedi [Lingue](lingue.md) |
 | `commands` | oggetto | nessuno | `{"<file degli ordini senza estensione>": {"name": testo o oggetto per lingua}}`. Vedi [Tasti](tasti.md) |
@@ -127,7 +127,7 @@ Guida: [Opzioni di partita](opzioni.md).
 
 ## 6. Patch
 
-Guida: [Patch](patch.md). Una patch va in `patches\<percorso del file del gioco>`. Solo `.xml`, `.ini` e `.vs`. Ordine: da meno a più priorità; `mod\patches` per ultimo.
+Guida: [Patch](patch.md). Una patch va in `patches\<percorso del file del gioco>`. Solo `.xml`, `.ini` e `.vs`. Ordine: dall'ultima mod dell'ordine di caricamento alla prima, così la prima ha l'ultima parola; `mod\patches` per ultimo.
 
 ### XML
 
@@ -240,7 +240,7 @@ Si trova nella cartella del gioco. Si legge all'avvio.
 | `[Debug]` | `Dump` | percorsi separati da virgole, o `*` | vuoto | Copia ogni file in `mod-dump\<percorso>` così come lo legge il gioco (patch e testi delle mod già applicati), la prima volta che lo apre. Nome esatto, senza caratteri jolly tranne `*` (tutti) |
 | `[Debug]` | `DumpAtStartup` | percorsi separati da virgole | vuoto | Copia quei file in `mod-dump\` all'avvio, senza aspettare che il gioco li apra |
 | `[Mods]` | `Override` | `0` o `1` | `1` | Attiva `<gioco>\mod\<percorso>` come sostituto dei file |
-| `[Mods]` | `Perfil` | nome del profilo | `Original` | Profilo di mod con cui parte il gioco. Lo cambia il gestore |
+| `[Mods]` | `Profile` | nome del profilo, `Original` o `No profile` | `Original` | Profilo con cui parte il gioco (`No profile` è «I miei contenuti» nel gestore). Lo cambia il gestore; una modifica si applica al riavvio |
 
 ## 10. Limiti
 

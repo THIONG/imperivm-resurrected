@@ -2,6 +2,15 @@
 
 Versión del SDK y qué mods se pueden hacer con cada una. La versión de la API de scripts (`Mod_ApiVersion()`) va aparte: ahora es la 6.
 
+## 1.2
+
+Necesita Imperivm Resurrected 0.32.2 o posterior.
+
+- Nueve categorías de GameBanana en tres tipos: Gameplay & Balance, Units & Heroes, Civilizations · Maps, Campaigns, Conquest · Graphics, Audio & Voices, Translations. `Scenarios`, `Interface` y `Total Conversions` siguen valiendo como Maps, Graphics y Gameplay & Balance, pero el validador pide el nombre nuevo.
+- Las etiquetas solo sirven para los filtros de jugadores (`4 players`, `2-4 players`, en mapas) e idioma (`Spanish`…, en campañas, traducciones y audio). `Gameplay`, `Cosmetic` y `Online tested` ya no hacen falta. El validador avisa de un mapa sin jugadores y de una campaña, traducción o audio sin idioma, y una etiqueta desconocida ya es un aviso, no un error.
+- El gestor ya no tiene botón Publicar: el zip se hace a mano (ver [Publicar](publicar.md)).
+- El orden de los mods lo calcula el juego ([Referencia](referencia.md#1-estructura-de-un-mod)): ya no se ordena a mano en el perfil, y la comprobación de multijugador no depende del orden. La clave de `imperivm-mod.ini` es `[Mods] Profile`.
+
 ## 1.1
 
 Necesita Imperivm Resurrected 0.31.58 o posterior.

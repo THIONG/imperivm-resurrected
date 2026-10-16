@@ -94,6 +94,7 @@ void MountProfileLayers(void *list)
 		ModsSetActiveProfileName(name);
 	}
 	ModProfile p = ModsLoadProfile(name);
+	p.mods = ModsLoadOrder(p.mods);
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
 		g_mount.profile = p;
@@ -235,7 +236,8 @@ std::string ShowStartupPicker(const std::string &current)
 	}
 	int sel = 0;
 	for (size_t i = 0; i < names.size(); i++) {
-		SendMessageA(st.list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(names[i].c_str()));
+		const std::string label = ModsProfileLabel(names[i]);
+		SendMessageA(st.list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
 		if (names[i] == current) {
 			sel = static_cast<int>(i);
 		}

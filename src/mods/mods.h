@@ -65,9 +65,15 @@ struct ModInfo {
 	std::string gameplayHash;
 };
 
+inline bool ModsIsMod(const ModInfo &m, const std::string &id, uint64_t gbId)
+{
+	if (m.gbId && gbId) return m.gbId == gbId;
+	return !id.empty() && _stricmp(m.id.c_str(), id.c_str()) == 0;
+}
+
 inline bool ModsSameMod(const ModInfo &a, const ModInfo &b)
 {
-	return _stricmp(a.id.c_str(), b.id.c_str()) == 0 || (a.gbId && a.gbId == b.gbId);
+	return ModsIsMod(a, b.id, b.gbId);
 }
 
 struct ModProfile {
@@ -90,10 +96,13 @@ bool ModsScenarioProvider(const std::string &scenarioPath, std::string &id, std:
 bool ModsMountedHasExact(const std::string &id, const std::string &version);
 bool ModsRestartNeeded();
 bool ModsRenameProfile(const std::string &from, const std::string &to);
+std::string ModsProfileLabel(const std::string &name);
+bool ModsIsReservedProfileName(const std::string &name);
 std::vector<std::string> ModsProfilesUsing(const std::string &folder);
 std::string ModsUninstall(const std::string &folder);
 void ModsNoteReceivedMap(const std::string &fullPath);
 bool ModsUninstallPending(const std::string &folder);
+void ModsCancelUninstall(const std::string &folder);
 void ModsApplyPendingUninstalls();
 int ModsCompareVersions(const std::string &a, const std::string &b);
 void ModsQueueSwap(const std::string &newFolder, const std::string &oldFolder);
@@ -110,7 +119,6 @@ std::string ModsProfileGameplayHash(const ModProfile &p);
 void ModsRestartGame(int largeAddress = -1, const std::string &args = "");
 void ModsPatchExeAtExit(int largeAddress);
 bool ModsExeIsLargeAddressAware();
-std::string ModsPreparePublish(const std::string &folder);
 void ModsOpenFolder(const std::string &folder);
 
 void ModsOnSaveWritten(const std::string &gamePath, bool online = false);
@@ -147,8 +155,8 @@ void InstallModsHooks(bool knownExe);
 bool ModsAllowedFile(const std::string &relPath);
 std::string ModsFolderPath();
 
-std::vector<std::string> ModsAutoOrder(const std::vector<std::string> &folders);
-size_t ModsInsertPosition(const std::vector<std::string> &folders, const std::string &folder);
+std::vector<std::string> ModsLoadOrder(const std::vector<std::string> &folders);
+bool ModsSameSet(std::vector<std::string> a, std::vector<std::string> b);
 struct ModIssues {
 	std::vector<std::string> problems;
 	int overwrites = 0;
