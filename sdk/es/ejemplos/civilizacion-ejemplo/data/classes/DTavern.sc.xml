@@ -1,0 +1,16 @@
+<class id="DTavern" cpp_class="CVXTavern" parent="BaseTavern"
+entity="Buildings/GTavern/Tavern_as.ent.xml"
+entity_autumn="Buildings/GTavern/Tavern_as.ent.xml"
+entity_spring="Buildings/GTavern/Tavern_as.ent.xml"
+entity_winter="Buildings/GTavern/Tavern_w.ent.xml">
+	<properties race="Dacia"/>
+	<properties display_name="Tavern"/>
+	<properties radius="170" selection_radius="180"/>
+	<properties edittree_pos="Structures/Stronghold (Gaul)/Tavern"/>
+	<properties auto_repair="no"/>
+	<properties icon="gameres/icons/GTavern.bmp"/>
+	<properties help="/contents/buildings/GTavern"/>
+
+	
+</class>
+

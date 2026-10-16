@@ -1,0 +1,20 @@
+# Documents the style the code already follows (tabs, Linux-style braces: a function's brace on its own line, control statements
+# K&R, case labels aligned with the switch). It is not applied to the whole tree; run it only on the lines you are changing:
+#   git clang-format
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++17
+UseTab: Always
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 0
+BreakBeforeBraces: Linux
+IndentCaseLabels: false
+NamespaceIndentation: None
+PointerAlignment: Right
+SortIncludes: Never
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Empty

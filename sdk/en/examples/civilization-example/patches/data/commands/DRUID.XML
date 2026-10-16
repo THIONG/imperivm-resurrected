@@ -1,0 +1,6 @@
+<patch>
+	<add select="/commands/cmd[@name='heal']"><src obj="DDruid"/></add>
+	<add select="/commands/cmd[@name='ghoul_summoning']"><src obj="DDruid"/></add>
+	<add select="/commands/cmd[@name='eagle_summoning']"><src obj="DDruid"/></add>
+	<add select="/commands/cmd[@name='restoration']"><src obj="DDruid"/></add>
+</patch>

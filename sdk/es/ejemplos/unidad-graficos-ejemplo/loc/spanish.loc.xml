@@ -1,0 +1,5 @@
+<translationtable>
+  <translationtableentry text="Simple Soldier@RSimpleSoldier class name" result="Soldado simple"/>
+  <translationtableentry text="Simple Soldiers@RSimpleSoldier class name plural" result="Soldados simples"/>
+  <translationtableentry text="Equip Simple Soldier@trainRSimpleSoldier" result="Equipar soldado simple"/>
+</translationtable>

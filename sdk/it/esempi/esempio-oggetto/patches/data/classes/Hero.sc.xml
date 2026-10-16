@@ -1,0 +1,6 @@
+<patch>
+  <!-- Un comportamento in più per tutti gli eroi: ricevono l'oggetto quando compaiono -->
+  <add select="/class">
+    <behavior script="data/mod/dai_amuleto.vs"/>
+  </add>
+</patch>

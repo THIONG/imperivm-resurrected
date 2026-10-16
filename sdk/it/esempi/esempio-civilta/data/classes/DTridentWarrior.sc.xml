@@ -1,0 +1,15 @@
+<class id="DTridentWarrior" cpp_class="CVXUnit" parent="Melee" entity="Units/GTridentWarrior/GTridentWarrior.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties maxhealth="1200"/>
+	<properties damage="80" armor_slash="14" armor_pierce="14"/>
+	<properties speed="80"/>
+	<properties unit_specials="Triumph, Freedom"/>
+
+	<properties icon="gameres/icons/GTridentWarrior.bmp"/>
+	<properties display_name="Trident Warrior" display_name_plural="Trident Warriors"/>
+	<properties help="contents/units/GTridentWarrior"/>
+	<properties edittree_pos="Units/Gaul/Trident Warrior"/>
+	<sounds command="data/sound entities/VoiceGTridentWarrior.xml" attack="UnitHammerFight"/>
+
+</class>

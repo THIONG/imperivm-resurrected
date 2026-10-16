@@ -1,0 +1,9 @@
+<class id="DWVillager" cpp_class="CVXUnit" parent="PeasantFemale" entity="Units/GWVillager/GWVillager.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties icon="gameres/icons/GWoman.bmp"/>
+
+	<properties edittree_pos="Units/Gaul/Peasant (female)"/>
+	<sounds command="data/sound entities/VoiceGFemaleVillager.xml"/>
+
+</class>

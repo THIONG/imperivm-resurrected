@@ -1,0 +1,5 @@
+<translationtable>
+  <!-- El nombre y la descripción de una orden se traducen con el nombre de la orden como contexto ("respiro") -->
+  <translationtableentry text="Second wind" context="respiro" result="Respiro"/>
+  <translationtableentry text="The soldier recovers 60 health (costs stamina)" context="respiro" result="El soldado recupera 60 de vida (gasta energía)"/>
+</translationtable>

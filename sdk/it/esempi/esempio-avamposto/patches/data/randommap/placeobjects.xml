@@ -1,0 +1,5 @@
+<patch>
+	<add select="/placeobjects/PlaceGameObjects[1]"><ifdef id="outposts">    <GameObj class="ArcherFort"      min="1" max="1" inf-max="10" inf="100" benefit="20" mindist="1500" fade="7"/> </ifdef></add>
+	<add select="/placeobjects/PlaceGameObjects[2]"><ifdef id="outposts">    <GameObj class="ArcherFort"      min="2" max="3" inf-max="9" inf="40" benefit="20" mindist="3000" fade="2"/> </ifdef></add>
+	<add select="/placeobjects/PlaceGameObjects[3]"><ifdef id="outposts">    <GameObj class="ArcherFort"      min="4" max="6" inf-max="12" inf="30" benefit="20" mindist="3000"/> </ifdef></add>
+</patch>

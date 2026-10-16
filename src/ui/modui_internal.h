@@ -1,0 +1,355 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 THIONG
+// Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
+#pragma once
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <map>
+#include <mutex>
+#include <cstdint>
+#include "mods/downloads.h"
+#include "ui/widgets.h"
+#include "ui/modui.h"
+#include "ui/richtext.h"
+#include "mods/mods.h"
+
+namespace modui_impl {
+using namespace ui;
+
+const int kDesignW = 1000;
+
+const int kDesignH = 640;
+
+const int kRowH = 28;
+
+const int kListX = 16;
+
+const int kListY = 122;
+
+const int kListW = 520;
+
+const int kListH = 430;
+
+const int kDetailX = kListX + kListW + 16;
+
+const int kFootY = 592;
+
+const char kOriginalName[] = "Original";
+
+const char kNoProfileName[] = "No profile";
+
+enum Action {
+	kNone, kNewProfile, kDupProfile, kDelProfile, kToggle, kSelect,
+	kOpenMods, kOpenMod, kRescan, kPublish, kApply, kClose, kConfirmYes, kConfirmNo,
+	kTabInstalled, kPickArchive, kCancelDownload, kUpdateMod,
+	kDropOpen, kDropClose, kDropPick, kSaveAs, kRenameProfile, kFocusName, kNameOk, kNameCancel, kFocusSearch,
+	kUninstall, kDragStart, kDropRow, kAutoOrder, kConflictOld,
+	kTabExplore, kIoFocusSearch, kIoPrev, kIoNext, kIoOpen, kIoBack, kIoInstall, kIoPage, kIoRetry, kOpenSource,
+	kIoShotOpen, kIoShotClose, kIoShotStep,
+	kRichLink, kShowProblems, kUpdateAll,
+	kIoFilterOpen, kIoFilterClose, kIoFilterToggle, kIoFilterClear,
+};
+
+enum Field { kNoField, kSearchField, kNameField, kIoSearchField };
+
+enum Drop { kDropNone, kDropProfile, kDropMenu, kDropFilter, kDropIoSort, kDropVersions };
+
+struct IoFilter {
+	const char *value;
+	const char *label;
+	int group;
+};
+
+const char *const kIoGroupNames[] = {"Type", "Impact", "Players", "Language", "Verified"};
+
+const int kIoGroupCount = 5;
+
+const IoFilter kIoFilters[] = {
+	{"Map", "Maps", 0}, {"Scenario", "Scenarios", 0}, {"Campaign", "Campaigns", 0}, {"Conquest", "Conquest", 0},
+	{"Balance", "Rules and balance", 0}, {"Units", "Units", 0}, {"Civilization", "Civilizations", 0},
+	{"Graphics", "Graphics", 0}, {"Audio", "Audio", 0}, {"Voices", "Voices", 0}, {"Interface", "Interface", 0},
+	{"Translation", "Translations", 0}, {"Total conversion", "Total conversion", 0},
+	{"Gameplay", "Changes gameplay", 1}, {"Cosmetic", "Cosmetic only", 1},
+	{"2", "2", 2}, {"3", "3", 2}, {"4", "4", 2}, {"5", "5", 2}, {"6", "6", 2}, {"7", "7", 2}, {"8", "8", 2},
+	{"Spanish", "Spanish", 3}, {"English", "English", 3}, {"Italian", "Italian", 3}, {"German", "German", 3},
+	{"French", "French", 3}, {"Polish", "Polish", 3}, {"Multilingual", "Several languages", 3},
+	{"Online tested", "Tested online", 4}};
+
+const int kIoFilterCount = static_cast<int>(sizeof(kIoFilters) / sizeof(kIoFilters[0]));
+
+const char *const kIoSortNames[] = {"Popular", "Most liked", "Recent", "Recently updated"};
+
+const int kIoPerPage = 8;
+
+std::string IoTagName(const std::string &tag);
+enum NameMode { kNameNone, kNameSaveAs, kNameRename, kNameNew, kNameDup };
+
+enum Confirm { kConfirmRestart, kConfirmUninstall, kConfirmDelete, kConfirmConflict };
+
+const char *const kFilterNames[] = {"All", "Active", "Disabled", "Gameplay", "Maps", "Cosmetics", "With errors"};
+
+struct Row {
+	std::string folder;
+	bool active = false;
+	int priority = -1;
+};
+
+struct State {
+	bool open = false;
+	bool confirm = false;
+	int confirmKind = kConfirmRestart;
+	bool confirmOnly = false;
+	std::vector<std::string> confirmItems;
+	std::string confirmItemsTitle;
+	ListState confirmList;
+	ListGeom confirmGeom;
+	std::string conflictFolder;
+	std::vector<std::string> conflictWith;
+	int conflictFiles = 0;
+	ModProfile profile;
+	std::vector<std::string> profileNames;
+	std::vector<ModInfo> mods;
+	std::vector<Row> rows;
+	std::map<std::string, std::vector<std::string>> usedBy;
+	std::vector<std::string> pendingUninstall;
+	std::map<std::string, ModIssues> issues;
+	int selected = 0;
+	ListState list;
+	ListGeom listGeom;
+	int dropScroll = 0;
+	bool mouseDown = false;
+	bool busy = false;
+	int mouseX = -1, mouseY = -1;
+	std::vector<Hit> hits;
+	std::string toast;
+	DWORD toastUntil = 0;
+	DWORD toastLen = 6000;
+	bool toastErr = false;
+	DWORD lastRefresh = 0;
+	bool restartNeeded = false;
+
+	int drop = kDropNone;
+	int nameMode = kNameNone;
+	std::string nameText;
+	std::string searchText;
+	int filter = 0;
+	int dragRow = -1;
+
+	int tab = 0;
+	int focus = kNoField;
+	DownloadStatus dl;
+	bool catalogRequested = false;
+
+	std::string ioSearch;
+	EditState edit;
+	int tabAction = -1, tabArg = 0;
+	int ioSort = 0, ioPage = 0;
+	uint32_t ioFilterMask = 0;
+	bool ioFilterOpen = false;
+	int ioDetail = -1;
+	int ioShot = -1;
+	bool ioRequested = false;
+	GbResults io;
+	GbMod verMod;
+	bool verHas = false;
+	uint64_t dlFinished = 0;
+
+	std::string restartReason;
+	int restartLargeAddress = -1;
+};
+
+extern std::mutex g_lock;
+extern State g_s;
+extern ListGeom g_listGeomOut;
+struct RichTextState {
+	std::mutex mx;
+	std::string src;
+	std::vector<RichBlock> blocks;
+	int view = 0;
+	ListState list;
+	ListGeom geom;
+	RECT rect = {};
+	bool rectValid = false;
+	DWORD rectTick = 0;
+};
+extern RichTextState g_rich;
+const COLORREF kLink = RGB(130, 182, 238);
+
+const ModInfo *FindModIn(const std::vector<ModInfo> &mods, const std::string &folder);
+const ModInfo *FindMod(const std::string &folder);
+bool Pending(const State &st, const std::string &folder);
+std::vector<int> VisibleRows(const State &st);
+void BuildRows();
+void BuildUsage();
+void Reload();
+int FieldOfAction(int action);
+int ActionOfField(int field);
+std::string &FieldRef(int field);
+void FocusField(int field);
+void SetStatus(const std::string &s);
+bool FindUpdateFor(const State &st, const ModInfo &m, CatalogEntry &out);
+void SwitchProfile(const std::string name);
+void PlaceConflict(bool newWins);
+void CommitProfile();
+void SelectFolder(const std::string &folder);
+void FinishName();
+void StartName(int mode);
+std::vector<std::string> DropItems(const State &st);
+void IoSearch();
+void OpenWeb(const std::string &url);
+void OpenFolderAsync(const std::string &folder);
+void PickDrop(int index);
+void MoveActive(int fromRow, int toRow);
+void DiscardPendingChanges();
+void DoAction(int action, int arg);
+struct DropListState {
+	int rows = 0;
+	int count = 0;
+	RECT anchor = {};
+};
+extern DropListState g_drop;
+int DropCurrent(const State &st);
+void PaintFilterPanel(Painter &p, const State &st);
+void PaintPanel(Painter &p, const State &st);
+void PaintInstalled(Painter &p, const State &st);
+void PaintField(Painter &p, const State &st, int x, int y, int w, int h, const std::string &text, const std::string &placeholder,
+	bool focused, bool secret, int action, int mx, int my);
+void PaintFooter(Painter &p, const State &st);
+const int kConfirmW = 560;
+
+const int kConfirmH = 210;
+
+const int kConfirmListRows = 6;
+
+const int kConfirmRowH = 22;
+
+extern ListGeom g_confirmGeomOut;
+void ConfirmSize(const State &st, int &cw, int &ch);
+void PaintConfirm(Painter &p, const State &st);
+extern Canvas g_canvas;
+extern Canvas g_toastCanvas;
+int UpdatesAvailable();
+struct CardState {
+	RECT close = {};
+	bool shown = false;
+	bool swallowUp = false;
+	Canvas canvas;
+};
+extern CardState g_card;
+struct Card {
+	std::string text;
+	std::string sub;
+	float progress = -1;
+	COLORREF accent = kGold;
+	bool close = false;
+	bool corner = false;
+	int fixedW = 0;
+	int atX = -1, atCenterY = 0;
+};
+
+RECT DrawCard(Canvas &canvas, uint32_t *buf, int w, int h, const Card &c, float s, int alpha);
+struct HoverState {
+	int x = -1;
+	int y = -1;
+};
+extern HoverState g_hover;
+struct DiscordIconState {
+	Canvas canvas;
+	std::vector<uint32_t> base;
+	int baseW = 0;
+	int baseH = 0;
+	std::vector<uint32_t> scaled;
+	int scaledSize = 0;
+	bool loaded = false;
+	RECT rect = {};
+	bool shown = false;
+	bool swallowUp = false;
+};
+extern DiscordIconState g_icon;
+struct SpectatorBarState {
+	RECT btn[9] = {};
+	RECT bar = {};
+	bool barShown = false;
+	bool swallowUp = false;
+	bool drag = false;
+	bool move = false;
+	int moveDX = 0;
+	int moveDY = 0;
+	int winW = 0;
+	int winH = 0;
+	double dragFrac = 0;
+	Canvas text;
+};
+extern SpectatorBarState g_spec;
+struct ClipBox {
+	int x0 = 0, y0 = 0, x1 = 1 << 30, y1 = 1 << 30;
+};
+
+extern ClipBox g_clip;
+void FillRound(uint32_t *buf, int W, int H, float x, float y, float w, float h, float r, COLORREF c, float a);
+void StrokeRound(uint32_t *buf, int W, int H, float x, float y, float w, float h, float r, float thick, COLORREF c, float a);
+void FillDisc(uint32_t *buf, int W, int H, float cx, float cy, float r, COLORREF c, float a);
+void FillTriangle(uint32_t *buf, int W, int H, float ax, float ay, float bx, float by, float cx, float cy, COLORREF c, float a);
+void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a);
+std::wstring ClockText(unsigned ms);
+struct RectF {
+	float x = 0, y = 0, w = 0, h = 0;
+	bool Has(float px, float py) const { return px >= x && px < x + w && py >= y && py < y + h; }
+};
+
+void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY);
+struct CheatBtn {
+	int verb;
+	int amount;
+	RECT rect;
+	float offY;
+	float offH;
+};
+
+const int kChMaxBtn = 512;
+
+const int kChNoFocus = 1 << 20;
+
+struct CheatsPanelState {
+	CheatBtn btn[kChMaxBtn] = {};
+	int btnCount = 0;
+	RECT tab = {};
+	RECT panel = {};
+	RECT track = {};
+	bool shown = false;
+	bool swallowUp = false;
+	bool drag = false;
+	float scroll = 0;
+	float maxScroll = 0;
+	int edit = -1;
+	bool searchEdit = false;
+	int focus = kChNoFocus;
+	EditState es;
+	FieldGeom geom[8];
+	bool geomOk[8] = {};
+	float pos = -2;
+	int move = 0;
+	int moveY0 = 0;
+	int grab = 0;
+	int winH = 1;
+	bool moved = false;
+};
+extern CheatsPanelState g_ch;
+void ChSavePos();
+bool ChIsValue(int verb);
+bool ChEditing();
+std::string &ChText();
+int ChSlot();
+void CheatsScrollToMouse(int mouseY);
+void ChSetFocus(int verb);
+void ChClearFocus();
+void ChActivate(int v, int amount, bool fromKey);
+bool ChHandleKey(UINT msg, WPARAM wp, LPARAM lp);
+void DrawCheatsPanel(uint32_t *frame, int frameW, int H, float s);
+RECT DiscordIconRect(int w, int h);
+void DrawDiscordCorner(uint32_t *buf, int w, int h);
+void DrawVersionCorner(uint32_t *buf, int w, int h);
+
+}

@@ -1,0 +1,5 @@
+<patch>
+  <!-- La especialidad se asigna con el mismo atributo unit_specials de siempre: el juego ignora el nombre que no conoce y el mod
+       pone su bit. Al poner el atributo se sustituye la lista de la clase, así que se repite la del hastatus (Deflection) -->
+  <set select="/class/properties[@unit_specials='Deflection']" unit_specials="Deflection, Critical"/>
+</patch>

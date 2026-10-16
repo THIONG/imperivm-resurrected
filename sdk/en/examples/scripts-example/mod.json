@@ -1,0 +1,18 @@
+{
+  "id": "ejemplo-scripts",
+  "name": {
+    "spanish": "Ejemplo: scripts",
+    "english": "Example: scripts",
+    "italian": "Esempio: script"
+  },
+  "version": "1.0",
+  "category": "Gameplay & Balance",
+  "tags": ["Gameplay"],
+  "authors": ["Imperivm Resurrected"],
+  "description": {
+    "spanish": "Ejemplo del SDK: eventos y comportamientos de script que escriben en el registro. Cambia el equilibrio: los hastatus hacen el doble de daño y se curan 25 al matar a un soldado. No lo actives en una partida en serio. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",
+    "english": "SDK example: script events and behaviors that write to the log. It changes the balance: hastati deal double damage and heal 25 when they kill a soldier. Don't enable it in a serious game. Changes gameplay: everyone must have it in multiplayer.",
+    "italian": "Esempio dell'SDK: eventi e comportamenti di script che scrivono nel registro. Cambia l'equilibrio: gli hastati fanno il doppio del danno e si curano di 25 quando uccidono un soldato. Non attivarlo in una partita seria. Cambia il gioco: in multigiocatore devono averlo tutti."
+  },
+  "redistributable": true
+}

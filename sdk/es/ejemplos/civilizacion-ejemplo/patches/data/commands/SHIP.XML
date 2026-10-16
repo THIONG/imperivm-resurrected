@@ -1,0 +1,4 @@
+<patch>
+	<add select="/commands/cmd[@name='boardunit']"><nsrc obj="DGhost"/></add>
+	<add select="/commands/cmd[@name='unboardall']"><nsrc obj="DGhost"/></add>
+</patch>

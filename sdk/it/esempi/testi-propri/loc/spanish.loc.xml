@@ -1,0 +1,11 @@
+<translationtable>
+  <!-- Senza contesto: cambia il testo in tutti i posti in cui compare -->
+  <translationtableentry text="Single player" result="Un jugador"/>
+  <translationtableentry text="Multiplayer" result="Multijugador"/>
+
+  <!-- Con contesto: solo il pulsante "Opciones" del menu di fine partita -->
+  <translationtableentry text="Options" context="/Menu/endgamemenu.ini:Options:Text" result="Ajustes"/>
+
+  <!-- A capo con \n -->
+  <translationtableentry text="Tutorial mode" result="Modo\ntutorial"/>
+</translationtable>

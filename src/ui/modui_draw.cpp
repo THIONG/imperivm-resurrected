@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 THIONG
+// Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
+#define NOMINMAX
+#include <windows.h>
+#include <mutex>
+#include "ui/updateui.h"
+#include "ui/mpui.h"
+#include "net/spectator.h"
+#include "game/cheats.h"
+#include "ui/savesui.h"
+#include "ui/support.h"
+#include "ui/controlsui.h"
+#include "addr/state.h"
+
+#include "ui/modui_internal.h"
+
+using namespace modui_impl;
+
+bool ModUiNeedsDraw()
+{
+	const bool inGame = *reinterpret_cast<void **>(addr::kGame) != nullptr;
+	SpectatorState spState;
+	const bool menu = !inGame && MpUiMainMenuVisible() && !MpUiIsOpen() && !SavesUiIsOpen() && !ControlsUiNeedsDraw();
+	std::lock_guard<std::mutex> lock(g_lock);
+	g_icon.shown = menu && !g_s.open;
+	return g_s.open || (!g_s.toast.empty() && static_cast<int>(g_s.toastUntil - GetTickCount()) > 0) || DlStatus().active || g_icon.shown || SpectatorViewing() || SpectatorControls(spState) || CheatsPanelAvailable();
+}
+
+void ModUiDraw(uint32_t *buf, int w, int h)
+{
+	{
+		std::lock_guard<std::mutex> lock(g_rich.mx);
+		g_rich.rectValid = false;
+	}
+	State st;
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		if (g_s.open && GetTickCount() - g_s.lastRefresh > 1000) {
+			const size_t before = g_s.mods.size();
+			g_s.mods = ModsList();
+			if (g_s.mods.size() != before) {
+				BuildRows();
+				BuildUsage();
+			}
+			g_s.lastRefresh = GetTickCount();
+		}
+		if (g_s.open) {
+			g_s.dl = DlStatus();
+			if (g_s.dl.finished != g_s.dlFinished) {
+				g_s.dlFinished = g_s.dl.finished;
+				g_s.mods = ModsList();
+				BuildRows();
+				BuildUsage();
+				g_s.restartNeeded = ModsRestartNeeded();
+			}
+			if (g_s.tab == 2) {
+				const uint64_t before = g_s.io.serial;
+				g_s.io = GbGetResults();
+				if (g_s.io.serial != before) g_s.ioDetail = -1;
+			}
+		}
+		st = g_s;
+	}
+	const float s = std::max(0.6f, std::min(1.6f, std::min((w - 24) / static_cast<float>(kDesignW),
+														  (h - 24) / static_cast<float>(kDesignH))));
+	if (st.open) {
+		int confirmW = kConfirmW, confirmH = kConfirmH;
+		ConfirmSize(st, confirmW, confirmH);
+		PanelRender r(g_canvas, buf, w, h);
+		if (r.Begin(st.confirmOnly ? confirmW : kDesignW, st.confirmOnly ? confirmH : kDesignH, 24, true, s)) {
+			r.Focus(st.tabAction, st.tabArg);
+			r.Press(st.hits, st.mouseDown, POINT{st.mouseX, st.mouseY});
+			if (st.confirmOnly) PaintConfirm(r.p, st);
+			else PaintPanel(r.p, st);
+			r.End(st.confirmOnly ? 255 : 248);
+			std::lock_guard<std::mutex> lock(g_lock);
+			g_s.hits = std::move(r.hits);
+			g_s.confirmGeom = g_confirmGeomOut;
+			g_s.listGeom = g_listGeomOut;
+		}
+	}
+	const int left = static_cast<int>(st.toastUntil - GetTickCount());
+	if (!st.toast.empty() && left > 0) {
+		const int shown = static_cast<int>(st.toastLen) - left;
+		const int alpha = std::max(0, static_cast<int>(240 * std::min({1.0f, shown / 200.0f, left / 500.0f})));
+		Card card;
+		card.text = st.toast;
+		card.accent = st.toastErr ? kBad : kGold;
+		DrawCard(g_toastCanvas, buf, w, h, card, s, alpha);
+	}
+	bool iconShown = false;
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		iconShown = g_icon.shown;
+	}
+	if (iconShown) {
+		DrawVersionCorner(buf, w, h);
+		DrawDiscordCorner(buf, w, h);
+		const RECT discord = DiscordIconRect(w, h);
+		SupportDrawCorner(buf, w, h, discord);
+		{
+			const int size = discord.right - discord.left, gap = std::max(8, size / 4);
+			const RECT heart = {discord.left, discord.top - gap - size, discord.right, discord.top - gap};
+			UpdateUiDrawCorner(buf, w, h, heart);
+		}
+		SupportDrawPanel(buf, w, h);
+		UpdateUiDrawPanel(buf, w, h);
+	}
+	{
+		DrawSpectatorBar(buf, w, h, s, static_cast<int>(12 * s));
+		DrawCheatsPanel(buf, w, h, s);
+	}
+	const DownloadStatus dl = DlStatus();
+	RECT closeBox = {};
+	bool cardShown = false;
+	if (dl.active) {
+		Card card;
+		const bool installing = dl.total && dl.done >= dl.total;
+		card.text = std::string(installing ? Tr("Installing ") : Tr("Downloading ")) + (dl.what.empty() ? std::string("mod") : dl.what);
+		card.progress = dl.total ? static_cast<float>(dl.done) / static_cast<float>(dl.total) : 0.0f;
+		card.sub = HumanBytes(dl.done) + (dl.total ? Tr(" of ") + HumanBytes(dl.total) : "") +
+			(dl.queued ? "  ·  +" + std::to_string(dl.queued) + Tr(" queued") : "");
+		card.close = true;
+		card.corner = true;
+		card.fixedW = 340;
+		const RECT r = DrawCard(g_card.canvas, buf, w, h, card, s, 240);
+		closeBox = {r.right - static_cast<LONG>(30 * s), r.top, r.right, r.top + static_cast<LONG>(30 * s)};
+		cardShown = r.right > r.left;
+	}
+	std::lock_guard<std::mutex> lock(g_lock);
+	g_card.close = closeBox;
+	g_card.shown = cardShown;
+}

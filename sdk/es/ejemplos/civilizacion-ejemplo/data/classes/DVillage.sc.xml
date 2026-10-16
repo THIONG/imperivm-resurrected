@@ -1,0 +1,13 @@
+<class id="DVillage" cpp_class="CVXTownHall" parent="BaseVillage" entity="Buildings/GVillage/GVillage.ent.xml"
+	entity_autumn="Buildings/GVillage/GVillage.ent.xml"
+	entity_spring="Buildings/GVillage/GVillage.ent.xml"
+	entity_winter="Buildings/GVillage/GVillage_w.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties foodperpop="45"/>
+	<properties icon="gameres/icons/GWarehouse.bmp"/>
+	<properties edittree_pos="Structures/Village (Gaul)/Village hall"/>
+	<properties help="/contents/buildings/Village"/>
+
+	
+</class>

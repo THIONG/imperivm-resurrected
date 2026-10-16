@@ -1,0 +1,10 @@
+{
+  "id": "mi-mod",
+  "name": { "spanish": "Mi mod", "english": "My mod", "italian": "Il mio mod" },
+  "version": "1.0",
+  "authors": ["Tu nombre"],
+  "description": { "spanish": "Qué hace tu mod, en una o dos frases.", "english": "What your mod does, in a sentence or two.", "italian": "Cosa fa il tuo mod, in una o due frasi." },
+  "category": "Gameplay & Balance",
+  "tags": ["Gameplay"],
+  "redistributable": true
+}

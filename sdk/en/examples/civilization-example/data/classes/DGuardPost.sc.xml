@@ -1,0 +1,38 @@
+<class id="DGuardPost" cpp_class="CVXOutpost" parent="Outpost"
+  entity        = "Buildings/GGuardPost/GGuardPost_AS.ent.xml"
+  entity_winter = "Buildings/GGuardPost/GGuardPost_W.ent.xml"
+>
+	<properties race="Dacia"/>
+	<properties maxhealth="10000"/>
+	<properties display_name="Guard Post"/>
+	<properties icon="gameres/icons/GGuardPost.bmp"/>
+	<properties edittree_pos="Structures/Outposts/Guard Post"/>
+	<properties help="/contents/buildings/GGuardPost"/>
+	<properties auto_repair="no"/>
+
+	<properties
+		sight="1500"
+		range="1000"
+		settlement_food="0"
+		settlement_gold="0"
+		settlement_maxfood="0"
+		settlement_maxgold="10000"
+		max_units="0"
+	/>
+	
+	<behavior script="data/subai/settlement_behavior_horses.vs"/>
+	<behavior script="data/subai/GGuardPost_Sentries.vs"/>
+	<method sig="repair" vs="data/subai/building_repair.vs"/>
+
+	<value3
+		icon=""
+		script=""
+		help=""/>
+		
+	<properties interface="thumb,building"/>
+	
+	<defaultcmd target="">
+		<cmd name="unitsout"/>
+	</defaultcmd>
+
+</class>

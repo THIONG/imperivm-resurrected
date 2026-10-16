@@ -1,0 +1,18 @@
+<class id="DDruidHouse" cpp_class="CVXBarrack" parent="BaseBarracks"
+	entity="Buildings/GDruidHouse/GDruidHouse_as.ent.xml"
+	entity_autumn="Buildings/GDruidHouse/GDruidHouse_as.ent.xml"
+	entity_spring="Buildings/GDruidHouse/GDruidHouse_as.ent.xml"
+	entity_winter="Buildings/GDruidHouse/GDruidHouse_w.ent.xml"
+>
+	<properties race="Dacia"/>
+	<properties display_name="Druid House"/>
+	<properties radius="190" selection_radius="220"/>
+	<properties help="/contents/buildings/GDruidHouse"/>
+
+	<properties edittree_pos="Structures/Stronghold (Gaul)/Druid House"/>
+	<properties auto_repair="no"/>
+	<properties icon="gameres/icons/Gdruidhouse.bmp"/>
+
+	<sounds select="TempleSelect"/>
+
+</class>

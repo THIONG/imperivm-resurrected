@@ -1,0 +1,6 @@
+<class id="DWVillagerAmbient" cpp_class="CVXUnit" parent="PeasantAmbient" entity="Units/GWVillager/GWVillager.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties icon="gameres/icons/GWoman.bmp"/>
+
+</class>

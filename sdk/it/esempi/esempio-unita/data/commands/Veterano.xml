@@ -1,0 +1,24 @@
+<commands>
+
+<!-- Il pulsante della caserma romana per reclutare il Veterano. È un file nuovo: il gioco carica tutti gli .xml di data\commands.
+     È una copia di "trainRHastatus" (data\commands\RBARRACKS.XML) con un'altra classe, un altro costo e immagini proprie. -->
+<cmd name="trainRVeteran" priority="3"
+	button="actions/train RVeteran.bmp"
+	queueicon="gameres/icons/RVeteran.bmp"
+	groupverifier="data/subai/verify_cmdcost_building.vs"
+	transpicon="1"
+	traincommand="yes"
+	key="v"
+	help="/contents/units/RHastatus"
+	costgold="180"
+	costfood="0"
+	costpop="1"
+	execdelay="9000"
+	rollover="Equip Veteran"
+	method="train"
+	param="RVeteran"
+	sclass="RVeteran">
+	<src obj="RBarracks"/>
+</cmd>
+
+</commands>

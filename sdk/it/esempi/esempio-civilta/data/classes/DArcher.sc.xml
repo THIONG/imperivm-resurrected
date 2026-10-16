@@ -1,0 +1,15 @@
+<class id="DArcher" cpp_class="CVXUnit" parent="Ranged" entity="Units/GArcher/GArcher.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties maxhealth="140"/>
+	<properties damage="12" armor_slash="0" armor_pierce="0"/>
+	<properties speed="80"/>
+	<properties unit_specials="Attack skill"/>
+	<properties projectile_class="Arrow"/>
+	<properties icon="gameres/icons/GArcher.bmp"/>
+	<properties display_name="Archer" display_name_plural="Archers"/>
+	<properties help="contents/units/GArcher"/>
+	<properties edittree_pos="Units/Gaul/Archer"/>
+	<sounds command="data/sound entities/VoiceGArcher.xml"/>
+
+</class>

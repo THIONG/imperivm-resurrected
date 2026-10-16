@@ -1,0 +1,7 @@
+<class id="DWallsNE" cpp_class="CVXBuilding" parent="Wall" entity="Buildings/GWalls/WallNE/WallNE.ent.xml">
+	<properties race="Dacia"/>
+	<properties icon="gameres/icons/GWalls.bmp"/>
+	<properties radius="110" selection_radius="110"/>
+	<properties wall_set="Gaul walls"/>
+	<properties sentry_class_name="DSentry"/>
+</class>

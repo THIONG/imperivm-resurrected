@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the release to check (for example v0.31.54)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  assets:
+    needs: checks
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download what was attached to the release
+        shell: bash
+        run: gh release download "$TAG" --dir assets --clobber
+
+      - name: Build the SDK zip from sdk/ at this tag
+        run: node tools/build-sdk-zip.js assets
+
+      - name: Verify the release (version, signature, hashes, contents)
+        shell: bash
+        run: |
+          rm -f assets/SHA256SUMS.txt
+          node tools/verify-release.js assets --tag "$TAG" --write-sums
+
+      - name: Attach the SDK zip and the checksums
+        shell: bash
+        run: gh release upload "$TAG" assets/imperivm-resurrected-sdk-*.zip assets/SHA256SUMS.txt --clobber

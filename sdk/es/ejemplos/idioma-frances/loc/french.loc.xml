@@ -1,0 +1,26 @@
+<translationtable>
+  <!-- Menú principal -->
+  <translationtableentry text="Single player" result="Solo"/>
+  <translationtableentry text="Multiplayer" result="Multijoueur"/>
+  <translationtableentry text="Options" result="Options"/>
+  <translationtableentry text="Credits" result="Crédits"/>
+  <translationtableentry text="Quit" result="Quitter"/>
+
+  <!-- Opciones -->
+  <translationtableentry text="Music and sound" result="Musique et son"/>
+  <translationtableentry text="Graphics" result="Graphismes"/>
+  <translationtableentry text="Gameplay" result="Jeu"/>
+  <translationtableentry text="Resolution" result="Résolution"/>
+  <translationtableentry text="Play music" result="Musique"/>
+  <translationtableentry text="Sound effects" result="Effets sonores"/>
+  <translationtableentry text="Nature sounds" result="Sons de la nature"/>
+  <translationtableentry text="Unit speech" result="Voix des unités"/>
+  <translationtableentry text="Conversations" result="Dialogues"/>
+  <translationtableentry text="Game speed" result="Vitesse du jeu"/>
+  <translationtableentry text="Scroll speed" result="Vitesse de défilement"/>
+  <translationtableentry text="Tutorial mode" result="Mode tutoriel"/>
+  <translationtableentry text="Adventure difficulty" result="Difficulté des aventures"/>
+  <translationtableentry text="OK" result="OK"/>
+  <translationtableentry text="Cancel" result="Annuler"/>
+  <translationtableentry text="Back" result="Retour"/>
+</translationtable>

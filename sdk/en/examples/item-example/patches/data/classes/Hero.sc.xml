@@ -1,0 +1,6 @@
+<patch>
+  <!-- One more behavior for every hero: they're given the item when they appear -->
+  <add select="/class">
+    <behavior script="data/mod/give_amulet.vs"/>
+  </add>
+</patch>

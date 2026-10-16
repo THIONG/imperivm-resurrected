@@ -1,0 +1,51 @@
+name: Bug report
+description: Something does not work in the mod
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The quickest way to give us what we need is the report the mod creates. In the main menu of the game, click the heart at the bottom left, then **Create report**. It makes a zip in `Logs\imperivm\reports\` with the logs of the last sessions, your system and the active content. Steam IDs, IP addresses and your Windows user name are replaced. The mod sends nothing: read the zip and attach it below.
+  - type: input
+    id: version
+    attributes:
+      label: Mod version
+      description: Bottom right of the main menu, for example 0.31.58.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you got instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: online
+    attributes:
+      label: Online play
+      options:
+        - Not involved
+        - I was the host
+        - I was a guest
+        - I was a spectator
+    validations:
+      required: true
+  - type: input
+    id: other-version
+    attributes:
+      label: Version of the other player
+      description: Only for online problems.
+  - type: dropdown
+    id: content
+    attributes:
+      label: Content packs
+      options:
+        - None active (Original profile)
+        - Active, and it also happens without them
+        - Active, and I did not try without them
+  - type: textarea
+    id: report
+    attributes:
+      label: Report
+      description: Drag the zip here. If you cannot start the game, attach the files of `Logs\imperivm\` instead (`imperivm-mod.crashed.log` is the last session that ended badly).

@@ -1,0 +1,15 @@
+<patch>
+  <!-- A new item: it's added to the game's item list. The icon image is one of the game's (the bear teeth);
+       for your own icon, put it in gameres/icons/items/ inside the mod and change the path. -->
+  <add select="/items">
+    <item id="Amuleto de ejemplo"
+          image="gameres/icons/items/Bear Teeth.bmp"
+          sound="data/sound entities/ItemUse.xml"
+          level="0"
+          name="Amuleto de ejemplo"
+          description="Adds 10 to damage and 5 to armor"
+          important="no">
+      <bonus health="0" damage="10" armor_slash="5" armor_pierce="5" level="0" experience="0"/>
+    </item>
+  </add>
+</patch>

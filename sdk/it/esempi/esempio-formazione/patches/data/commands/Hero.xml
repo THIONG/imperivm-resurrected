@@ -1,0 +1,28 @@
+<patch>
+  <!-- I due pulsanti di una formazione: quello che si vede quando è la corrente ("-menu", apre l'elenco) e quello che la sceglie.
+       Qui usano l'immagine della formazione Front; per averne una propria, vedi la guida alle immagini. -->
+  <add select="/commands">
+    <cmd name="form-wedge-menu" priority="1"
+        method="move"
+        button="States/front form.bmp"
+        key="f"
+        rollover="Select Formation"
+        param="Wedge"
+        groupverifier="data/subai/hero_formation_menu_verify.vs"
+        menu="1">
+      <src obj="Hero"/>
+    </cmd>
+
+    <cmd name="form-wedge" priority="1"
+        method="formation"
+        button="States/front form.bmp"
+        immediate="yes"
+        key="i"
+        rollover="Select Wedge formation"
+        param="Wedge"
+        groupverifier="data/subai/hero_formation_verify.vs"
+        menu="1">
+      <src obj="Hero"/>
+    </cmd>
+  </add>
+</patch>

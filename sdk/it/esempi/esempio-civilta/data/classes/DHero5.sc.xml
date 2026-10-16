@@ -1,0 +1,7 @@
+<class id="DHero5" cpp_class="CVXHero" parent="DaciaHero" entity="Units/Larax/Larax.ent.xml">
+
+	<properties display_name="Larax" display_name_plural="Heroes"/>
+	<properties icon="gameres/icons/Larax.bmp"/>
+	<properties edittree_pos="Units/Heroes/Larax (Gaul)"/>
+
+</class>

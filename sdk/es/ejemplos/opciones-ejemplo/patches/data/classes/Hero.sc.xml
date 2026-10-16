@@ -1,0 +1,6 @@
+<patch>
+  <!-- Un comportamiento más para todos los héroes: mira la opción de la sala -->
+  <add select="/class">
+    <behavior script="data/mod/heroes_veloces.vs"/>
+  </add>
+</patch>

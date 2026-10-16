@@ -1,0 +1,15 @@
+<class id="DAxeman" cpp_class="CVXUnit" parent="Melee" entity="Units/GAxeman/GAxeman.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties maxhealth="220"/>
+	<properties damage="40" armor_slash="8" armor_pierce="8"/>
+	<properties speed="80"/>
+	<properties unit_specials="Offensive tactics, Ferocity"/>
+
+	<properties icon="gameres/icons/GAxeman.bmp"/>
+	<properties display_name="Axeman" display_name_plural="Axemen"/>
+	<properties help="contents/units/GAxeman"/>
+	<properties edittree_pos="Units/Gaul/Axeman"/>
+	<sounds command="data/sound entities/VoiceGAxeman.xml"/>
+        <sounds attack="AxeAttack" />
+</class>

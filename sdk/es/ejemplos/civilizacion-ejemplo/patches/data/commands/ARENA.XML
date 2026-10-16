@@ -1,0 +1,4 @@
+<patch>
+	<add select="/commands/cmd[@name='Warrior Tales']"><src obj="DArena1"/><src obj="DArena2"/></add>
+	<add select="/commands/cmd[@name='Battle tactics']"><src obj="DArena1"/><src obj="DArena2"/></add>
+</patch>

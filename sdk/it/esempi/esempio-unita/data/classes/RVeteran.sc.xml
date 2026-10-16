@@ -1,0 +1,20 @@
+<!-- Una nuova unità: il Veterano romano. È una COPIA intera della classe dell'hastatus (data\classes\RHastatus.sc.xml del gioco) con un altro id e
+     altre statistiche. Si copia intera (e non con parent="RHastatus") perché il gioco non eredita dal padre l'entità (il modello). -->
+<class id="RVeteran" cpp_class="CVXUnit" parent="Melee" entity="Units/RHastatus/RHastatus.ent.xml">
+
+	<properties race="RepublicanRome"/>
+	<!-- Più forte dell'hastatus: 260 di vita (200), attacco 20 (16), armatura 14 (12) -->
+	<properties maxhealth="260"/>
+	<properties damage="20" armor_slash="14" armor_pierce="14"/>
+	<properties speed="60"/>
+	<properties unit_specials="Deflection"/>
+
+	<!-- Il ritratto proprio (gameres\icons\RVeteran.bmp, fatto con strumenti/converti-immagine.js) -->
+	<properties icon="gameres/icons/RVeteran.bmp"/>
+	<!-- display_name è la chiave del testo: si traduce con "Veteran@RVeteran class name" (vedi loc\spanish.loc.xml) -->
+	<properties display_name="Veteran" display_name_plural="Veterans"/>
+	<properties help="contents/units/RHastatus"/>
+	<properties edittree_pos="Units/Roman/Veteran"/>
+	<sounds command="data/sound entities/VoiceRHastatus.xml"/>
+
+</class>

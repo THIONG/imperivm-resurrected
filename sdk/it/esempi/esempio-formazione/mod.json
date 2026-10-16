@@ -1,0 +1,18 @@
+{
+  "id": "ejemplo-formacion",
+  "name": {
+    "spanish": "Ejemplo: formación nueva",
+    "english": "Example: new formation",
+    "italian": "Esempio: nuova formazione"
+  },
+  "version": "1.0",
+  "category": "Gameplay & Balance",
+  "tags": ["Gameplay"],
+  "authors": ["Imperivm Resurrected"],
+  "description": {
+    "spanish": "Ejemplo del SDK: una formación nueva para los héroes, la Cuña (+3 de daño y +1 de armadura a su ejército parado, con la caballería delante). Aparece junto a las formaciones del juego. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",
+    "english": "SDK example: a new formation for heroes, the Wedge (+3 damage and +1 armor for its army while standing, with the cavalry in front). It shows up next to the game's formations. Changes gameplay: everyone must have it in multiplayer.",
+    "italian": "Esempio dell'SDK: una nuova formazione per gli eroi, la Wedge (cuneo: +3 di danno e +1 di armatura al suo esercito fermo, con la cavalleria davanti). Compare insieme alle formazioni del gioco. Cambia il gioco: in multigiocatore devono averlo tutti."
+  },
+  "redistributable": true
+}

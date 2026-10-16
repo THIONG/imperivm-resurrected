@@ -1,0 +1,6 @@
+<translationtable>
+	<!-- El nombre de la clase: "<display_name>@<id de la clase> class name" -->
+	<translationtableentry text="Archer fort@ArcherFort class name" result="Fortín de arqueros"/>
+	<!-- La descripción sale al seleccionarlo: se traduce por su texto -->
+	<translationtableentry text="A fort full of archers: its garrison gains experience slowly" result="Un fortín lleno de arqueros: su guarnición gana experiencia poco a poco"/>
+</translationtable>

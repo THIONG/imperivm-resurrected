@@ -1,0 +1,16 @@
+<class id="DArena2" cpp_class="CVXBuilding" parent="BaseArena"
+	entity="Buildings/GArena 2/GArena 2 as.ent.xml"
+	entity_autumn="Buildings/GArena 2/GArena 2 as.ent.xml"
+	entity_spring="Buildings/GArena 2/GArena 2 as.ent.xml"
+	entity_winter="Buildings/GArena 2/GArena 2 w.ent.xml"
+>
+	<properties race="Dacia"/>
+	<properties display_name="Arena"/>
+	<properties radius="240" selection_radius="300"/>
+	<properties edittree_pos="Structures/Stronghold (Gaul)/Arena SE"/>
+	<properties help="/contents/buildings/GArena"/>
+
+	<properties icon="gameres/icons/GArena.bmp"/>
+	
+	
+</class>

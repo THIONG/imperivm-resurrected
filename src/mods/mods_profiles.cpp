@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 THIONG
+// Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
+#include <windows.h>
+#include <algorithm>
+#include "MinHook.h"
+#include "core/legacy.h"
+#include "core/guard.h"
+#include "mods/modvars.h"
+
+#include "mods/mods_internal.h"
+
+using namespace mods_impl;
+
+const char *ModsKindId(int kind)
+{
+	return kind == kModRules ? "rules" : kind == kModContent ? "content" : "cosmetic";
+}
+
+int ModsKindFromId(const std::string &id)
+{
+	const std::string s = Lower(id);
+	if (s == "rules" || s == "gameplay") return kModRules;
+	if (s == "content" || s == "maps") return kModContent;
+	if (s == "cosmetic") return kModCosmetic;
+	switch (LegacyModKind(s)) {
+	case 0:
+		return kModRules;
+	case 1:
+		return kModContent;
+	case 2:
+		return kModCosmetic;
+	}
+	return -1;
+}
+
+int ModsRulesSchema() { return kRulesSchema; }
+
+static void ModsScanUnguarded()
+{
+	std::vector<ModInfo> mods;
+	std::map<std::string, std::vector<ScanFile>> files;
+	CreateDirectoryA(ModsDir().c_str(), nullptr);
+	CreateDirectoryA(ProfilesDir().c_str(), nullptr);
+	WIN32_FIND_DATAA fd;
+	HANDLE h = FindFirstFileA((ModsDir() + "\\*").c_str(), &fd);
+	if (h != INVALID_HANDLE_VALUE) {
+		do {
+			const std::string name = fd.cFileName;
+			if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || name[0] == '.' || name[0] == '_') {
+				continue;
+			}
+			std::vector<ScanFile> f;
+			mods.push_back(ScanMod(name, f));
+			files[name] = std::move(f);
+		} while (FindNextFileA(h, &fd));
+		FindClose(h);
+	}
+	std::sort(mods.begin(), mods.end(), [](const ModInfo &a, const ModInfo &b) { return Lower(a.name) < Lower(b.name); });
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		for (ModInfo &m : mods) {
+			for (const ModInfo &old : g_mods) {
+				if (old.folder == m.folder && old.totalBytes == m.totalBytes && old.fileCount == m.fileCount) {
+					m.hash = old.hash;
+					m.gameplayHash = old.gameplayHash;
+				}
+			}
+		}
+		g_mods = std::move(mods);
+		g_scanFiles = std::move(files);
+	}
+	LogI("content", "%u mods in the mods folder", static_cast<unsigned>(g_mods.size()));
+	for (const ModInfo &m : g_mods) LogI("content", "  %s -> %s", m.folder.c_str(), ModsKindId(m.kind));
+	StartHashing();
+}
+
+void ModsScan()
+{
+	Guard("content scan", [] { ModsScanUnguarded(); });
+}
+
+std::vector<ModInfo> ModsList()
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	return g_mods;
+}
+
+bool ModsFind(const std::string &folder, ModInfo &out)
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	for (const ModInfo &m : g_mods) {
+		if (_stricmp(m.folder.c_str(), folder.c_str()) == 0) {
+			out = m;
+			return true;
+		}
+	}
+	return false;
+}
+
+std::vector<std::string> ModsProfileNames()
+{
+	std::vector<std::string> names;
+	WIN32_FIND_DATAA fd;
+	HANDLE h = FindFirstFileA((ProfilesDir() + "\\*.json").c_str(), &fd);
+	if (h != INVALID_HANDLE_VALUE) {
+		do {
+			ModProfile p = ReadProfileFile(ProfilesDir() + "\\" + fd.cFileName);
+			if (!p.name.empty() && _stricmp(p.name.c_str(), kOriginal) != 0 && _stricmp(p.name.c_str(), kNoProfile) != 0) {
+				names.push_back(p.name);
+			}
+		} while (FindNextFileA(h, &fd));
+		FindClose(h);
+	}
+	std::sort(names.begin(), names.end(), [](const std::string &a, const std::string &b) { return Lower(a) < Lower(b); });
+	names.insert(names.begin(), kNoProfile);
+	names.insert(names.begin(), kOriginal);
+	return names;
+}
+
+ModProfile ModsLoadProfile(const std::string &name)
+{
+	if (name.empty() || _stricmp(name.c_str(), kOriginal) == 0) {
+		ModProfile p;
+		p.name = kOriginal;
+		return p;
+	}
+	ModProfile p = ReadProfileFile(ProfilesDir() + "\\" + SafeFileName(name) + ".json");
+	if (p.name.empty() && _stricmp(name.c_str(), kNoProfile) == 0) {
+		p.name = kNoProfile;
+		return p;
+	}
+	if (p.name.empty()) {
+		p.name = kOriginal;
+		p.mods.clear();
+	}
+	return p;
+}
+
+bool ModsSaveProfile(const ModProfile &p)
+{
+	if (p.name.empty() || _stricmp(p.name.c_str(), kOriginal) == 0) {
+		return false;
+	}
+	Json j = Json::MakeObject();
+	j.Set("name", Json::MakeString(p.name));
+	Json mods = Json::MakeArray();
+	for (const std::string &m : p.mods) {
+		mods.arr.push_back(Json::MakeString(m));
+	}
+	j.Set("mods", mods);
+	CreateDirectoryA(ProfilesDir().c_str(), nullptr);
+	return WriteJsonFile(ProfilesDir() + "\\" + SafeFileName(p.name) + ".json", j);
+}
+
+bool ModsDeleteProfile(const std::string &name)
+{
+	if (name.empty() || _stricmp(name.c_str(), kOriginal) == 0 || _stricmp(name.c_str(), kNoProfile) == 0) {
+		return false;
+	}
+	return DeleteFileA((ProfilesDir() + "\\" + SafeFileName(name) + ".json").c_str()) != 0;
+}
+
+bool ModsRenameProfile(const std::string &from, const std::string &to)
+{
+	if (to.empty() || _stricmp(to.c_str(), kOriginal) == 0 || _stricmp(to.c_str(), kNoProfile) == 0) return false;
+	if (_stricmp(from.c_str(), kOriginal) == 0 || _stricmp(from.c_str(), kNoProfile) == 0) return false;
+	for (const std::string &n : ModsProfileNames()) {
+		if (_stricmp(n.c_str(), to.c_str()) == 0) return false;
+	}
+	ModProfile p = ModsLoadProfile(from);
+	p.name = to;
+	if (!ModsSaveProfile(p)) return false;
+	ModsDeleteProfile(from);
+	if (ModsActiveProfileName() == from) ModsSetActiveProfileName(to);
+	return true;
+}
+
+std::vector<std::string> ModsProfilesUsing(const std::string &folder)
+{
+	std::vector<std::string> out;
+	for (const std::string &n : ModsProfileNames()) {
+		const ModProfile p = ModsLoadProfile(n);
+		for (const std::string &m : p.mods) {
+			if (_stricmp(m.c_str(), folder.c_str()) == 0) {
+				out.push_back(n);
+				break;
+			}
+		}
+	}
+	return out;
+}

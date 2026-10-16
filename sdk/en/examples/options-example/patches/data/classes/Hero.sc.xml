@@ -1,0 +1,6 @@
+<patch>
+  <!-- One more behavior for every hero: it checks the room option -->
+  <add select="/class">
+    <behavior script="data/mod/fast_heroes.vs"/>
+  </add>
+</patch>

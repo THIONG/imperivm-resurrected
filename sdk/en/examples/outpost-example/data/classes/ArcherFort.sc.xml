@@ -1,0 +1,32 @@
+<!-- A new outpost: a full copy of the Iberian training outpost (IOutpost) with another name, more health and a garrison of Gaul archers. The model
+     (entity), the icon and the behavior (gradual experience) are the base's. -->
+<class id="ArcherFort" cpp_class="CVXOutpost" parent="Outpost"
+	entity="Buildings/IOutpost/IOutpost.ent.XML"
+>
+	<properties race="Iberia"/>
+	<properties maxhealth="15000"/>
+	<properties icon="gameres/icons/ioutpost.bmp"/>
+	<properties display_name="Archer fort"/>
+	<properties radius="345" selection_radius="350"/>
+	<properties edittree_pos="Structures/Outposts/Archer fort"/>
+	<properties help="/contents/buildings/ITrainingCamp"/>
+	<properties description="A fort full of archers: its garrison gains experience slowly"/>
+	<properties
+		range = "1000"
+		settlement_food="0"
+		settlement_gold="1000"
+	    defender_cls_1  = "GArcher"	
+	    defenders_max_1 = "16"
+	    defenders_out_1 = "8"
+	    start_level_1   = "8"
+	    end_level_1     = "20"   
+	    defender_cls_2  = "IDefender"	
+	    defenders_max_2 = "10"
+	    defenders_out_2 = "10"
+	    start_level_2   = "8"
+	    end_level_2     = "8"   
+	/>
+
+	<behavior script="data/subai/ioutpost_behavior.vs"/>
+
+</class>

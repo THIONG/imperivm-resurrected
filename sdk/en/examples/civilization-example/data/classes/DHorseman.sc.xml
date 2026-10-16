@@ -1,0 +1,16 @@
+<class id="DHorseman" cpp_class="CVXUnit" parent="Horse" entity="Units/GHorseman/GHorseman.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties maxhealth="380"/>
+	<properties damage="26" armor_slash="8" armor_pierce="8"/>
+	<properties speed="160"/>
+	<properties unit_specials="Charge"/>
+	<properties healthbar_type="3"/>
+
+	<properties icon="gameres/icons/GHorseman.bmp"/>
+	<properties display_name="Horseman" display_name_plural="Horsemen"/>
+	<properties help="contents/units/GHorseman"/>
+	<properties edittree_pos="Units/Gaul/Horseman"/>
+	<sounds command="data/sound entities/VoiceGHorseman.xml"/>
+
+</class>

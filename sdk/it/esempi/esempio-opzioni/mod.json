@@ -1,0 +1,18 @@
+{
+  "id": "ejemplo-opciones",
+  "name": {
+    "spanish": "Ejemplo: opciones de partida",
+    "english": "Example: game options",
+    "italian": "Esempio: opzioni di partita"
+  },
+  "version": "1.0",
+  "category": "Gameplay & Balance",
+  "tags": ["Gameplay"],
+  "authors": ["Imperivm Resurrected"],
+  "description": {
+    "spanish": "Ejemplo del SDK: dos opciones de partida propias en la lista de reglas de la sala. Un interruptor, 'Héroes veloces' (+50 % de velocidad), y una lista, 'Velocidad de héroes' (Normal, Rápida, Muy rápida). Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",
+    "english": "SDK example: two custom game options in the room's rules list. A switch, 'Fast heroes' (+50% speed), and a list, 'Hero speed' (Normal, Fast, Very fast). Changes gameplay: everyone must have it in multiplayer.",
+    "italian": "Esempio dell'SDK: due opzioni di partita proprie nell'elenco delle regole della sala. Un interruttore, 'Eroi veloci' (+50% di velocità), e un elenco, 'Velocità degli eroi' (Normale, Veloce, Molto veloce). Cambia il gioco: in multigiocatore devono averlo tutti."
+  },
+  "redistributable": true
+}

@@ -1,0 +1,8 @@
+<class id="DWallsW" cpp_class="CVXBuilding" parent="Wall" entity="Buildings/GWalls/WallW/WallW.ent.xml">
+	<properties race="Dacia"/>
+	<properties icon="gameres/icons/GWalls.bmp"/>
+	<properties radius="80" selection_radius="80"/>
+	<properties wall_set="Gaul walls"/>
+	<properties num_sentry_slots="4"/>
+	<properties sentry_class_name="DSentry"/>
+</class>

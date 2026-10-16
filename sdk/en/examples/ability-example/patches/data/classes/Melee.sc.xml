@@ -1,0 +1,6 @@
+<patch>
+  <!-- The method that runs the "respiro" order. Methods are inherited: every class that descends from Melee has it -->
+  <add select="/class">
+    <method sig="respiro" vs="data/mod/respiro.vs"/>
+  </add>
+</patch>

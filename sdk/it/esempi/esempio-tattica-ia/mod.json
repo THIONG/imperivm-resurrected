@@ -1,0 +1,18 @@
+{
+  "id": "ejemplo-ia-tactica",
+  "name": {
+    "spanish": "Ejemplo: táctica de IA propia",
+    "english": "Example: custom AI tactic",
+    "italian": "Esempio: tattica IA personalizzata"
+  },
+  "version": "1.0",
+  "category": "Gameplay & Balance",
+  "tags": ["Gameplay"],
+  "authors": ["Imperivm Resurrected"],
+  "description": {
+    "spanish": "Ejemplo del SDK: la IA que juega con Dacia (el mod 'Ejemplo: civilización') usa la táctica TS_GaulTactic2, que trae el juego pero que ninguna IA usa. Muestra cómo elegir una táctica distinta por civilización con Mod_TrueRace. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",
+    "english": "SDK example: the AI that plays Dacia (the mod 'Example: civilization') uses the tactic TS_GaulTactic2, which ships with the game but no AI uses. It shows how to pick a different tactic per civilization with Mod_TrueRace. Changes gameplay: everyone must have it in multiplayer.",
+    "italian": "Esempio dell'SDK: l'IA che gioca con la Dacia (il mod 'Esempio: civiltà') usa la tattica TS_GaulTactic2, che è nel gioco ma nessuna IA usa. Mostra come scegliere una tattica diversa per ogni civiltà con Mod_TrueRace. Cambia il gioco: in multigiocatore devono averlo tutti."
+  },
+  "redistributable": true
+}

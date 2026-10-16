@@ -1,0 +1,15 @@
+build/
+*.obj
+*.map
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# Never uploaded
+modio_key.h
+*.pem
+keys/
+steamworks_sdk/
+imperivm-mod.ini
+imperivm-mod*.log

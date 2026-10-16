@@ -1,0 +1,6 @@
+<class id="DHero2a" cpp_class="CVXHero" parent="DaciaHero" entity="Units/GHero2/GHero2.ent.xml">
+
+	<properties display_name="Beorht" display_name_plural="Heroes"/>
+	<properties icon="gameres/icons/GHero2.bmp"/>
+
+</class>

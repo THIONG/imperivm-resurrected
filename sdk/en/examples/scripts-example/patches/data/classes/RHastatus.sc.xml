@@ -1,0 +1,6 @@
+<patch>
+  <!-- Adds a behavior (a script that runs for every unit of this class) -->
+  <add select="/class">
+    <behavior script="data/mod/hello.vs"/>
+  </add>
+</patch>

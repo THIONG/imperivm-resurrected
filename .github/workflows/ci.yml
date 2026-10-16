@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Source checks
+        shell: bash
+        run: |
+          node tools/gen-tr.js
+          git diff --exit-code -- src/i18n/tr_data.cpp
+          node tools/check-addresses.js
+          node tools/check-layering.js
+          node tools/check-conventions.js
+          node tools/check-includes.js
+          node tools/check-logs.js
+
+      - name: SDK checks (the three languages match, every example validates)
+        shell: bash
+        run: |
+          node tools/check-sdk.js
+          node tools/check-examples.js
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Syntax check (the Steamworks SDK is not available here)
+        run: node tools/syntax-check.js
+
+      - name: Unit tests
+        run: |
+          cmake -S . -B build/tests -G Ninja -DCMAKE_BUILD_TYPE=Release -DIMPERIVM_BUILD_DLL=OFF
+          cmake --build build/tests
+          ctest --test-dir build/tests --output-on-failure

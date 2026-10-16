@@ -1,0 +1,3 @@
+<patch>
+	<add select="/commands/cmd[@name='GBarrack Level 3']"><src obj="DBarracks"/></add>
+</patch>

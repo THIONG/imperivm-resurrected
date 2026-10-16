@@ -1,0 +1,263 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 THIONG
+// Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
+#include <mutex>
+#include <atomic>
+
+#include "ui/textedit.h"
+#include "MinHook.h"
+
+#include "ui/mpui_internal.h"
+
+using namespace mpui_impl;
+
+namespace mpui_impl {
+OnMessage_t g_origMainMenu = nullptr;
+
+ThisOnly_t g_origLobbyUpdate = nullptr;
+
+JoinFlowState g_flow;
+AutoJoinState g_autoJoin;
+
+std::string SaveLabel(const SaveEntry &e) { return Tr("Load: ") + e.name + (e.online ? Tr(" (online)") : ""); }
+
+ListGeom g_createModsGeomOut;
+}
+
+namespace mpui_impl {
+namespace {
+std::string ModRowText(const ModRow &r)
+{
+	return r.status.empty() ? r.name : r.name + "  \xC2\xB7  " + r.status;
+}
+}
+}
+
+namespace mpui_impl {
+std::vector<ListLine> BuildModLines(const std::vector<ModRow> &rows, const std::string &emptyText)
+{
+	std::vector<ListLine> lines;
+	std::vector<const ModRow *> rules, optional;
+	for (const ModRow &r : rows) (r.kind == 2 ? rules : optional).push_back(&r);
+	if (rows.empty()) {
+		lines.push_back({Tr(emptyText), kDim, false});
+		return lines;
+	}
+	if (!rules.empty()) {
+		lines.push_back({Tr("Required content") + " (" + std::to_string(rules.size()) + ")", kGold, true});
+		for (const ModRow *r : rules) lines.push_back({"\xE2\x80\xA2  " + ModRowText(*r), r->color, false});
+	}
+	if (!optional.empty()) {
+		lines.push_back({Tr("Optional content") + " (" + std::to_string(optional.size()) + ")", kDim, true});
+		for (const ModRow *r : optional) {
+			const std::string tag = r->kind == 1 ? Tr("maps and campaigns") : Tr("cosmetic");
+			lines.push_back({"\xE2\x80\xA2  " + r->name + "  \xC2\xB7  " + tag + (r->status.empty() ? "" : "  \xC2\xB7  " + r->status), r->color == kText ? kDim : r->color, false});
+		}
+	}
+	return lines;
+}
+
+int PaintLinesInline(Painter &p, const std::vector<ListLine> &lines, int x, int y, int w, int rowH)
+{
+	for (const ListLine &l : lines) {
+		p.Font(l.heading ? 4 : 3);
+		p.Text(x, y, w, rowH, l.text, l.color, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+		y += rowH;
+	}
+	return y;
+}
+
+std::mutex g_lock;
+State g_s;
+std::atomic<int> g_gameModal{0};
+
+ChatPaneState g_chat;
+
+DetailPaneState g_detail;
+void *g_mainMenu = nullptr;
+Canvas g_canvas;
+}
+
+namespace mpui_impl {
+namespace {
+const char *kMaps[] = {"Random map: Continent", "Random map: Islands", "Numantia", "Alesia", "Zama"};
+
+const ModInfo *Installed(const State &st, const OnlineMod &m)
+{
+	for (const ModInfo &i : st.mods) {
+		if (_stricmp(i.id.c_str(), m.id.c_str()) == 0) return &i;
+	}
+	return nullptr;
+}
+
+bool HasAllMods(const State &st, const OnlineLobby &g)
+{
+	for (const OnlineMod &m : g.mods) {
+		if (!Installed(st, m)) return false;
+	}
+	return true;
+}
+}
+}
+
+namespace mpui_impl {
+bool SameGameplay(const State &st, const OnlineLobby &g)
+{
+	return g.gameplayKey.empty() || st.ownKey.empty() || g.gameplayKey == st.ownKey;
+}
+
+std::string SpectatorText(bool enabled, int delay)
+{
+	if (!enabled) return "No spectators";
+	if (delay <= 0) return "Live";
+	if (delay == 30) return "With a 30 s delay";
+	if (delay == 60) return "With a 60 s delay";
+	if (delay == 120) return "With a 120 s delay";
+	return Tr("With ") + std::to_string(delay) + Tr(" s delay");
+}
+
+bool RoomHasNoSeat(const State &st)
+{
+	const OnlineLobby &info = st.room.info;
+	return st.room.id && info.maxPlayers > 0 && info.players >= info.maxPlayers;
+}
+}
+
+namespace mpui_impl {
+namespace {
+bool Contains(const std::string &text, const std::string &part)
+{
+	std::string a = text, b = part;
+	for (char &c : a) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+	for (char &c : b) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+	return a.find(b) != std::string::npos;
+}
+}
+}
+
+namespace mpui_impl {
+std::vector<int> Visible(const State &st)
+{
+	std::vector<int> out;
+	for (size_t i = 0; i < st.lobbies.size(); i++) {
+		const OnlineLobby &g = st.lobbies[i];
+		if (g.playing && !g.friendHost && !g.specLobby) continue;
+		if (st.filter == 1 && !g.friendHost) continue;
+		if (st.filter == 2 && g.password) continue;
+		if (st.filter == 3 && !g.password) continue;
+		if (st.filter == 4 && !g.mods.empty()) continue;
+		if (st.filter == 5 && (g.mods.empty() || !HasAllMods(st, g))) continue;
+		if (st.filter == 6 && (g.playing || g.players >= g.maxPlayers)) continue;
+		if (st.filter == 7 && !(g.playing && g.specLobby)) continue;
+		if (!st.searchInput.empty() && !Contains(g.name, st.searchInput) && !Contains(g.host, st.searchInput) &&
+			!Contains(g.map, st.searchInput)) {
+			continue;
+		}
+		out.push_back(static_cast<int>(i));
+	}
+	auto key = [&](const OnlineLobby &g) -> std::string {
+		char num[16];
+		switch (st.sortCol) {
+		case 1: return g.host;
+		case 2: sprintf_s(num, "%03d", g.maxPlayers - g.players); return num;
+		case 3: return g.map;
+		case 4: sprintf_s(num, "%03d", static_cast<int>(g.mods.size())); return num;
+		default: return g.name;
+		}
+	};
+	std::stable_sort(out.begin(), out.end(), [&](int a, int b) {
+		const std::string ka = key(st.lobbies[a]), kb = key(st.lobbies[b]);
+		const int c = _stricmp(ka.c_str(), kb.c_str());
+		if (c != 0) return st.sortDesc ? c > 0 : c < 0;
+		return _stricmp(st.lobbies[a].name.c_str(), st.lobbies[b].name.c_str()) < 0;
+	});
+	return out;
+}
+}
+
+namespace mpui_impl {
+namespace {
+std::string MissingModsText(const State &st, const OnlineLobby &g)
+{
+	std::string list;
+	for (const OnlineMod &m : g.mods) {
+		if (!Installed(st, m)) list += (list.empty() ? "" : ", ") + m.name + " " + m.version;
+	}
+	return list;
+}
+
+const ModInfo *ExactMod(const State &st, const OnlineMod &m)
+{
+	for (const ModInfo &i : st.mods) {
+		if (_stricmp(i.id.c_str(), m.id.c_str()) == 0 && i.version == m.version) return &i;
+	}
+	return nullptr;
+}
+}
+}
+
+namespace mpui_impl {
+const ModInfo *OlderInstalled(const State &st, const OnlineMod &m)
+{
+	const ModInfo *best = nullptr;
+	for (const ModInfo &i : st.mods) {
+		if (_stricmp(i.id.c_str(), m.id.c_str()) != 0 || ModsCompareVersions(i.version, m.version) >= 0) continue;
+		if (!best || ModsCompareVersions(i.version, best->version) > 0) best = &i;
+	}
+	return best;
+}
+}
+
+namespace mpui_impl {
+namespace {
+std::vector<ModRow> OnlineModRows(const State &st, const std::vector<OnlineMod> &mods, bool withStatus)
+{
+	std::vector<ModRow> rows;
+	for (const OnlineMod &m : mods) {
+		ModRow r;
+		r.name = m.name + (m.version.empty() || m.name.find(m.version) != std::string::npos ? "" : " " + m.version);
+		r.kind = m.kind;
+		if (withStatus) {
+			const bool have = ExactMod(st, m) != nullptr;
+			const ModInfo *old = have ? nullptr : OlderInstalled(st, m);
+			r.status = have ? Tr("you have it") : old ? Tr("you have ") + old->version + " \xC2\xB7 " + HumanBytes(m.bytes) : HumanBytes(m.bytes);
+			r.color = have ? kOk : kGold;
+		}
+		rows.push_back(r);
+	}
+	return rows;
+}
+}
+}
+
+namespace mpui_impl {
+std::vector<ListLine> OnlineLobbyLines(const State &st, const OnlineLobby &g, bool withStatus)
+{
+	std::vector<ModRow> rows = OnlineModRows(st, g.mods, withStatus);
+	if (g.modsRequiredOnly) {
+		for (ModRow &r : rows) r.kind = 2;
+	}
+	std::vector<ListLine> lines = BuildModLines(rows, "None: the original game");
+	if (g.optionalMods > 0) {
+		const int n = g.optionalMods;
+		lines.push_back({n == 1 ? std::string("1 optional pack from the host: no need to download it")
+							: TrFmt("%d optional packs from the host: no need to download them", {std::to_string(n)}), kDim, false});
+	}
+	return lines;
+}
+
+std::vector<OnlineMod> MissingMods(const State &st, const OnlineLobby &g)
+{
+	std::vector<OnlineMod> out;
+	for (const OnlineMod &m : g.mods) {
+		if (!ExactMod(st, m)) out.push_back(m);
+	}
+	return out;
+}
+
+std::string g_syncResult;
+
+ListGeom g_pickGeomOut;
+}
+
+std::vector<uint32_t> g_bg;

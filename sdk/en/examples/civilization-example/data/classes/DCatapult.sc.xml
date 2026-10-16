@@ -1,0 +1,18 @@
+<class id="DCatapult" cpp_class="CVXCatapult" parent="Catapult" entity="Buildings/GCatapult/GCatapult.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties shot_tan="2000"/>
+	<properties shot_height="150"/>
+	<properties projectile_class="Gule"/>
+	<properties projectile_shadow="Gule_shadow"/>
+	<properties projectile_fire="Gule_fire"/>
+	<properties projectile_explosion="Gule_explosion"/>
+
+	<method sig="attack_ground" vs="data/subai/catapult_attack_ground.vs" verify="data/subai/catapult_attack_ground_verify.vs"/>
+
+	<defaultcmd target="">
+		<cmd name="attack_ground"/>
+		<cmd name="attack_ground" ctrl="1"/>
+	</defaultcmd>
+
+</class>

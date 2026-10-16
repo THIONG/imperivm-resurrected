@@ -1,0 +1,1829 @@
+# Functions of the game's scripting language (for writing mods)
+#
+# List of the functions, types and constants the game gives to scripts (.vs), taken from the executable.
+# Each line: id | signature | origin. What matters when writing a script is the name and the signature:
+#   Name   | return_type(parameter types)
+# A 'Type::Method' is called as  object.Method(...)  ('u.Damage()').  'L' marks latent functions
+# (they can make the script wait, like Sleep). The ids are internal; you don't need to use them.
+# The functions of the Imperivm Resurrected API (Mod_...) aren't here: see scripts.md.
+# The ids and the internal names in the last column were deduced from the game's code; the signature is the part you can trust.
+
+## CScriptEngine::RegisterBuiltins 00698580
+0x140   ptr()                              |  | ScriptType_ObjRef_Load
+0x141   ~ptr()                             |  | ScriptType_Common8_Destroy
+0x142   int()                              |  | ScriptLiteral_PushInt
+0x143   float()                            |  | ScriptLiteral_PushFloat
+0x144   str()                              |  | ScriptLiteral_PushStr
+0x145   bool()                             |  | ScriptLiteral_PushBool
+      TIPO   int (id 0x1, 4 bytes)
+      TIPO   float (id 0x3, 8 bytes)
+      TIPO   bool (id 0x7, 1 bytes)
+      TIPO   point (id 0x6, 8 bytes)
+      TIPO   rect (id 0x8, 16 bytes)
+      TIPO   pstr (id 0xa, 256 bytes)
+      TIPO   str (id 0xb, 8 bytes)
+      TIPO   IntArray (id 0xc, 8 bytes)
+      TIPO   StrArray (id 0xd, 8 bytes)
+      TIPO   StrMap (id 0xe, 8 bytes)
+0x146 L Sleep                              | void(int) extra=0 | ScriptFn_Sleep
+0x147   KillScript                         | void() | CVXTerrain::maybe_GetKind
+0x148   conv int -> float                  | coste 0x1e | ScriptConv_IntToFloat
+0x149   +=                                 | int(int&, int) | ScriptFn_IntAddAssign
+0x14a   -=                                 | int(int&, int) | ScriptFn_IntSubAssign
+0x14b   &                                  | int(int, int) | ScriptFn_IntAnd
+0x14c   |                                  | int(int, int) | ScriptFn_IntOr
+0x14d   +                                  | int(int, int) | ScriptFn_IntAdd
+0x14e   -                                  | int(int, int) | ScriptFn_IntSub
+0x14f   -                                  | int(int) | ScriptFn_IntNeg
+0x150   =                                  | void(int&, int) | ScriptFn_IntAssign
+0x151   *                                  | int(int, int) | ScriptFn_IntMul
+0x152   /                                  | int(int, int) | ScriptFn_IntDiv
+0x153   %                                  | int(int, int) | ScriptFn_IntMod
+0x154   ==                                 | bool(int, int) | ScriptFn_IntEq
+0x155   !=                                 | bool(int, int) | ScriptFn_IntNe
+0x156   <                                  | bool(int, int) | ScriptFn_IntLt
+0x157   >                                  | bool(int, int) | ScriptFn_IntGt
+0x158   <=                                 | bool(int, int) | ScriptFn_IntLe
+0x159   >=                                 | bool(int, int) | ScriptFn_IntGe
+0x15a   abs                                | int(int) | ScriptFn_IntAbs
+0x15b   Write                              | void(int) | ScriptFn_IntWrite
+0x15c   MIN                                | int(int, int) | ScriptFn_IntMin
+0x15d   MAX                                | int(int, int) | ScriptFn_IntMax
+0x15e   CLAMP                              | int(int, int, int) | ScriptFn_IntClamp
+0x15f   +                                  | float(float, float) | ScriptFn_FloatAdd
+0x160   -                                  | float(float, float) | ScriptFn_FloatSub
+0x161   -                                  | float(float) | ScriptFn_FloatNeg
+0x162   =                                  | void(float&, float) | ScriptFn_FloatAssign
+0x163   *                                  | float(float, float) | ScriptFn_FloatMul
+0x164   /                                  | float(float, float) | ScriptFn_FloatDiv
+0x165   ==                                 | bool(float, float) | ScriptFn_FloatEq
+0x166   !=                                 | bool(float, float) | ScriptFn_FloatNe
+0x167   <                                  | bool(float, float) | ScriptFn_FloatLt
+0x168   >                                  | bool(float, float) | ScriptFn_FloatGt
+0x169   sqrt                               | float(float) | ScriptFn_FloatSqrt
+0x16a   Int                                | int(float) | ScriptFn_FloatToInt
+0x16b   Write                              | void(float) | ScriptFn_FloatWrite
+0x16c   MIN                                | float(float, float) | ScriptFn_FloatMin
+0x16d   MAX                                | float(float, float) | ScriptFn_FloatMax
+0x16e   CLAMP                              | float(float, float, float) | ScriptFn_FloatClamp
+0x16f   conv bool -> pstr                  | coste 0x32 | ScriptConv_BoolToPStr
+0x170   conv bool -> int                   | coste 0xf | ScriptConv_BoolToInt
+0x171   conv int -> str                    | coste 0x32 | ScriptConv_IntToStr
+0x172   =                                  | void(bool&, bool) | ScriptFn_BoolAssign
+0x173   !                                  | bool(bool) | ScriptFn_BoolNot
+0x174   &&                                 | bool(bool, bool) | ScriptFn_BoolAnd
+0x175   ||                                 | bool(bool, bool) | ScriptFn_BoolOr
+0x176   ^                                  | bool(bool, bool) | ScriptFn_BoolXor
+0x177   conv pstr -> str                   | coste 0xf | ScriptConv_PStrToStr
+0x178   Write                              | void(pstr) | ScriptFn_PStrWrite
+0x179   Write                              | void(str) | ScriptFn_StrWrite
+0x17a   =                                  | void(pstr&, pstr) | ScriptFn_PStrAssign
+0x17b   =                                  | void(str&, str) | ScriptFn_StrAssign
+0x17c   StrCmp                             | int(str, str) | ScriptFn_StrCmp
+0x17d   StrCat                             | void(str&, str) | ScriptFn_StrCat
+0x17e   ParseStr                           | str(str, str&) | ScriptFn_ParseStr
+0x17f   StrStr                             | bool(str, str) | ScriptFn_StrStr
+0x180   GetFromStr                         | str(str, str) | ScriptFn_GetFromStr
+0x181   GetFromStrToEOL                    | str(str, str) | ScriptFn_GetFromStrToEOL
+0x182   +                                  | str(str, str) | ScriptFn_StrConcat
+0x183   FindChrPos                         | int(str, int) | ScriptFn_FindChrPos
+0x184   GetChr                             | int(str, int) | ScriptFn_GetChr
+0x185   IsNull                             | bool(str) | ScriptFn_StrIsNull
+0x186   StrLen                             | int(str) | ScriptFn_StrLen
+0x187   StrMid                             | str(str, int, int) | ScriptFn_StrMid
+0x188   Str2Int                            | int(str) | ScriptFn_Str2Int
+0x189   ==                                 | bool(str, str) | ScriptFn_StrEqual
+0x18a   !=                                 | bool(str, str) | ScriptFn_StrNotEqual
+0x18b   IsFlagSet                          | bool(int, int) | ScriptFn_IsFlagSet
+0x18c   SetFlag                            | int(int&, int, bool) | ScriptFn_SetFlag
+0x18d   Point                              | point(int, int) | ScriptFn_Point
+0x18e   point::x                           | int&(point&) | ScriptFn_PointXRef
+0x18f   point::y                           | int&(point&) | ScriptFn_PointYRef
+0x190   point::x                           | int(point) | ScriptFn_PointX
+0x191   point::y                           | int(point) | ScriptFn_PointY
+0x192   point::Set                         | point(point&, int, int) | ScriptFn_PointSet
+0x193   point::SetLen                      | void(point&, int) | ScriptFn_PointSetLen
+0x194   point::Len                         | int(point) | ScriptFn_PointLen
+0x195   point::Rot                         | void(point&, int) | ScriptFn_PointRot
+0x196   point::InRect                      | bool(point, rect) | ScriptFn_PointInRect
+0x197   point::IntoRect                    | void(point&, rect) | ScriptFn_PointIntoRect
+0x198   point::Dist                        | int(point, point) | ScriptFn_PointDist
+0x199   +                                  | point(point, point) | ScriptFn_PointAdd
+0x19a   -                                  | point(point, point) | ScriptFn_PointSub
+0x19b   *                                  | point(point, int) | ScriptFn_PointMul
+0x19c   /                                  | point(point, int) | ScriptFn_PointDiv
+0x19d   Dist                               | int(point, point) | ScriptFn_PointDist
+0x19e   =                                  | void(point&, point) | ScriptFn_PointAssign
+0x19f   ==                                 | bool(point, point) | ScriptFn_PointEq
+0x1a0   !=                                 | bool(point, point) | ScriptFn_PointNe
+0x1a1   rect::left                         | int(rect) | ScriptFn_RectLeft
+0x1a2   rect::top                          | int(rect) | ScriptFn_RectTop
+0x1a3   rect::right                        | int(rect) | ScriptFn_RectRight
+0x1a4   rect::bottom                       | int(rect) | ScriptFn_RectBottom
+0x1a5   rect::width                        | int(rect) | ScriptFn_RectWidth
+0x1a6   rect::height                       | int(rect) | ScriptFn_RectHeight
+0x1a7   rect::left                         | int&(rect&) | ScriptFn_PointXRef
+0x1a8   rect::top                          | int&(rect&) | ScriptFn_PointYRef
+0x1a9   rect::right                        | int&(rect&) | ScriptFn_RectRightRef
+0x1aa   rect::bottom                       | int&(rect&) | ScriptFn_RectBottomRef
+0x1ab   rect::Set                          | void(rect&, int, int, int, int) | ScriptFn_RectSet
+0x1ac   rect::Center                       | point(rect) | ScriptFn_RectCenter
+0x1ad   IntersectRects                     | rect(rect, rect) | ScriptFn_IntersectRects
+0x1ae   AddRects                           | rect(rect, rect) | ScriptFn_AddRects
+0x1af   =                                  | void(rect&, rect) | ScriptFn_RectAssign
+0x1b0   ==                                 | bool(rect, rect) | ScriptFn_RectEqual
+0x1b1   !=                                 | bool(rect, rect) | ScriptFn_RectNotEqual
+0x1b2   =                                  | void(IntArray&, IntArray&) | ScriptFn_IntArrayAssign
+0x1b3   [                                  | int&(IntArray&, int) | ScriptFn_IntArrayIndex
+0x1b4   IntArray::resize                   | void(IntArray&, int) | ScriptFn_IntArrayResize
+0x1b5   IntArray::size                     | int(IntArray&) | ScriptFn_IntArraySize
+0x1b6   IntArray::find                     | int(IntArray&, int) | ScriptFn_IntArrayFind
+0x1b7   =                                  | void(StrArray&, StrArray&) | ScriptFn_StrArrayAssign
+0x1b8   [                                  | str&(StrArray&, int) | ScriptFn_StrArrayIndex
+0x1b9   StrArray::resize                   | void(StrArray&, int) | ScriptFn_StrArrayResize
+0x1ba   StrArray::size                     | int(StrArray&) | ScriptFn_StrArraySize
+0x1bb   StrArray::find                     | int(StrArray&, str) | ScriptFn_StrArrayFind
+0x1bc   =                                  | void(StrMap&, StrMap&) | ScriptFn_StrMapAssign
+0x1bd   [                                  | str&(StrMap&, str) | ScriptFn_StrMapIndex
+0x1be   StrMap::size                       | int(StrMap&) | ScriptFn_StrMapSize
+0x1bf   StrMap::erase                      | void(StrMap&, str) | ScriptFn_StrMapErase
+0x1c0   StrMap::exists                     | bool(StrMap&, str) | ScriptFn_StrMapExists
+0x1c1   DumpStack                          | void() | ScriptFn_DumpStack
+0x1c2   DumpCode                           | void(int) | ScriptFn_DumpCode
+
+## RegisterMapScriptFunctions 0053dbc0
+0x1c3   GetMapSize                         | point() | ScriptFn_GetMapSize
+0x1c4   _RandomTerrain2                    | void, str filename | ScriptFn__RandomTerrain2
+
+## RegisterObjScriptFunctions 005b6a90
+      TIPO   Obj (id 0x14, 8 bytes)
+      TIPO   Unit (id 0x15, 8 bytes)
+      TIPO   Building (id 0x16, 8 bytes)
+      TIPO   Hero (id 0x18, 8 bytes)
+      TIPO   Tower (id 0x19, 8 bytes)
+      TIPO   Wagon (id 0x1a, 8 bytes)
+      TIPO   ItemHolder (id 0x1c, 8 bytes)
+      TIPO   Item (id 0x1e, 8 bytes)
+      TIPO   Barrack (id 0x21, 8 bytes)
+      TIPO   Settlement (id 0x1b, 8 bytes)
+      TIPO   Sacrifice (id 0x27, 8 bytes)
+      TIPO   Druid (id 0x23, 8 bytes)
+      TIPO   Ghost (id 0x25, 8 bytes)
+      TIPO   Catapult (id 0x26, 8 bytes)
+      TIPO   Teleport (id 0x2c, 8 bytes)
+      TIPO   Ship (id 0x2d, 8 bytes)
+      TIPO   Flying (id 0x2e, 8 bytes)
+      TIPO   Query (id 0x20, 12 bytes)
+      TIPO   NamedObj (id 0x22, 12 bytes)
+      TIPO   ObjList (id 0x17, 16 bytes)
+      HERENCIA NamedObj hereda de Query
+      HERENCIA Sacrifice hereda de Obj
+      HERENCIA Unit hereda de Obj
+      HERENCIA Building hereda de Obj
+      HERENCIA Tower hereda de Building
+      HERENCIA Barrack hereda de Building
+      HERENCIA Druid hereda de Unit
+      HERENCIA Ghost hereda de Unit
+      HERENCIA Hero hereda de Unit
+      HERENCIA Wagon hereda de Unit
+      HERENCIA Catapult hereda de Building
+      HERENCIA ItemHolder hereda de Obj
+      HERENCIA Teleport hereda de Building
+      HERENCIA Ship hereda de Unit
+      HERENCIA Flying hereda de Unit
+0x1c5   =                                  | void(Item&, Item) | ScriptFn_PointAssign
+0x1c6   =                                  | void(Item&, Item) | ScriptFn_PointAssign
+0x1c7   ==                                 | bool(Obj, Obj) | ScriptFn_Obj_op_eq
+0x1c8   !=                                 | bool(Obj, Obj) | ScriptFn_Obj_op_ne
+0x1c9   conv Obj -> bool                   | coste 10 | ScriptFn_Obj_IsValid
+0x1ca   Obj::Clear                         | void(Obj&) | ScriptFn_Obj_Clear
+0x1cb   Obj::AsUnit                        | Unit(Obj) | ScriptFn_Obj_AsUnit
+0x1cc   Obj::AsBuilding                    | Building(Obj) | ScriptFn_Obj_AsBuilding
+0x1cd   Obj::AsHero                        | Hero(Obj) | ScriptFn_Obj_AsHero
+0x1ce   Obj::AsDruid                       | Druid(Obj) | ScriptFn_Obj_AsDruid
+0x1cf   Obj::AsGhost                       | Ghost(Obj) | ScriptFn_Obj_AsGhost
+0x1d0   Obj::AsTower                       | Tower(Obj) | ScriptFn_Obj_AsBuilding
+0x1d1   Obj::AsWagon                       | Wagon(Obj) | ScriptFn_Obj_AsWagon
+0x1d2   Obj::AsCatapult                    | Catapult(Obj) | ScriptFn_Obj_AsCatapult
+0x1d3   Obj::AsItemHolder                  | ItemHolder(Obj) | ScriptFn_Obj_AsItemHolder
+0x1d4   Obj::AsBarrack                     | Barrack(Obj) | ScriptFn_Obj_AsBarrack
+0x1d5   Obj::AsSacrifice                   | Sacrifice(Obj) | ScriptFn_Obj_AsSacrifice
+0x1d6   Obj::AsShip                        | Ship(Obj) | ScriptFn_Obj_AsShip
+0x1d7   Obj::AsFlying                      | Flying(Obj) | ScriptFn_Obj_AsFlying
+0x1d8   GetClassRace                       | int(str) | ScriptFn_GetClassRace
+0x1d9   Obj::race                          | int(Obj) | ScriptFn_Obj_race
+0x1da   Obj::raceStr                       | str(Obj) | ScriptFn_Obj_raceStr
+0x1db   Obj::raceStrPref                   | str(Obj) | ScriptFn_Obj_raceStrPref
+0x1dc   Obj::raceStrPrefLow                | str(Obj) | ScriptFn_Obj_raceStrPrefLow
+0x1dd   GetRaceStr                         | str(int) | ScriptFn_GetRaceStr
+0x1de   GetRaceStrPref                     | str(int) | ScriptFn_GetRaceStrPref
+0x1df   GetRaceStrPrefLow                  | str(int) | ScriptFn_GetRaceStrPrefLow
+      CONST  &DAT_007b1cfc = 0
+      CONST  &DAT_007ccc64 = 1
+      CONST  RepublicanRome = 1
+      CONST  Carthage = 2
+      CONST  Iberia = 3
+      CONST  ImperialRome = 4
+      CONST  Britain = 5
+      CONST  &DAT_007b1cb8 = 6
+      CONST  Germany = 7
+0x1e0   Obj::armor_slash                   | int(Obj) | ScriptFn_Obj_armor_slash
+0x1e1   Obj::armor_pierce                  | int(Obj) | ScriptFn_Obj_armor_pierce
+0x1e2   Obj::health                        | int(Obj) | ScriptFn_Obj_health
+0x1e3   Obj::stamina                       | int(Obj) | ScriptFn_Obj_stamina
+0x1e4   Obj::maxhealth                     | int(Obj) | ScriptFn_Obj_maxhealth
+0x1e5   Obj::maxstamina                    | int(Obj) | ScriptFn_Obj_maxstamina
+0x1e6   Obj::sight                         | int(Obj) | ScriptFn_Obj_sight
+0x1e7   Obj::pos                           | point(Obj) | ScriptFn_Obj_pos
+0x1e8   Obj::posRH                         | point(Obj) | ScriptFn_Obj_posRH
+0x1e9   Obj::damage                        | int(Obj) | ScriptFn_Obj_damage
+0x1ea   Obj::attack                        | int(Obj) | ScriptFn_Obj_damage
+0x1eb   Obj::damage_type                   | int(Obj) | ScriptFn_Obj_damage_type
+0x1ec   Obj::range                         | int(Obj) | ScriptFn_Obj_range
+0x1ed   Obj::min_range                     | int(Obj) | ScriptFn_Obj_min_range
+0x1ee   Obj::radius                        | int(Obj) | ScriptFn_Obj_radius
+0x1ef   Obj::name                          | str(Obj) | ScriptFn_Obj_name
+0x1f0   Obj::IsHeirOf                      | bool(Obj, str) | ScriptFn_Obj_IsHeirOf
+0x1f1   Obj::IsSentry                      | bool(Obj) | ScriptFn_Obj_IsSentry
+0x1f2   Obj::IsGate                        | bool(Obj) | ScriptFn_Obj_IsGate
+0x1f3   Obj::IsRam                         | bool(Obj) | ScriptFn_Obj_IsRam
+0x1f4   Obj::IsRanged                      | bool(Obj) | ScriptFn_Obj_IsRanged
+0x1f5   Obj::IsMilitary                    | bool(Obj) | ScriptFn_Obj_IsMilitary
+0x1f6   Obj::IsReligious                   | bool(Obj) | ScriptFn_Obj_IsReligious
+0x1f7   Obj::IsPeaceful                    | bool(Obj) | ScriptFn_Obj_IsPeaceful
+0x1f8   Obj::IsPeasant                     | bool(Obj) | ScriptFn_Obj_IsPeasant
+0x1f9   Obj::IsPeasantAmbient              | bool(Obj) | ScriptFn_Obj_IsPeasantAmbient
+0x1fa   Obj::SetHealth                     | void(Obj, int) | ScriptFn_Obj_SetHealth
+0x1fb   Obj::SetMaxHealth                  | void(Obj, int) | ScriptFn_Obj_SetMaxHealth
+0x1fc   Obj::SetStamina                    | void(Obj, int) | ScriptFn_Obj_SetStamina
+0x1fd   Obj::SetMaxStamina                 | void(Obj, int) | ScriptFn_Obj_SetMaxStamina
+0x1fe   Obj::SetSight                      | void(Obj, int) | ScriptFn_Obj_SetSight
+0x1ff   Obj::GetStaminaDecTime             | int(Obj) | ScriptFn_Obj_GetStaminaDecTime
+0x200   Obj::CmdCount                      | int(Obj) | ScriptFn_Obj_CmdCount
+0x201   Obj::CmdCount                      | int(Obj, str) | ScriptFn_Obj_CmdCount_2Args
+0x202   Obj::ClearCommands                 | void(Obj) | ScriptFn_Obj_ClearCommands
+0x203   Obj::KillCommand                   | void(Obj) | ScriptFn_Obj_KillCommand
+0x204   Obj::AddCommand                    | void(Obj, bool, str) | ScriptFn_Obj_AddCommand_3Args
+0x205   Obj::AddCommand                    | void(Obj, bool, str, point) | ScriptFn_Obj_AddCommand_Point
+0x206   Obj::AddCommand                    | void(Obj, bool, str, Obj) | ScriptFn_Obj_AddCommand_Obj
+0x207   Obj::SneakCommand                  | void(Obj, str) | ScriptFn_Obj_SneakCommand
+0x208   Obj::SetCommand                    | void(Obj, str) | ScriptFn_Obj_SetCommand_2Args
+0x209   Obj::SetCommand                    | void(Obj, str, point) | ScriptFn_Obj_SetCommand_Point
+0x20a   Obj::SetCommand                    | void(Obj, str, Obj) | ScriptFn_Obj_SetCommand_3Args
+0x20b   Obj::ExecDefaultCmd                | void(Obj, point, Obj, bool, bool) | ScriptFn_Obj_ExecDefaultCmd
+0x20c   Obj::ExecCmd                       | void(Obj, str, point, Obj, bool) | ScriptFn_Obj_ExecCmd
+0x20d   Obj::CmdDisable                    | void(Obj, str) | ScriptFn_Obj_CmdDisable
+0x20e   Obj::CmdEnable                     | void(Obj, str) | ScriptFn_Obj_CmdEnable
+0x20f   Obj::IsValid                       | bool(Obj) | ScriptFn_Obj_IsValid
+0x210   Item::IsValid                      | bool(Item) | ScriptFn_Obj_IsValid
+0x211   Obj::DistTo                        | int(Obj, point) | ScriptFn_Obj_DistTo_Point
+0x212   Obj::DistTo                        | int(Obj, Obj) | ScriptFn_Obj_DistTo_Obj
+0x213   Obj::IsEnemy                       | bool(Obj, Obj) | ScriptFn_Obj_IsEnemy
+0x214   Obj::IsAlive                       | bool(Obj) | ScriptFn_Obj_IsAlive
+0x215   Obj::IsDead                        | bool(Obj) | ScriptFn_Obj_IsDead
+0x216   Obj::IsValidTarget                 | bool(Obj, Obj) | ScriptFn_Obj_IsValidTarget
+0x217   Obj::IsValidCaptureTarget          | bool(Obj, Obj) | ScriptFn_Obj_IsValidCaptureTarget
+0x218   Obj::SetVisible                    | void(Obj, bool) | ScriptFn_Obj_SetVisible
+0x219   Obj::IsVisible                     | bool(Obj) | ScriptFn_Obj_IsVisible
+0x21a   Obj::SetMessengerStatus            | void(Obj, bool) | ScriptFn_Obj_SetMessengerStatus
+0x21b   Obj::CanSee                        | bool(Obj, Obj) | ScriptFn_Obj_CanSee
+0x21c   Obj::CanAttack                     | bool(Obj, Obj) | ScriptFn_Obj_CanAttack
+0x21d   Obj::Erase                         | void(Obj) | ScriptFn_Obj_Erase
+0x21e   Obj::player                        | int(Obj) | ScriptFn_Obj_player
+0x21f   Obj::SetPlayer                     | void(Obj, int) | ScriptFn_Obj_SetPlayer
+0x220   Obj::Damage                        | bool(Obj, int) | ScriptFn_Obj_Damage
+0x221   Obj::Heal                          | void(Obj, int) | ScriptFn_Obj_Heal
+0x222   Obj::HealStamina                   | void(Obj, int) | ScriptFn_Obj_HealStamina
+0x223   Obj::SetPos                        | void(Obj, point) | ScriptFn_Obj_SetPos
+0x224   Obj::SetPosSimple                  | void(Obj, point) | ScriptFn_Obj_SetPosSimple
+0x225   Obj::SetBlind                      | void(Obj, bool) | ScriptFn_Obj_SetBlind
+0x226   Obj::Face                          | void(Obj, point) | ScriptFn_Obj_Face
+0x227   Obj::GetDir                        | point(Obj) | ScriptFn_Obj_GetDir
+0x228 L Obj::Progress                      | void(Obj) extra=0 | ScriptFn_Obj_Progress_1Arg
+0x229 L Obj::Progress                      | void(Obj, int) extra=0 | ScriptFn_Obj_Progress
+0x22a   Obj::cmddelay                      | int(Obj) | ScriptFn_Obj_cmddelay
+0x22b   Obj::IsInGroup                     | bool(Obj, str) | ScriptFn_Obj_IsInGroup
+0x22c   Obj::AddToGroup                    | void(Obj, str) | ScriptFn_Obj_AddToGroup
+0x22d   Obj::RemoveFromGroup               | void(Obj, str) | ScriptFn_Obj_RemoveFromGroup
+0x22e   Obj::RemoveFromAllGroups           | void(Obj) | ScriptFn_Obj_RemoveFromAllGroups
+0x22f   Obj::SetName                       | void(Obj, str) | ScriptFn_Obj_SetName
+0x230   Obj::Select                        | void(Obj, int) | ScriptFn_Obj_Select
+0x231   Obj::Deselect                      | void(Obj, int) | ScriptFn_Obj_Deselect_Player
+0x232   Obj::Deselect                      | void(Obj) | ScriptFn_Obj_Deselect
+0x233   ClearSelection                     | void(int) | ScriptFn_ClearSelection
+0x234 L Obj::PlayAnim                      | void(Obj, int, point) extra=0 | ScriptFn_Obj_PlayAnim
+0x235   Obj::GetAnimTime                   | int(Obj, int) | ScriptFn_Obj_GetAnimTime
+0x236   Obj::StartAnim                     | void(Obj, int, point) | ScriptFn_Obj_StartAnim
+0x237   Obj::StartDelayedAnim              | void(Obj, int, point, int) | ScriptFn_Obj_StartDelayedAnim
+0x238   Obj::TimeToActionMoment            | int(Obj) | ScriptFn_Obj_TimeToActionMoment
+0x239   Obj::TimeToAnimFinish              | int(Obj) | ScriptFn_Obj_TimeToAnimFinish
+0x23a   Obj::GetAnim                       | int(Obj) | ScriptFn_Obj_GetAnim
+0x23b   Obj::SetState                      | void(Obj, int) | ScriptFn_Obj_SetState
+0x23c   Obj::AddItem                       | bool(Obj, str) | ScriptFn_Obj_AddItem
+0x23d   Obj::GiveItem                      | bool(Obj, Item, Obj) | ScriptFn_Obj_GiveItem
+0x23e   Obj::OpenItemHolder                | bool(Obj, ItemHolder) | ScriptFn_Obj_OpenItemHolder
+0x23f   Obj::PutItem                       | bool(Obj, Item, ItemHolder) | ScriptFn_Obj_PutItem
+0x240   Obj::DropItem                      | bool(Obj, Item, point) | ScriptFn_Obj_DropItem
+0x241   Obj::FindItem                      | Item(Obj, str) | ScriptFn_Obj_FindItem
+0x242   Obj::RemoveItem                    | void(Obj, int) | ScriptFn_Obj_RemoveItem_Index
+0x243   Obj::RemoveItem                    | void(Obj, str) | ScriptFn_Obj_RemoveItem_Name
+0x244   Obj::RemoveAllItems                | void(Obj) | ScriptFn_Obj_RemoveAllItems
+0x245   Obj::ExchangeItem                  | bool(Obj, Item, str) | ScriptFn_Obj_ExchangeItem
+0x246   Obj::GetItem                       | Item(Obj, int) | ScriptFn_Obj_GetItem
+0x247   Obj::RemoveItemsOfType             | int(Obj, str) | ScriptFn_Obj_RemoveItemsOfType
+0x248   Obj::GetItemIndex                  | int(Obj, Item) | ScriptFn_Obj_GetItemIndex
+0x249   Obj::items_count                   | int(Obj) | ScriptFn_Obj_items_count
+0x24a   Obj::free_item_slots               | int(Obj) | ScriptFn_Obj_free_item_slots
+0x24b   Obj::item_count                    | int(Obj) | ScriptFn_Obj_item_count
+0x24c   Obj::max_items                     | int(Obj) | ScriptFn_Obj_max_items
+0x24d   Obj::ClipDestToMap                 | point(Obj, point) | ScriptFn_Obj_ClipDestToMap
+0x24e   Obj::pr                            | void(Obj, str) | ScriptFn_Obj_pr_str
+0x24f   Obj::pr                            | void(Obj, int) | ScriptFn_Obj_pr_int
+0x250   Obj::pr                            | void(Obj, Obj) | ScriptFn_Obj_pr_handle
+0x251   Obj::GetDebug                      | bool(Obj) | ScriptFn_Obj_GetDebug
+0x252   Obj::SetDebug                      | void(Obj, bool) | ScriptFn_Obj_SetDebug
+0x253   Obj::class                         | str(Obj) | ScriptFn_Obj_class
+0x254   Obj::command                       | str(Obj) | ScriptFn_Obj_command
+0x255   Obj::command                       | str(Obj, int) | ScriptFn_Obj_command_Index
+0x256   cmdparam                           | str() | ScriptFn_cmdparam
+0x257   cmdwaiting                         | str() | ScriptFn_cmdwaiting
+0x258   rollover                           | str() | ScriptFn_rollover_NoArgs
+0x259   rollover                           | str(Obj, bool) | ScriptFn_rollover_Obj
+0x25a   rollover                           | str(Obj, str, bool) | ScriptFn_rollover_ObjClass
+0x25b   rollover                           | str(Obj, str) | ScriptFn_rollover_Str
+0x25c   rollover_desc                      | str(Obj, str, bool) | ScriptFn_rollover_desc
+0x25d   cmdcost_gold                       | int() | ScriptFn_cmdcost_gold
+0x25e   cmdcost_food                       | int() | ScriptFn_cmdcost_food
+0x25f   cmdcost_pop                        | int() | ScriptFn_cmdcost_pop
+0x260   cmdcost_stamina                    | int() | ScriptFn_cmdcost_stamina
+0x261   GetPlayerRace                      | int(int) | ScriptFn_GetPlayerRace
+0x262   Obj::_LastSelectionTime            | int(Obj) | ScriptFn_Obj__LastSelectionTime
+0x263   _GetSelection                      | ObjList() | ScriptFn__GetSelection
+0x264   ClearDebug                         | void() | ScriptFn_ClearDebug
+0x265   Place                              | Obj(str, point, int) | ScriptFn_Place
+0x266   PlaceInHolder                      | Obj(str, str, int) | ScriptFn_PlaceInHolder
+0x267   _PlaceEx                           | Obj, str cls, int x, int y, int player | ScriptFn__PlaceEx
+0x268   _PlaceBlockEx                      | void, str cls, int player, int x, int y, int nx, int ny, int deltax, int deltay | ScriptFn__PlaceBlockEx
+0x269   _PlaceBlockEx                      | void, str cls, int player, int x, int y, int nx, int ny, int deltax, int deltay, str group | ScriptFn__PlaceBlockEx_Group
+0x26a   _Summon                            | void, str cls, int x, int y, int player | ScriptFn__Summon
+0x26b   Obj::IsWaterUnit                   | bool(Obj) | ScriptFn_Obj_IsWaterUnit
+0x26c   Obj::SetCmdEnable                  | void(Obj, bool) | ScriptFn_Obj_SetCmdEnable
+0x26d   Obj::GetCmdEnable                  | bool(Obj) | ScriptFn_Obj_GetCmdEnable
+0x26e   Obj::AddToStoreBin                 | void(Obj) | ScriptFn_Obj_AddToStoreBin
+0x26f   Obj::RemoveFromStoreBin            | void(Obj) | ScriptFn_Obj_RemoveFromStoreBin
+0x270   Obj::IsInState                     | bool(Obj) | ScriptFn_Obj_IsInState
+0x271   Obj::PlaySound                     | void(Obj, str) | ScriptFn_Obj_PlaySound
+0x272   Obj::ShowFloatText                 | void(Obj, str) | ScriptFn_Obj_ShowFloatText
+      CONST  dtSlash = 0
+      CONST  dtPierce = 1
+      CONST  dtSiege = 2
+      CONST  dtNone = 3
+
+## IsBetaExpired 00746ea0
+
+## RegisterGroupQueryScriptFunctions 005777c0
+0x273   conv Obj -> Query                  | coste 5 | ScriptConv_ObjToQuery
+0x274   Group                              | Query(str) | ScriptFn_Group
+0x275   GetGroupSize                       | int(str) | ScriptFn_GetGroupSize
+0x276   SpawnGroup                         | ObjList(str) | ScriptFn_SpawnGroup
+0x277   SpawnGroupInHolder                 | ObjList(str, str) | ScriptFn_SpawnGroupInHolder_name
+0x278   SpawnGroupInHolder                 | ObjList(str, Obj) | ScriptFn_SpawnGroupInHolder_obj
+0x279   SpawnNamed                         | Obj(str) | ScriptFn_SpawnNamed
+0x27a   ModLevel                           | void(str, int, int, int) | ScriptFn_ModLevel
+0x27b   Union                              | Query(Query, Query) | ScriptFn_Union
+0x27c   Intersect                          | Query(Query, Query) | ScriptFn_Intersect
+0x27d   Substract                          | Query(Query, Query) | ScriptFn_Substract
+0x27e   Subtract                           | Query(Query, Query) | ScriptFn_Substract
+0x27f   ClassPlayerAreaObjs                | Query(str, int, str) | ScriptFn_ClassPlayerAreaObjs
+0x280   ClassPlayerObjs                    | Query(str, int) | ScriptFn_ClassPlayerObjs
+0x281   BuildingsInSettlement              | Query(str, str) | ScriptFn_BuildingsInSettlement
+0x282   UnitsInSettlement                  | Query(str, str) | ScriptFn_UnitsInSettlement_name
+0x283   UnitsAroundSettlement              | Query(str, str) | ScriptFn_UnitsAroundSettlement_name
+0x284   UnitsGuardingSettlement            | Query(str, str) | ScriptFn_UnitsGuardingSettlement_name
+0x285   UnitsInSettlement                  | Query(Settlement, str) | ScriptFn_UnitsInSettlement_obj
+0x286   UnitsAroundSettlement              | Query(Settlement, str) | ScriptFn_UnitsAroundSettlement_obj
+0x287   UnitsGuardingSettlement            | Query(Settlement, str) | ScriptFn_UnitsGuardingSettlement_obj
+0x288   EnemyObjs                          | Query(int, str) | ScriptFn_EnemyObjs
+0x289   FriendlyObjs                       | Query(int, str) | ScriptFn_FriendlyObjs
+0x28a   ControllableObjs                   | Query(int, str) | ScriptFn_ControllableObjs
+0x28b   AreaObjs                           | Query(str, str) | ScriptFn_AreaObjs
+0x28c   ObjsInRect                         | Query(rect, str) | ScriptFn_ObjsInRect
+0x28d   ObjsInCircle                       | Query(point, int, str) | ScriptFn_ObjsInCircle
+0x28e   ObjsInSight                        | Query(Obj, str) | ScriptFn_ObjsInSight
+0x28f   VisibleObjsInSight                 | Query(Obj, str) | ScriptFn_VisibleObjsInSight
+0x290   ObjsInRange                        | Query(Obj, str, int) | ScriptFn_ObjsInRange
+0x291   AttachedUnits                      | Query(Hero, str) | ScriptFn_AttachedUnits
+0x292   PartyQuery                         | Query() | ScriptFn_PartyQuery
+  -> llama a RegisterQueryMethodScriptFunctions 0057ad60
+0x293   Query::Erase                       | void(Query) | ScriptFn_Query_Erase
+0x294   Query::SetPlayer                   | void(Query, int) | ScriptFn_Query_SetPlayer
+0x295   Query::Damage                      | int(Query, int) | ScriptFn_Query_Damage
+0x296   Query::Heal                        | void(Query, int) | ScriptFn_Query_Heal
+0x297   Query::HealStamina                 | void(Query, int) | ScriptFn_Query_HealStamina
+0x298   Query::AddDefCmd                   | void(Query, point, Obj, bool, bool) | ScriptFn_Query_AddDefCmd
+0x299   Query::IsValid                     | bool(Query) | ScriptFn_Query_IsValid
+0x29a   =                                  | void(Query&, Query) | ScriptOp_Query_Assign
+0x29b   Query::count                       | int(Query) | ScriptFn_Query_count
+0x29c   Query::IsEmpty                     | bool(Query) | ScriptFn_Query_IsEmpty
+0x29d   Query::Contains                    | bool(Query, Obj) | ScriptFn_Query_Contains
+0x29e   Query::ClearCommands               | void(Query) | ScriptFn_Query_ClearCommands
+0x29f   Query::KillCommand                 | void(Query) | ScriptFn_Query_KillCommand
+0x2a0   Query::AddCommand                  | void(Query, bool, str) | ScriptFn_Query_AddCommand_simple
+0x2a1   Query::AddCommand                  | void(Query, bool, str, point) | ScriptFn_Query_AddCommand_point
+0x2a2   Query::AddCommand                  | void(Query, bool, str, Obj) | ScriptFn_Query_AddCommand_obj
+0x2a3   Query::AddCommandOffset            | void(Query, bool, str, point) | ScriptFn_Query_AddCommandOffset
+0x2a4   Query::SetCommand                  | void(Query, str) | ScriptFn_Query_SetCommand_simple
+0x2a5   Query::SetCommand                  | void(Query, str, point) | ScriptFn_Query_SetCommand_point
+0x2a6   Query::SetCommand                  | void(Query, str, Obj) | ScriptFn_Query_SetCommand_obj
+0x2a7   Query::SetCommandOffset            | void(Query, str, point) | ScriptFn_Query_SetCommandOffset
+0x2a8   Query::GetObjList                  | ObjList(Query) | ScriptFn_Query_GetObjList
+0x2a9   DistributeExperience               | void(Query, int) | ScriptFn_DistributeExperience
+0x2aa   AttackArea                         | void(Query, str) | ScriptFn_AttackArea
+0x2ab   MoveToArea                         | void(Query, str) | ScriptFn_MoveToArea
+0x2ac   NearestObj                         | Obj(Query, point) | ScriptFn_Query_NearestObj_point
+0x2ad   NearestObj                         | Obj(Query, Obj) | ScriptFn_Query_NearestObj_obj
+0x2ae   Query::NearestObj                  | Obj(Query, point) | ScriptFn_Query_NearestObj_point
+0x2af   Query::NearestObj                  | Obj(Query, Obj) | ScriptFn_Query_NearestObj_obj
+0x2b0   Query::AddToGroup                  | void(Query, str) | ScriptFn_Query_AddToGroup
+0x2b1   Query::RemoveFromGroup             | void(Query, str) | ScriptFn_Query_RemoveFromGroup
+0x2b2   Query::RemoveFromAllGroups         | void(Query) | ScriptFn_Query_RemoveFromAllGroups
+0x2b3   Query::Face                        | void(Query, point) | ScriptFn_Query_Face
+0x2b4   Query::SetFood                     | void(Query, int) | ScriptFn_Query_SetFood
+0x2b5   Query::InHolder                    | int(Query, str) | ScriptFn_Query_InHolder
+0x2b6   Query::AddToHolder                 | void(Query, str) | ScriptFn_Query_AddToHolder
+0x2b7   Query::GetAverageDirection         | point(Query) | ScriptFn_Query_GetAverageDirection
+0x2b8   Query::SetParty                    | void(Query, bool) | ScriptFn_Query_SetParty
+0x2b9   Query::SetMessengerStatus          | void(Query, bool) | ScriptFn_Query_SetMessengerStatus
+0x2ba   Query::SetFeeding                  | void(Query, bool) | ScriptFn_Query_SetFeeding
+  -> llama a RegisterNamedObjScriptFunctions 00553420
+0x2bb   GetNamedObj                        | NamedObj(str) | ScriptFn_GetNamedObj
+0x2bc   conv NamedObj -> Obj               | coste 10 | ScriptFn_NamedObj_obj
+0x2bd   NamedObj::IsValid                  | bool(NamedObj) | ScriptFn_Query_IsValid
+0x2be   NamedObj::IsDead                   | bool(NamedObj) | ScriptFn_NamedObj_IsDead
+0x2bf   NamedObj::obj                      | Obj(NamedObj) | ScriptFn_NamedObj_obj
+
+## RegisterBuildingScriptFunctions 004e1710
+0x2c0   EnemyInRange                       | bool(point, int, Obj) | ScriptFn_EnemyInRange
+0x2c1   Building::BestTarget               | Obj(Building) | ScriptFn_Building_BestTarget
+0x2c2 L Building::Attack                   | bool(Building, Obj) extra=0 | ScriptFn_Building_Attack
+0x2c3   Building::GetEnterPoint            | point(Building, Unit) | ScriptFn_Building_GetEnterPoint
+0x2c4   Building::GetExitPoint             | point(Building, Obj, point) | ScriptFn_Building_GetExitPoint_ObjPoint
+0x2c5   Building::GetExitPoint             | point(Building, point, bool) | ScriptFn_Building_GetExitPoint_PointBool
+0x2c6   Building::GetPoint                 | point(Building, int, int) | ScriptFn_Building_GetPoint
+0x2c7   Building::settlement               | Settlement(Building) | ScriptFn_Building_settlement
+0x2c8   Building::IsBroken                 | bool(Building) | ScriptFn_Building_IsBroken
+0x2c9   Building::IsCentralBuliding        | bool(Building) | ScriptFn_Building_IsCentralBuliding
+0x2ca   Building::RRepair                  | void(Building) | ScriptFn_Building_RRepair
+0x2cb   Building::GetExitVector            | point(Building) | ScriptFn_Building_GetExitVector
+0x2cc   Building::PopTransportationUI      | void(Building) | ScriptFn_Building_PopTransportationUI
+0x2cd   Building::GetGlobalSpell           | int(Building) | ScriptFn_Building_GetGlobalSpell
+0x2ce   Building::GlobalSpellStart         | void(Building, int, int) | ScriptFn_Building_GlobalSpellStart_3Args
+0x2cf   Building::GlobalSpellStart         | void(Building, int, int, int) | ScriptFn_Building_GlobalSpellStart_4Args
+0x2d0   Building::GlobalSpellStop          | void(Building) | ScriptFn_Building_GlobalSpellStop
+0x2d1   Building::SetGlobalSpellData       | void(Building, int) | ScriptFn_Building_SetGlobalSpellData
+0x2d2   Building::WindOfWisdom             | void(Building, int) | ScriptFn_Building_WindOfWisdom
+0x2d3   Building::Starvation               | void(Building) | ScriptFn_Building_Starvation
+0x2d4   Building::SoothingRain             | void(Building, int) | ScriptFn_Building_SoothingRain
+0x2d5   Building::DivineSacrifice          | void(Building) | ScriptFn_Building_DivineSacrifice
+0x2d6   Building::GetSoothingRainObjects   | int(Building) | ScriptFn_Building_GetSoothingRainObjects
+0x2d7   Building::IsStonehengeControlable  | bool(Building) | ScriptFn_Building_IsStonehengeControlable
+0x2d8   Building::StonehengeNumControllingMages | int(Building) | ScriptFn_Building_StonehengeNumControllingMages
+      CONST  gsWindOfWisdom = 0
+      CONST  gsStarvation = 1
+      CONST  gsSoothingRain = 2
+      CONST  gsDivineSacrifice = 3
+      CONST  gsBloodlust = 4
+      CONST  gsTribute = 5
+      CONST  GlobalSpellsCount = 6
+0x2d9   Building::itemtypes                | str(Building) | ScriptFn_Building_itemtypes
+0x2da   Building::minlevel                 | int(Building) | ScriptFn_Building_minlevel
+0x2db   Building::levelperitem             | int(Building) | ScriptFn_Building_levelperitem
+0x2dc   Building::ClearDamageTaken         | void(Building) | ScriptFn_Building_ClearDamageTaken
+0x2dd   Building::CountMages               | int(Building) | ScriptFn_Building_CountMages
+0x2de   Building::SetUITarget              | void(Building, Obj) | ScriptFn_Building_SetUITarget
+0x2df   Building::GetUITarget              | Obj(Building) | ScriptFn_Building_GetUITarget
+0x2e0   Building::GetNumSentrySlots        | int(Building) | ScriptFn_Building_GetNumSentrySlots
+0x2e1   Building::GetSentryClassName       | str(Building) | ScriptFn_Building_GetSentryClassName
+0x2e2   Building::Research                 | void(Building, str) | ScriptFn_Building_Research
+0x2e3   GetResearchHack                    | bool() | ScriptFn_GetResearchHack
+
+## RegisterCatapultScriptFunctions 004e3e30
+0x2e4   PlaceCatapult                      | Catapult(int, int, int, int) | ScriptFn_PlaceCatapult
+0x2e5   Catapult::IsBuilt                  | bool(Catapult) | ScriptFn_Catapult_IsBuilt
+0x2e6   Catapult::SetBuilt                 | void(Catapult) | ScriptFn_Catapult_SetBuilt
+0x2e7   Catapult::SetBuildFrame            | void(Catapult, int) | ScriptFn_Catapult_SetBuildFrame
+0x2e8   GetCatapultAttackPoint             | point(point) | ScriptFn_GetCatapultAttackPoint
+0x2e9 L Catapult::RotateTo                 | void(Catapult, point) extra=0 | ScriptFn_Catapult_RotateTo
+0x2ea L Catapult::Attack                   | void(Catapult, point) extra=0 | ScriptFn_Catapult_Attack
+0x2eb   Catapult::BestTarget               | Obj(Catapult) | ScriptFn_Catapult_BestTarget
+0x2ec   Catapult::GetPointOnTarget         | point(Catapult, Obj) | ScriptFn_Catapult_GetPointOnTarget
+0x2ed   Catapult::InRange                  | bool(Catapult, point) | ScriptFn_Catapult_InRange
+0x2ee   Catapult::AttackWait               | int(Catapult) | ScriptFn_Catapult_AttackWait
+0x2ef   Catapult::CalcEscapeDirection      | point(Catapult) | ScriptFn_Catapult_CalcEscapeDirection
+0x2f0   Catapult::GetCurrentTarget         | Obj(Catapult) | ScriptFn_Catapult_GetCurrentTarget
+0x2f1   Catapult::SetTarget                | void(Catapult, Obj) | ScriptFn_Catapult_SetTarget
+0x2f2   Catapult::ClearTarget              | void(Catapult) | ScriptFn_Catapult_ClearTarget
+0x2f3   Catapult::ClearTowerTarget         | void(Catapult) | ScriptFn_Catapult_ClearTowerTarget
+
+## RegisterUnitScriptFunctions 005df710
+0x2f4   Unit::speed                        | int(Unit) | ScriptFn_Unit_speed
+0x2f5   Unit::speed_factor                 | int(Unit) | ScriptFn_Unit_speed_factor
+0x2f6   Unit::stamina                      | int(Unit) | ScriptFn_Unit_stamina
+0x2f7   Unit::user                         | int(Unit) | ScriptFn_Unit_user
+0x2f8   Unit::food                         | int(Unit) | ScriptFn_Unit_food
+0x2f9   Unit::maxfood                      | int(Unit) | ScriptFn_Unit_maxfood
+0x2fa   Unit::maxstamina                   | int(Unit) | ScriptFn_Unit_maxstamina
+0x2fb   Unit::experience                   | int(Unit) | ScriptFn_Unit_experience
+0x2fc   Unit::level                        | int(Unit) | ScriptFn_Unit_level
+0x2fd   Unit::inherentlevel                | int(Unit) | ScriptFn_Unit_inherentlevel
+0x2fe   Unit::SetSpeedFactor               | void(Unit, int) | ScriptFn_Unit_SetSpeedFactor
+0x2ff   Unit::SetUser                      | void(Unit, int) | ScriptFn_Unit_SetUser
+0x300   Unit::SetFood                      | void(Unit, int) | ScriptFn_Unit_SetFood
+0x301   Unit::feeds                        | bool(Unit) | ScriptFn_Unit_feeds
+0x302   Unit::SetFeeding                   | void(Unit, bool) | ScriptFn_Unit_SetFeeding
+0x303 L Unit::Goto                         | bool(Unit, point, int, int, bool, int) extra=4 | ScriptFn_Unit_Goto
+0x304 L Unit::GotoEnter                    | bool(Unit, point, int, int, bool, int) extra=4 | ScriptFn_Unit_GotoEnter
+0x305 L Unit::Goto                         | bool(Unit, Obj, int, int, bool, int) extra=4 | ScriptFn_Unit_GotoObj
+0x306 L Unit::GotoAttack                   | bool(Unit, Obj, int, bool, int) extra=4 | ScriptFn_Unit_GotoAttack
+0x307 L Unit::GotoStraight                 | void(Unit, point) extra=4 | ScriptFn_Unit_GotoStraight
+0x308 L Unit::Stop                         | bool(Unit, int) extra=0 | ScriptFn_Unit_Stop
+0x309   Unit::HasPath                      | bool(Unit) | ScriptFn_Unit_HasPath
+0x30a   Unit::dest                         | point(Unit) | ScriptFn_Unit_dest
+0x30b   Unit::TimeWithoutWalking           | int(Unit) | ScriptFn_Unit_TimeWithoutWalking
+0x30c   Unit::InHolder                     | bool(Unit) | ScriptFn_Unit_InHolder
+0x30d   Unit::GetHolderSett                | Settlement(Unit) | ScriptFn_Unit_GetHolderSett
+0x30e   Unit::InShip                       | bool(Unit) | ScriptFn_Unit_InShip
+0x30f   Unit::GetShip                      | Ship(Unit) | ScriptFn_Unit_GetShip
+0x310   Unit::ExitHolder                   | void(Unit, point) | ScriptFn_Unit_ExitHolder
+0x311   Unit::EnterHolder                  | void(Unit, Obj) | ScriptFn_Unit_EnterHolder
+0x312   Unit::GetUnitsInSameHolder         | ObjList(Unit) | ScriptFn_Unit_GetUnitsInSameHolder
+0x313 L Unit::TrainAttack                  | bool(Unit, Obj) extra=4 | ScriptFn_Unit_TrainAttack
+0x314   Unit::BestTrainingTarget           | Obj(Unit) | ScriptFn_Unit_BestTrainingTarget
+0x315   Unit::StartTraining                | void(Unit) | ScriptFn_Unit_StartTraining
+0x316   Unit::StopTraining                 | void(Unit) | ScriptFn_Unit_StopTraining
+0x317   Unit::IsTraining                   | bool(Unit) | ScriptFn_Unit_IsTraining
+0x318 L Unit::Attack                       | bool(Unit, Obj) extra=4 | ScriptFn_Unit_Attack
+0x319 L Unit::AttackEveryone               | bool(Unit, Obj) extra=4 | ScriptFn_Unit_AttackEveryone
+0x31a   Unit::TimeWithoutAttack            | int(Unit) | ScriptFn_Unit_TimeWithoutAttack
+0x31b   Unit::SetLastAttackTime            | void(Unit) | ScriptFn_Unit_SetLastAttackTime
+0x31c   Unit::BestTargetInSquadSightMisZeroDamage | Obj(Unit) | ScriptFn_Unit_BestTargetInSquadSightMisZeroDamage
+0x31d   Unit::BestTargetInSquadSight       | Obj(Unit) | ScriptFn_Unit_BestTargetInSquadSight
+0x31e   Unit::BestNoIndependentTargetInSquadSight | Obj(Unit) | ScriptFn_Unit_BestNoIndependentTargetInSquadSight
+0x31f   Unit::BestTargetInSquadSight       | Obj(Unit, str) | ScriptFn_Unit_BestTargetInSquadSight2
+0x320   Unit::BestTargetInSquadSightExclusive | Obj(Unit, str) | ScriptFn_Unit_BestTargetInSquadSightExclusive
+0x321   Unit::BestTargetInSquadSight_PreferUndiseased | Obj(Unit) | ScriptFn_Unit_BestTargetInSquadSight_PreferUndiseased
+0x322   Unit::BestTargetForPos             | Obj(Unit) | ScriptFn_Unit_BestTargetForPos
+0x323   Unit::BestTargetInRange            | Obj(Unit, point, int) | ScriptFn_Unit_BestTargetInRange
+0x324   Unit::IsEnemyInSquadSight          | bool(Unit) | ScriptFn_Unit_IsEnemyInSquadSight
+0x325   Unit::EnemiesInSight               | bool(Unit) | ScriptFn_Unit_EnemiesInSight
+0x326   Unit::InRange                      | bool(Unit, Obj) | ScriptFn_Unit_InRange
+0x327   Unit::hero                         | Hero(Unit) | ScriptFn_Unit_hero
+0x328   Unit::AttachTo                     | bool(Unit, Hero) | ScriptFn_Unit_AttachTo
+0x329   Unit::DetachFrom                   | void(Unit, Hero) | ScriptFn_Unit_DetachFrom
+0x32a L Unit::Idle                         | void(Unit, int) extra=0 | ScriptFn_Unit_Idle
+0x32b L Unit::Taunt                        | void(Unit, int) extra=0 | ScriptFn_Unit_Taunt
+0x32c   Unit::SetExperience                | void(Unit, int) | ScriptFn_Unit_SetExperience
+0x32d   Unit::SetLevel                     | void(Unit, int) | ScriptFn_Unit_SetLevel
+0x32e   Unit::IncKills                     | void(Unit, int) | ScriptFn_Unit_IncKills
+0x32f L Unit::FormAcceptMove               | void(Unit) extra=0 | ScriptFn_Unit_FormAcceptMove
+0x330 L Unit::FormKeepMoving               | void(Unit, int) extra=0 | ScriptFn_Unit_FormKeepMoving
+0x331   Unit::PathTo                       | int(Unit, point, int, int) | ScriptFn_Unit_PathTo
+0x332   Unit::PathTo                       | int(Unit, Obj, int, int) | ScriptFn_Unit_PathTo2
+0x333   Unit::SetParty                     | void(Unit, bool) | ScriptFn_Unit_SetParty
+0x334   Unit::GetParty                     | bool(Unit) | ScriptFn_Unit_GetParty
+0x335   Unit::GetSacrifice                 | Sacrifice(Unit) | ScriptFn_Unit_GetSacrifice
+0x336   Unit::_OnImpassable                | bool(Unit) | ScriptFn_Unit_OnImpassable
+0x337   max_train_1_level                  | int() | ScriptFn_max_train_1_level
+0x338   Unit::GetUnexploredPoint           | point(Unit, int) | ScriptFn_Unit_GetUnexploredPoint
+0x339   Unit::HasFreedom                   | bool(Unit) | ScriptFn_Unit_HasFreedom
+0x33a   Unit::GetFlags                     | bool(Unit, int) | ScriptFn_Unit_GetFlags
+      CONST  (&PTR_s_parry_00824c80)[iVar1] = iVar1
+      CONST  UnitSpecialsCount = 0x24
+      CONST  UNITFLAG_NOAI = 0x40000
+0x33b   Unit::PathLeft                     | int(Unit) | ScriptFn_Unit_PathLeft
+0x33c   Unit::GetShipToBoard               | Ship(Unit) | ScriptFn_Unit_GetShipToBoard
+0x33d   Unit::GetStaminaDecTime            | int(Unit) | ScriptFn_Unit_GetStaminaDecTime
+0x33e   Unit::SameHolderAs                 | bool(Unit, Unit) | ScriptFn_Unit_SameHolderAs
+0x33f   SetExperienceModifier              | void(int, int) | ScriptFn_SetExperienceModifier
+0x340   GetExperienceModifier              | int(int) | ScriptFn_GetExperienceModifier
+0x341   Unit::SetCommanded                 | void(Unit, bool) | ScriptFn_Unit_SetCommanded
+0x342   Unit::GetCommanded                 | bool(Unit) | ScriptFn_Unit_GetCommanded
+0x343   Unit::SetEntering                  | void(Unit, bool) | ScriptFn_Unit_SetEntering
+0x344   Unit::GetEntering                  | bool(Unit) | ScriptFn_Unit_GetEntering
+0x345   Unit::SetWalkAnim                  | void(Unit, int) | ScriptFn_Unit_SetWalkAnim2
+0x346   Unit::SetWalkAnim                  | void(Unit) | ScriptFn_Unit_SetWalkAnim
+0x347   Unit::SetCarryWaterAnim            | void(Unit) | ScriptFn_Unit_SetCarryWaterAnim
+0x348   Unit::SetCarryGoodsAnim            | void(Unit) | ScriptFn_Unit_SetCarryGoodsAnim
+0x349   Unit::DoCarryNothing               | bool(Unit) | ScriptFn_Unit_DoCarryNothing
+0x34a   Unit::Disappear                    | void(Unit) | ScriptFn_Unit_Disappear
+0x34b   Unit::SetNoselectFlag              | void(Unit, bool) | ScriptFn_Unit_SetNoselectFlag
+0x34c   Unit::SetMinimapFlag               | void(Unit, bool) | ScriptFn_Unit_SetMinimapFlag
+0x34d   Unit::SetNoAIFlag                  | void(Unit, bool) | ScriptFn_Unit_SetNoAIFlag
+0x34e   Unit::PathDestFound                | point(Unit) | ScriptFn_Unit_PathDestFound
+0x34f   Unit::ForceIdle                    | void(Unit) | ScriptFn_Unit_ForceIdle
+0x350   Unit::Talk                         | void(Unit) | ScriptFn_Unit_Talk
+0x351   Unit::IsCursed                     | bool(Unit) | ScriptFn_Unit_IsCursed
+0x352   Unit::IsDiseased                   | bool(Unit) | ScriptFn_Unit_IsDiseased
+0x353   Unit::GetBestCurseTarget           | Unit(Unit) | ScriptFn_Unit_GetBestCurseTarget
+0x354   Unit::GetBuilding                  | Building(Unit) | ScriptFn_Unit_GetBuilding
+0x355   Unit::SetBuilding                  | void(Unit, Building) | ScriptFn_Unit_SetBuilding
+0x356   Unit::HasSpecial                   | bool(Unit, int) | ScriptFn_Unit_HasSpecial
+0x357   Unit::SetSpecial                   | void(Unit, int, bool) | ScriptFn_Unit_SetSpecial
+0x358   Unit::SpecialName                  | str(Unit, int) | ScriptFn_Unit_SpecialName
+0x359   Unit::GetParryMode                 | int(Unit) | ScriptFn_Unit_GetParryMode
+0x35a   Unit::SetParryMode                 | void(Unit, bool) | ScriptFn_Unit_SetParryMode
+0x35b   Unit::Curse                        | void(Unit) | ScriptFn_Unit_Curse
+0x35c   Unit::Bless                        | void(Unit) | ScriptFn_Unit_Bless
+0x35d   Unit::Disease                      | void(Unit) | ScriptFn_Unit_Disease
+0x35e   Unit::RamBestTarget                | Obj(Unit) | ScriptFn_Unit_RamBestTarget
+0x35f   GetPlayerUnits                     | ObjList(int) | ScriptFn_GetPlayerUnits
+0x360   GetPlayerUnits                     | ObjList(int, str) | ScriptFn_GetPlayerUnits2
+0x361   InvalidateRegenConsts              | void() | ScriptFn_InvalidateRegenConsts
+0x362   Unit::Mutate                       | void(Obj, str) | ScriptFn_Unit_Mutate
+0x363   ExpFromLevel                       | int(int) | ScriptFn_ExpFromLevel
+0x364   LevelFromExp                       | int(int) | ScriptFn_LevelFromExp
+
+## RegisterHeroScriptFunctions 00531500
+0x365 L Hero::FormKeepMoving               | void(Hero, int) extra=0 | ScriptFn_Hero_FormKeepMoving
+0x366 L Hero::FormSetupAndMoveTo           | void(Hero, point, int, int, bool) extra=0 | ScriptFn_Hero_FormSetupAndMoveTo_point
+0x367 L Hero::FormSetupAndMoveTo           | void(Hero, Obj, int, int, bool) extra=0 | ScriptFn_Hero_FormSetupAndMoveTo_obj
+0x368   Hero::TimePastLastAttack           | int(Hero) | ScriptFn_Hero_TimePastLastAttack
+0x369   Hero::LastAttacker                 | Obj(Hero) | ScriptFn_Hero_LastAttacker
+0x36a   Hero::army                         | ObjList(Hero) | ScriptFn_Hero_army
+0x36b   Hero::maxarmy                      | int(Hero) | ScriptFn_Hero_maxarmy
+0x36c   Hero::IsHeroArmyFull               | bool(Hero) | ScriptFn_Hero_IsHeroArmyFull
+0x36d   Hero::FormRadius                   | int(Hero) | ScriptFn_Hero_FormRadius
+0x36e   Hero::FormPathLeft                 | int(Hero) | ScriptFn_Hero_FormPathLeft
+0x36f   Hero::HasArmy                      | bool(Hero) | ScriptFn_Hero_HasArmy
+0x370   Hero::SetFormation                 | void(Hero, str) | ScriptFn_Hero_SetFormation
+0x371   Hero::formation                    | str(Hero) | ScriptFn_Hero_formation
+0x372   Hero::DetachArmy                   | void(Hero) | ScriptFn_Hero_DetachArmy
+0x373   GetRandomHeroClass                 | str(str, int) | ScriptFn_GetRandomHeroClass
+0x374   Hero::CancelArmyBoard              | void(Hero) | ScriptFn_Hero_CancelArmyBoard
+0x375   Hero::SetFinalPartyOrientation     | void(Hero, point) | ScriptFn_Hero_SetFinalPartyOrientation
+0x376   Hero::GetFinalPartyOrientation     | point(Hero) | ScriptFn_Hero_GetFinalPartyOrientation
+0x377   Hero::HasFinalPartyOrientationRequest | bool(Hero) | ScriptFn_Hero_HasFinalPartyOrientationRequest
+0x378   HeroSkillId                        | int(str) | ScriptFn_HeroSkillId
+0x379   Hero::SetSkill                     | void(Hero, int, int) | ScriptFn_Hero_SetSkill
+0x37a   Hero::GetSkill                     | int(Hero, int) | ScriptFn_Hero_GetSkill
+0x37b   Hero::UseSkill                     | bool(Hero, int) | ScriptFn_Hero_UseSkill
+0x37c   HeroSkillName                      | str(int) | ScriptFn_HeroSkillName
+0x37d   Hero::AvailableSkillPoints         | int(Hero) | ScriptFn_Hero_AvailableSkillPoints
+0x37e   Hero::SkillInEffect                | bool(Hero, int) | ScriptFn_Hero_SkillInEffect
+0x37f   Hero::autocast                     | bool(Hero) | ScriptFn_Hero_autocast
+0x380   Hero::SetAutocast                  | void(Hero, bool) | ScriptFn_Hero_SetAutocast
+      CONST  (&kHeroSkillConstNameTable)[iVar1] = iVar1
+      CONST  HeroSkillsCount = 0x19
+
+## RegisterDruidScriptFunctions 00513f50
+0x381   Druid::FindUnitToHeal              | Unit(Druid) | Script_Druid_FindUnitToHeal
+0x382   Druid::FindUnitToLearn             | Unit(Druid) | Script_Druid_FindUnitToLearn
+0x383   Druid::FindUnitToHide              | Unit(Druid) | Script_Druid_FindUnitToHide
+0x384   Druid::GetBestCrippleTarget        | Unit(Unit) | Script_Druid_GetBestCrippleTarget
+0x385   Druid::FindUnitToRevitalize        | Unit(Druid) | Script_Druid_FindUnitToRevitalize
+0x386   Druid::FindUnitBelowILevel         | Unit(Druid, int) | Script_Druid_FindUnitBelowILevel
+0x387   Druid::FindUnitBelowILevel         | Unit(Druid, int, int) | Script_Druid_FindUnitBelowILevel3
+0x388   Druid::SetStonehenge               | void(Druid, Building) | ScriptFn_Druid_SetStonehenge
+0x389   Druid::GetJupiterAngerTarget       | Unit(Druid) | Script_Druid_GetJupiterAngerTarget
+0x38a   Druid::SetJupiterAngerTarget       | void(Druid, Unit) | ScriptFn_Druid_SetJupiterAngerTarget
+0x38b   Druid::SetSummoningDeath           | void(Druid, bool) | ScriptFn_Druid_SetSummoningDeath
+0x38c   Druid::IsSummoningDeath            | bool(Druid) | ScriptFn_Druid_IsSummoningDeath
+
+## RegisterScriptEditorFunctions 004b1a40
+0x38d   _ScriptEditor                      | void() | ScriptFn__ScriptEditor
+0x38e   _ScriptEditor                      | void(str) | ScriptFn__ScriptEditor_Str
+
+## RegisterDialogEditorFunctions 00492e00
+0x38f   _DialogEditor                      | void() | ScriptFn__DialogEditor
+0x390   _DialogEditor                      | void(str) | ScriptFn__DialogEditor_Path
+0x391   (char *)&PTR_LAB_0065645e_1_007b4d0c | void | ScriptFn__DialogEditor
+
+## RegisterEditorChooseFunctions 00485280
+0x392 L _Choose                            | str(str, str) extra=4 | ScriptFn__Choose
+0x393   _ListClasses                       | str() | ScriptFn__ListClasses
+0x394   _ListFolder                        | str(str) | ScriptFn__ListFolder
+0x395   _ListFolderEx                      | str(str, str) | ScriptFn__ListFolderEx
+0x396   _ListTerrains                      | str() | ScriptFn__ListTerrains
+
+## RegisterMiniMapScriptFunctions 006149d0
+0x397   MiniMap                            | void() | ScriptFn_MiniMap
+0x398   SetMiniMapRect                     | void(rect) | ScriptFn_SetMiniMapRect
+
+## RegisterZoomMapScriptFunctions 006163a0
+0x399   BuildMiniMap                       | void(str) | ScriptFn_BuildMiniMap
+0x39a   ToggleZoomMap                      | void() | ScriptFn_ToggleZoomMap
+0x39b   ShowZoomMap                        | void() | ScriptFn_ShowZoomMap
+0x39c   HideZoomMap                        | void() | ScriptFn_HideZoomMap
+0x39d   _ZoomMapLastShownTime              | int() | ScriptFn__ZoomMapLastShownTime
+
+## RegisterWagonScriptFunctions 005ec2f0
+0x39e   Wagon::amount                      | int(Wagon) | ScriptFn_Wagon_amount
+0x39f   Wagon::restype                     | int(Wagon) | ScriptFn_Wagon_restype
+0x3a0   Wagon::SetFood                     | void(Wagon, int) | ScriptFn_Wagon_SetFood
+0x3a1   Wagon::SetGold                     | void(Wagon, int) | ScriptFn_Wagon_SetGold
+0x3a2   Wagon::LoadFood                    | void(Wagon, int) | ScriptFn_Wagon_LoadFood
+0x3a3   Wagon::LoadGold                    | void(Wagon, int) | ScriptFn_Wagon_LoadGold
+0x3a4   Wagon::loyalty                     | int(Wagon) | ScriptFn_Wagon_loyalty
+0x3a5   Wagon::SetLoyalty                  | void(Wagon, int) | ScriptFn_Wagon_SetLoyalty
+0x3a6   Wagon::DecreaseLoyalty             | void(Wagon, int) | ScriptFn_Wagon_DecreaseLoyalty
+0x3a7   Wagon::StartCapture                | void(Wagon) | ScriptFn_Wagon_StartCapture
+0x3a8   Wagon::StopCapture                 | void(Wagon) | ScriptFn_Wagon_StopCapture
+
+## IsBetaExpired 00746ea0
+      note (ya recorrido: segunda entrada de la lista)
+
+## RegisterSettlementScriptFunctions 005c5d10
+0x3a9   ==                                 | bool(Settlement, Settlement) | ScriptFn_Settlement_operator_eq
+0x3aa   =                                  | void(Settlement&, Settlement) | ScriptFn_PointAssign
+0x3ab   GetSettlement                      | Settlement(str) | ScriptFn_GetSettlement
+0x3ac   Settlement::population             | int(Settlement) | ScriptFn_scSPopulation
+0x3ad   Settlement::max_population         | int(Settlement) | ScriptFn_scSMaxPopulation
+0x3ae   Settlement::name                   | str(Settlement) | ScriptFn_Settlement_GetName
+0x3af   Settlement::ForceAddUnit           | void(Settlement, Unit) | ScriptFn_Settlement_ForceAddUnit
+0x3b0   Settlement::AddUnit                | bool(Settlement, Unit) | ScriptFn_Settlement_addunit
+0x3b1   Settlement::IsFull                 | bool(Settlement) | ScriptFn_Settlement_isfull
+0x3b2   Settlement::AddUnits               | int(Settlement, ObjList) | ScriptFn_Settlement_AddUnits
+0x3b3   Settlement::Units                  | ObjList(Settlement) | ScriptFn_Settlement_Units
+0x3b4   Settlement::UnitsCount             | int(Settlement) | ScriptFn_Settlement_UnitsCount
+0x3b5   Settlement::max_units              | int(Settlement) | ScriptFn_Settlement_maxcount
+0x3b6   Settlement::health                 | int(Settlement) | ScriptFn_Settlement_health
+0x3b7   Settlement::max_health             | int(Settlement) | ScriptFn_Settlement_maxhealth
+0x3b8   Settlement::stamina                | int(Settlement) | ScriptFn_Settlement_stamina
+0x3b9   Settlement::max_stamina            | int(Settlement) | ScriptFn_Settlement_maxstamina
+0x3ba   Settlement::loyalty                | int(Settlement) | ScriptFn_scSLoyalty
+0x3bb   Settlement::SetLoyalty             | void(Settlement, int) | ScriptFn_Settlement_SetLoyalty
+0x3bc   Settlement::DecreaseLoyalty        | void(Settlement, int) | ScriptFn_Settlement_DecreaseLoyalty
+0x3bd   Settlement::gold                   | int(Settlement) | ScriptFn_Settlement_gold
+0x3be   Settlement::max_gold               | int(Settlement) | ScriptFn_Settlement_maxgold
+0x3bf   Settlement::food                   | int(Settlement) | ScriptFn_Settlement_food
+0x3c0   Settlement::max_food               | int(Settlement) | ScriptFn_Settlement_maxfood
+0x3c1   Settlement::SetGold                | void(Settlement, int) | ScriptFn_Settlement_SetGold
+0x3c2   Settlement::SetFood                | void(Settlement, int) | ScriptFn_Settlement_SetFood
+0x3c3   Settlement::SetPopulation          | void(Settlement, int) | ScriptFn_Settlement_SetPopulation
+0x3c4   Settlement::AddToPopulation        | void(Settlement, int) | ScriptFn_Settlement_AddToPopulation
+0x3c5   Settlement::AddToMaxPopulation     | void(Settlement, int) | ScriptFn_Settlement_AddToMaxPopulation
+0x3c6   Settlement::player                 | int(Settlement) | ScriptFn_Settlement_player
+0x3c7   Settlement::SetPlayer              | void(Settlement, int) | ScriptFn_Settlement_SetPlayer
+0x3c8   Settlement::IsValid                | bool(Settlement) | ScriptFn_Obj_IsValid
+0x3c9   Settlement::loan                   | int(Settlement) | ScriptFn_Settlement_GetLoan
+0x3ca   Settlement::SetLoan                | void(Settlement, int) | ScriptFn_Settlement_SetLoan
+0x3cb   Settlement::GetCentralBuilding     | Building(Settlement) | ScriptFn_Settlement_GetCentralBuilding
+0x3cc   Settlement::FoodProduction         | int(Settlement) | ScriptFn_Settlement_FoodProduction
+0x3cd   Settlement::GoldProduction         | int(Settlement) | ScriptFn_Settlement_GoldProduction
+0x3ce   Settlement::SetFoodProduction      | void(Settlement, int) | ScriptFn_Settlement_SetFoodProduction
+0x3cf   Settlement::SetGoldProduction      | void(Settlement, int) | ScriptFn_Settlement_SetGoldProduction
+0x3d0   Settlement::Buildings              | ObjList(Settlement) | ScriptFn_Settlement_Buildings
+0x3d1   Settlement::Find                   | Building(Settlement, str) | ScriptFn_Settlement_Find
+0x3d2   Settlement::FirstBldClass          | str(Settlement) | ScriptFn_Settlement_FirstBldClass
+0x3d3   Settlement::CanBeCaptured          | bool(Settlement) | ScriptFn_Settlement_CanBeCaptured
+0x3d4   Settlement::AllowCapture           | void(Settlement, bool) | ScriptFn_Settlement_AllowCapture
+0x3d5   Settlement::ObjectsAround          | ObjList(Settlement, str) | ScriptFn_Settlement_ObjectsAround
+0x3d6   Building::GetEnterExit             | point(Building) | ScriptFn_Building_GetEnterExit
+0x3d7   Building::GetWaterSource           | point(Building) | ScriptFn_Building_GetWaterSource
+0x3d8   Building::GetGoodsSource           | point(Building) | ScriptFn_Building_GetGoodsSource
+0x3d9   Building::GetFixSite               | point(Building) | ScriptFn_Building_GetFixSite
+0x3da   Settlement::GetEnterExit           | Building(Settlement) | ScriptFn_Settlement_GetEnterExit
+0x3db   Settlement::GetWaterSource         | Building(Settlement) | ScriptFn_Settlement_GetWaterSource
+0x3dc   Settlement::GetGoodsSource         | Building(Settlement) | ScriptFn_Settlement_GetGoodsSource
+0x3dd   Settlement::GetFixSite             | Building(Settlement) | ScriptFn_Settlement_GetFixSite
+0x3de   Settlement::MostDamagedBuilding    | Building(Settlement) | ScriptFn_Settlement_MostDamagedBuilding
+0x3df   Settlement::ClearDamageTaken       | void(Settlement) | ScriptFn_Settlement_ClearDamageTaken
+0x3e0   Settlement::FindNearEnterExit      | point(Settlement, point) | ScriptFn_Settlement_FindNearEnterExit
+0x3e1   Settlement::IsCity                 | bool(Settlement) | ScriptFn_Settlement_IsCity
+0x3e2   Settlement::PopulationDied         | int(Settlement) | ScriptFn_Settlement_PopulationDied
+0x3e3   Settlement::GoldConverted          | void(Settlement, int) | ScriptFn_Settlement_GoldConverted
+0x3e4   Settlement::GoldSpent              | void(Settlement, int) | ScriptFn_Settlement_GoldSpent
+0x3e5   Settlement::GetSentry              | int(Settlement) | ScriptFn_Settlement_GetSentry
+0x3e6   Settlement::PutSentry              | void(Settlement) | ScriptFn_Settlement_PutSentry
+0x3e7   Settlement::DelSentry              | void(Settlement) | ScriptFn_Settlement_DelSentry
+0x3e8   Settlement::GetNumSentries         | int(Settlement) | ScriptFn_Settlement_GetNumSentries
+0x3e9   Settlement::AddSentries            | void(Settlement, int) | ScriptFn_Settlement_AddSentries
+0x3ea   Settlement::GetMaxSentries         | int(Settlement) | ScriptFn_Settlement_GetMaxSentries
+0x3eb   Settlement::AddMaxSentries         | void(Settlement, int) | ScriptFn_Settlement_AddMaxSentries
+0x3ec   Settlement::EvalSentries           | int(Settlement) | ScriptFn_Settlement_EvalSentries
+
+## RegisterItemHolderScriptFunctions 0053cd20
+0x3ed   ItemHolder::AddItem                | bool(ItemHolder, str) | ScriptFn_ItemHolder_AddItem
+0x3ee   ItemHolder::count                  | int(ItemHolder) | Script_ItemHolder_count
+0x3ef   ItemHolder::HasItem                | bool(ItemHolder, str) | ScriptFn_ItemHolder_HasItem
+0x3f0   ItemHolder::RemoveItem             | void(ItemHolder, str) | ScriptFn_ItemHolder_RemoveItem
+0x3f1   ItemHolder::RemoveAll              | void(ItemHolder) | ScriptFn_ItemHolder_RemoveAll
+
+## RegisterSettlementSupplyScriptFunctions 005ef5e0
+0x3f2   Settlement::CreateMuleFood         | Wagon(Settlement, int) | ScriptFn_Settlement_CreateMuleFood
+0x3f3   Settlement::CreateMuleGold         | Wagon(Settlement, int) | ScriptFn_Settlement_CreateMuleGold
+0x3f4   Settlement::CreateBoatFood         | Wagon(Settlement, int) | ScriptFn_Settlement_CreateBoatFood
+0x3f5   Settlement::CreateBoatGold         | Wagon(Settlement, int) | ScriptFn_Settlement_CreateBoatGold
+0x3f6   Settlement::CreateShip             | Ship(Settlement, str) | ScriptFn_Settlement_CreateShip
+0x3f7   Settlement::SendMule               | void(Settlement) | ScriptFn_Settlement_SendMule
+0x3f8   Settlement::SendBoat               | void(Settlement) | ScriptFn_Settlement_SendBoat
+0x3f9   Settlement::StartSupplyFood        | void(Settlement, Settlement) | ScriptFn_Settlement_StartSupplyFood
+0x3fa   Settlement::StopSupply             | void(Settlement) | ScriptFn_Settlement_StopSupply
+0x3fb   Settlement::UnloadWagon            | void(Settlement, Wagon) | ScriptFn_Settlement_UnloadWagon
+0x3fc   Settlement::supplied               | Settlement(Settlement) | ScriptFn_Settlement_supplied
+
+## RegisterObjListScriptFunctions 00563420
+0x3fd   =                                  | void(ObjList&, ObjList) | ScriptFn_ObjList_operator_assign
+0x3fe   ObjList::count                     | int(ObjList) | ScriptFn_ObjList_count
+0x3ff   [                                  | Obj(ObjList, int) | ScriptFn_ObjList_operator_index
+0x400   ObjList::Contains                  | bool(ObjList, Obj) | ScriptFn_ObjList_Contains
+0x401   ObjList::Add                       | void(ObjList, Obj) | ScriptFn_ObjList_Add
+0x402   ObjList::Remove                    | void(ObjList, Obj) | ScriptFn_ObjList_Remove
+0x403   ObjList::ClearDead                 | void(ObjList) | ScriptFn_ObjList_ClearDead
+0x404   ObjList::AddList                   | void(ObjList, ObjList) | ScriptFn_ObjList_AddList
+0x405   ObjList::RemoveList                | void(ObjList, ObjList) | ScriptFn_ObjList_RemoveList
+0x406   ObjList::Clear                     | void(ObjList) | ScriptFn_ObjList_Clear
+0x407   ObjList::AddToGroup                | void(ObjList, str) | ScriptFn_ObjList_AddToGroup
+0x408   ObjList::RemoveFromGroup           | void(ObjList, str) | ScriptFn_ObjList_RemoveFromGroup
+0x409   ObjList::RemoveFromAllGroups       | void(ObjList) | ScriptFn_ObjList_RemoveFromAllGroups
+0x40a   ObjList::KillCommand               | void(ObjList) | ScriptFn_ObjList_KillCommand
+0x40b   ObjList::ClearCommands             | void(ObjList) | ScriptFn_ObjList_ClearCommands
+0x40c   ObjList::AddCommand                | void(ObjList, bool, str) | ScriptFn_ObjList_AddCommand_Void
+0x40d   ObjList::AddCommand                | void(ObjList, bool, str, point) | ScriptFn_ObjList_AddCommand_Point
+0x40e   ObjList::AddCommand                | void(ObjList, bool, str, Obj) | ScriptFn_ObjList_AddCommand_Object
+0x40f   ObjList::AddCommandOffset          | void(ObjList, bool, str, point) | ScriptFn_ObjList_AddCommandOffset
+0x410   ObjList::ExecDefaultCmd            | void(ObjList, point, Obj, bool, bool) | ScriptFn_ObjList_ExecDefaultCmd
+0x411   ObjList::ExecCmd                   | void(ObjList, str, point, Obj, bool) | ScriptFn_ObjList_ExecCmd
+0x412   ObjList::SetCommand                | void(ObjList, str) | ScriptFn_ObjList_SetCommand_Void
+0x413   ObjList::SetCommand                | void(ObjList, str, point) | ScriptFn_ObjList_SetCommand_Point
+0x414   ObjList::SetCommand                | void(ObjList, str, Obj) | ScriptFn_ObjList_SetCommand_Object
+0x415   ObjList::SetCommandOffset          | void(ObjList, str, point) | ScriptFn_ObjList_SetCommandOffset
+0x416   ObjList::GetCanExecCmd             | ObjList(ObjList, str) | ScriptFn_ObjList_GetCanExecCmd
+0x417   ObjList::FilterClosest             | ObjList(ObjList, point, int) | ScriptFn_ObjList_FilterClosest
+0x418   ObjList::Face                      | void(ObjList, point) | ScriptFn_ObjList_Face
+0x419   ObjList::SetFood                   | void(ObjList, int) | ScriptFn_ObjList_SetFood
+0x41a   ObjList::SetPlayer                 | void(ObjList, int) | ScriptFn_ObjList_SetPlayer
+0x41b   ObjList::InHolder                  | int(ObjList, str) | ScriptFn_ObjList_InHolder
+0x41c   ObjList::AddToHolder               | void(ObjList, str) | ScriptFn_ObjList_AddToHolder
+0x41d   ObjList::SetVisible                | void(ObjList, bool) | ScriptFn_ObjList_SetVisible
+0x41e   ObjList::ObjPlayer                 | ObjList(ObjList, int) | ScriptFn_ObjList_ObjPlayer
+0x41f   ObjList::ObjEnemy                  | ObjList(ObjList, int) | ScriptFn_ObjList_ObjEnemy
+0x420   ObjList::ObjAlly                   | ObjList(ObjList, int) | ScriptFn_ObjList_ObjAlly
+0x421   ObjList::ObjClass                  | ObjList(ObjList, str) | ScriptFn_ObjList_ObjClass
+0x422   ObjList::ObjSpecial                | void(ObjList, int) | ScriptFn_ObjList_ObjSpecial
+0x423   ObjList::ObjInjured                | ObjList(ObjList) | ScriptFn_ObjList_ObjInjured
+0x424   ObjList::ObjFullStamina            | ObjList(ObjList) | ScriptFn_ObjList_ObjFullStamina
+0x425   ObjList::Find                      | Obj(ObjList, str) | ScriptFn_ObjList_Find
+0x426   ObjList::FindAlly                  | Obj(ObjList, int, str) | ScriptFn_ObjList_FindAlly
+0x427   ObjList::FindEnemy                 | Obj(ObjList, int, str) | ScriptFn_ObjList_FindEnemy
+
+## RegisterConversationScriptFunctions 0050d1f0
+      TIPO   Conversation (id 0x1d, 4 bytes)
+0x428   Conversation::Init                 | void(Conversation&, str) | ScriptFn_Conversation_Init
+0x429   Conversation::SetActor             | void(Conversation, str, Unit) | ScriptFn_Conversation_SetActor
+0x42a   Conversation::SetDefActor          | void(Conversation, str, str) | ScriptFn_Conversation_SetDefActor
+0x42b   ActorPresent                       | bool(str) | ScriptFn_ActorPresent
+0x42c   ConvResult                         | str(str) | ScriptFn_ConvResult
+0x42d   ConvSetResult                      | void(str, str) | ScriptFn_ConvSetResult
+0x42e L Conversation::Run                  | void(Conversation&) extra=0 | ScriptFn_Conversation_Run
+0x42f L RunConv                            | str(str) extra=4 | ScriptFn_RunConv
+0x430   _ListConvs                         | str() | ScriptFn__ListConvs
+
+## RegisterEnvironmentFunctions 006ae7b0
+0x431   EnvWriteString                     | void, str key, str val | ScriptFn_EnvWriteString
+0x432   EnvWriteInt                        | void, str key, int val | ScriptFn_EnvWriteInt
+0x433   EnvReadString                      | str,  str key | ScriptFn_EnvReadString
+0x434   EnvReadInt                         | int,  str key | ScriptFn_EnvReadInt
+0x435   EnvWriteObj                        | void, str key, Obj o | ScriptFn_EnvWriteObj
+0x436   EnvReadObj                         | Obj,  str key | ScriptFn_EnvReadObj
+0x437   EnvWriteString                     | void, Settlement set, str key, str val | ScriptFn_EnvWriteString_Settlement
+0x438   EnvWriteInt                        | void, Settlement set, str key, int val | ScriptFn_EnvWriteInt_Settlement
+0x439   EnvReadString                      | str,  Settlement set, str key | ScriptFn_EnvReadString_Settlement
+0x43a   EnvReadInt                         | int,  Settlement set, str key | ScriptFn_EnvReadInt_Settlement
+0x43b   EnvWriteObj                        | void, Settlement set, str key, Obj o | ScriptFn_EnvWriteObj_Settlement
+0x43c   EnvReadObj                         | Obj,  Settlement set, str key | ScriptFn_EnvReadObj_Settlement
+0x43d   EnvWriteString                     | void, Building bld, str key, str val | ScriptFn_EnvWriteString_Building
+0x43e   EnvWriteInt                        | void, Building bld, str key, int val | ScriptFn_EnvWriteInt_Building
+0x43f   EnvReadString                      | str,  Building bld, str key | ScriptFn_EnvReadString_Building
+0x440   EnvReadInt                         | int,  Building bld, str key | ScriptFn_EnvReadInt_Building
+0x441   EnvWriteObj                        | void, Building bld, str key, Obj o | ScriptFn_EnvWriteObj_Building
+0x442   EnvReadObj                         | Obj,  Building bld, str key | ScriptFn_EnvReadObj_Building
+0x443   EnvWriteString                     | void, int plr, str key, str val | ScriptFn_EnvWriteString_Player
+0x444   EnvWriteInt                        | void, int plr, str key, int val | ScriptFn_EnvWriteInt_Player
+0x445   EnvReadString                      | str,  int plr, str key | ScriptFn_EnvReadString_Player
+0x446   EnvReadInt                         | int,  int plr, str key | ScriptFn_EnvReadInt_Player
+0x447   EnvWriteObj                        | void, int plr, str key, Obj o | ScriptFn_EnvWriteObj_Player
+0x448   EnvReadObj                         | Obj,  int plr, str key | ScriptFn_EnvReadObj_Player
+0x449 L EnvList                            | void, str key (extra=4) | ScriptFn_EnvList
+0x44a L EnvList                            | void, Settlement set, str key (extra=4) | ScriptFn_EnvList_Settlement
+0x44b L EnvFind                            | void, str key (extra=4) | ScriptFn_EnvFind
+0x44c   EnvExport                          | void, str filename | ScriptFn_EnvExport
+0x44d   _ClearEnv                          | void() | ScriptFn__ClearEnv
+0x44e   RegisterSettlementUpgrade          | void, Settlement set, str name_of_command_from_commands_xml | ScriptFn_RegisterSettlementUpgrade
+0x44f   RegisterPlayerUpgrade              | void, int player, str name_of_command_from_commands_xml | ScriptFn_RegisterPlayerUpgrade
+
+## RegisterSequenceScriptFunctions 005bcb90
+0x450   RunSequence                        | void(str) | ScriptFn_RunSequence
+0x451   _SequencesStatus                   | void() | ScriptFn__SequencesStatus
+0x452   IsRunning                          | bool(str) | ScriptFn_IsRunning
+0x453   IsWaiting                          | bool(str) | ScriptFn_IsWaiting
+0x454   IsFinished                         | bool(str) | ScriptFn_IsFinished
+
+## RegisterGameplayScriptFunctions 004caa70
+0x455   ViewPos                            | point | ScriptFn_ViewPos
+0x456   View                               | void, point ptWhere, bool bLock | ScriptFn_View
+0x457   PlayMusic                          | void, str sound | ScriptFn_PlayMusic
+0x458   PlaySound                          | void, str sound | ScriptFn_PlaySound
+0x459   PlaySound                          | void, int player, str sound | ScriptFn_PlaySound_2
+0x45a   MusicPlaying                       | bool | ScriptFn_MusicPlaying
+0x45b   SetSpeed                           | void, int speed | ScriptFn_SetSpeed
+0x45c   GetSpeed                           | int | ScriptFn_GetSpeed
+0x45d   TogglePause                        | void | ScriptFn_TogglePause
+0x45e   _Run                               | bool, str script | ScriptFn__Run
+0x45f   Run                                | void, str script | ScriptFn_Run
+0x460   Run                                | void, str script, int i1 | ScriptFn_Run_1
+0x461   Run                                | void, str script, int i1, int i2 | ScriptFn_Run_2
+0x462   Run                                | void, str script, int i1, int i, int i3 | ScriptFn_Run_3
+0x463   Run                                | void, str script, int i1, int i2, int i3, int i4 | ScriptFn_Run_4
+0x464   Run                                | void, str script, int i1, int i2, int i3, int i4, int i5 | ScriptFn_Run_5
+0x465   Settlement::Run                    | void, Settlement set, str script | ScriptFn_Settlement_Run
+0x466   IRun                               | int, str script | ScriptFn_IRun
+0x467   IRun                               | int, str script, int i1 | ScriptFn_IRun_1
+0x468   IRun                               | int, str script, int i1, int i2 | ScriptFn_IRun_2
+0x469   IRun                               | int, str script, int i1, int i, int i3 | ScriptFn_IRun_3
+0x46a   IRun                               | int, str script, int i1, int i2, int i3, int i4 | ScriptFn_IRun_4
+0x46b   IRun                               | int, str script, int i1, int i2, int i3, int i4, int i5 | ScriptFn_IRun_5
+0x46c   ToggleFPS                          | void | ScriptFn_ToggleFPS
+0x46d   GetConst                           | int, str id | ScriptFn_GetConst
+0x46e   GetConstStr                        | str, str id | ScriptFn_GetConstStr
+0x46f   rand                               | int, int max | ScriptFn_Rand
+0x470   BlockUserInput                     | void | ScriptFn_BlockUserInput
+0x471   UnblockUserInput                   | void | ScriptFn_UnblockUserInput
+0x472   ExploreCircle                      | void, int PlayerID, point ptCenter, int radius | ScriptFn_ExploreCircle
+0x473   ExploreArea                        | void, int PlayerID, str area | ScriptFn_ExploreArea
+0x474   Party                              | ObjList | ScriptFn_Party
+0x475   GetTime                            | int | ScriptFn_GetTime
+0x476   EndGame                            | void, int player, bool lose | ScriptFn_EndGame_2
+0x477   IsMultiplayer                      | bool | ScriptFn_IsMultiplayer
+0x478   SelAvgLevel                        | int | ScriptFn_SelAvgLevel
+0x479   SelAvgFood                         | int | ScriptFn_SelAvgFood
+0x47a   SelAvgStamina                      | int | ScriptFn_SelAvgStamina
+0x47b   SelAvgArmor                        | int | ScriptFn_SelAvgArmor
+0x47c   SelAvgDamage                       | int | ScriptFn_SelAvgDamage
+0x47d   SelHealth                          | int | ScriptFn_SelHealth
+0x47e   SelMaxHealth                       | int | ScriptFn_SelMaxHealth
+0x47f   LockView                           | void() | ScriptFn_LockView
+0x480   UnlockView                         | void() | ScriptFn_UnlockView
+0x481   IsViewLocked                       | bool() | ScriptFn_IsViewLocked
+0x482   StartViewFollow                    | void(Unit) | ScriptFn_StartViewFollow
+0x483   StopViewFollow                     | void() | ScriptFn_StopViewFollow
+0x484   StartViewFollow                    | void(NamedObj) | ScriptFn_StartViewFollow_2
+0x485   SetDifficulty                      | void(int) | ScriptFn_SetDifficulty
+0x486   GetDifficulty                      | int() | ScriptFn_GetDifficulty
+      CONST  cEasy = 0
+      CONST  cNormal = 1
+      CONST  cHard = 2
+0x487   GetMapRect                         | rect() | ScriptFn_GetMapRect
+0x488   MapName                            | str() | ScriptFn_MapName
+0x489 L ChangeMap                          | void(str, str) extra=0 | ScriptFn_ChangeMap
+0x48a   SetNextSeason                      | void(str) | ScriptFn_SetNextSeason
+0x48b   GetTeamMilitaryScore               | int(int) | ScriptFn_GetTeamMilitaryScore
+0x48c   GetTeamPowerScore                  | int(int) | ScriptFn_GetTeamPowerScore
+0x48d   GetTeamAchievementsScore           | int(int) | ScriptFn_GetTeamAchievementsScore
+0x48e   GetTeamOverallScore                | int(int) | ScriptFn_GetTeamOverallScore
+0x48f   GetVec                             | point(point, point, int) | ScriptFn_GetVec
+0x490   IsPassable                         | bool(point) | ScriptFn_IsPassable
+0x491   IsPassable3x3                      | bool(point) | ScriptFn_IsPassable3x3
+0x492   BlockMiniMap                       | void(bool) | ScriptFn_BlockMiniMap
+0x493   IsExplored                         | bool(point, int) | ScriptFn_IsExplored
+0x494   SelectionGold                      | int() | ScriptFn_SelectionGold
+0x495   SelectionFood                      | int() | ScriptFn_SelectionFood
+0x496   NoTents                            | bool() | ScriptFn_NoTents
+0x497   RandomOffset                       | point(int) | ScriptFn_RandomOffset
+0x498   RandomPointInCircle                | point(point, int) | ScriptFn_RandomPointInCircle
+0x499   PlayMovie                          | bool(str) | ScriptFn_PlayMovie
+0x49a   Translate                          | str(str) | ScriptFn_Translate
+0x49b   Translatef                         | str(str, str) | ScriptFn_Translatef_2
+0x49c   Translatef                         | str(str, str, str) | ScriptFn_Translatef_3
+0x49d   Translatef                         | str(str, str, str, str) | ScriptFn_Translatef_4
+0x49e L SaveAdventure                      | void(str) extra=0 | ScriptFn_SaveAdventure
+0x49f   WasSelectionAssigned               | bool(int, int) | ScriptFn_WasSelectionAssigned_2
+0x4a0   WasSelectionAssigned               | bool(int) | ScriptFn_WasSelectionAssigned_1
+0x4a1   IsSelectionAssigned                | bool(int, int) | ScriptFn_IsSelectionAssigned
+0x4a2   IsSelectionAssigned                | bool(int) | ScriptFn_IsSelectionAssigned_1
+0x4a3   SetGlobalBloodlust                 | void(bool) | ScriptFn_SetGlobalBloodlust
+0x4a4   RevealHiddenEnemyUnits             | void(point, int, int) | ScriptFn_RevealHiddenEnemyUnits
+0x4a5   InvalidateDamageFormulaParams      | void() | ScriptFn_InvalidateDamageFormulaParams
+0x4a6   SwapSelectedObj                    | void(Obj, Obj) | ScriptFn_SwapSelectedObj
+0x4a7   Crash                              | void() | ScriptFn_Crash
+
+## RegisterAreaScriptFunctions 004d9250
+0x4a8   AreaCenter                         | point(str) | ScriptFn_AreaCenter
+0x4a9   DisableArea                        | void(str) | ScriptFn_DisableArea
+0x4aa   EnableArea                         | void(str) | ScriptFn_EnableArea
+0x4ab   GetRandomPointInArea               | point(str) | ScriptFn_GetRandomPointInArea
+0x4ac   AreaDistTo                         | int(point, str) | ScriptFn_AreaDistTo
+0x4ad   _AdvPlaceAreaRect                  | void(str, rect, str, str) | ScriptFn__AdvPlaceAreaRect
+0x4ae   _AdvPlaceAreaCirc                  | void(str, point, int, str, str) | ScriptFn__AdvPlaceAreaCirc
+
+## RegisterSacrificeScriptFunctions 00596660
+0x4af   Sacrifice::AddDruid                | bool(Sacrifice, Druid, int) | ScriptFn_Sacrifice_AddDruid
+0x4b0   Sacrifice::RemoveDruid             | void(Sacrifice, Druid) | ScriptFn_Sacrifice_RemoveDruid
+0x4b1 L Sacrifice::Consume                 | int(Sacrifice, int, int, bool) extra=0 | ScriptFn_Sacrifice_Consume
+0x4b2   Sacrifice::IsEmpty                 | bool(Sacrifice) | ScriptFn_Sacrifice_IsEmpty
+0x4b3   Sacrifice::MistAction              | void(Sacrifice, int) | ScriptFn_Sacrifice_MistAction
+0x4b4   Sacrifice::IsInvisibility          | bool(Sacrifice) | ScriptFn_Sacrifice_IsInvisibility
+0x4b5   Sacrifice::Druids                  | ObjList(Sacrifice) | ScriptFn_Sacrifice_Druids
+0x4b6   Sacrifice::UpdateCoverOfMercy      | void(Sacrifice) | ScriptFn_Sacrifice_UpdateCoverOfMercy
+
+## RegisterNoteScriptFunctions 00558c30
+0x4b7   GiveNote                           | void(str) | ScriptFn_GiveNote
+0x4b8   RemoveNote                         | void(str) | ScriptFn_RemoveNote
+0x4b9   ShowNotes                          | void() | ScriptFn_ShowNotes
+0x4ba   ClearNotes                         | void() | ScriptFn_ClearNotes
+0x4bb   IsNoteActive                       | bool(str) | ScriptFn_IsNoteActive
+
+## RegisterFeedbackScriptFunctions 00518b00
+0x4bc   CreateFeedback                     | void(str, Unit) | ScriptFn_CreateFeedback_2Args
+0x4bd   CreateFeedback                     | void(str, Unit, int) | ScriptFn_CreateFeedback_3Args
+0x4be   CreateFeedback                     | void(str, point) | Script_CreateFeedbackAtPoint
+0x4bf   CreateFeedback                     | void(str, point, int) | Script_CreateFeedbackAtPointTimed
+
+## RegisterDiplomacyScriptFunctions 005657a0
+0x4c0   DiplCeaseFire                      | void(int, int, bool) | ScriptFn_DiplCeaseFire
+0x4c1   DiplShareView                      | void(int, int, bool) | ScriptFn_DiplShareView
+0x4c2   DiplShareControl                   | void(int, int, bool) | ScriptFn_DiplShareControl
+0x4c3   DiplShareSupport                   | void(int, int, bool) | ScriptFn_DiplShareSupport
+0x4c4   DiplGetCeaseFire                   | bool(int, int) | ScriptFn_DiplGetCeaseFire
+0x4c5   DiplGetShareView                   | bool(int, int) | ScriptFn_DiplGetShareView
+0x4c6   DiplGetShareControl                | bool(int, int) | ScriptFn_DiplGetShareControl
+0x4c7   DiplGetShareSupport                | bool(int, int) | ScriptFn_DiplGetShareSupport
+0x4c8   ClearDiplomacy                     | void() | ScriptFn_ClearDiplomacy
+0x4c9   RecreateExploration                | void() | ScriptFn_RecreateExploration
+
+## RegisterGateScriptFunctions 00529d40
+      TIPO   Gate (id 0x2b, 8 bytes)
+      HERENCIA Gate hereda de Building
+0x4ca   Obj::AsGate                        | Gate(Obj) | ScriptFn_Obj_AsGate
+0x4cb   Gate::IsOpened                     | bool(Gate) | ScriptFn_Gate_IsOpened
+0x4cc   Gate::IsClosed                     | bool(Gate) | ScriptFn_Gate_IsClosed
+0x4cd   Gate::AreEnemiesAround             | bool(Gate) | ScriptFn_Gate_AreEnemiesAround
+0x4ce   Gate::AreFriendsAround             | bool(Gate) | ScriptFn_Gate_AreFriendsAround
+0x4cf   Gate::LookAround                   | void(Gate, int) | ScriptFn_Gate_LookAround
+0x4d0 L Gate::OpenNow                      | void(Gate) extra=0 | ScriptFn_Gate_OpenNow
+0x4d1 L Gate::CloseNow                     | void(Gate) extra=0 | ScriptFn_Gate_CloseNow
+
+## RegisterTeleportScriptFunctions 005cdd40
+0x4d2   Obj::AsTeleport                    | Teleport(Obj) | ScriptFn_Obj_AsTeleport
+0x4d3   Teleport::destination              | Teleport(Teleport) | ScriptFn_Teleport_destination
+0x4d4   Teleport::exit_vector              | point(Teleport) | ScriptFn_Teleport_exit_vector
+0x4d5   Teleport::Traverse                 | void(Teleport, int) | ScriptFn_Teleport_Traverse
+
+## RegisterShipScriptFunctions 005c8ae0
+0x4d6 L Ship::ShowBuildAnimation           | void(Ship, point) extra=13 | ScriptFn_Ship_ShowBuildAnimation
+0x4d7   Ship::NotifyBoardUnit              | void(Ship, Unit) | ScriptFn_Ship_NotifyBoardUnit
+0x4d8   Ship::AreUnitsToBoard              | bool(Ship) | ScriptFn_Ship_AreUnitsToBoard
+0x4d9   Ship::BestCandidateToBoard         | Unit(Ship) | ScriptFn_Ship_BestCandidateToBoard
+0x4da   Ship::BoardUnit                    | bool(Ship, Unit) | ScriptFn_Ship_BoardUnit
+0x4db   Ship::NotifyBoardUnitCancel        | void(Ship, Unit) | ScriptFn_Ship_NotifyBoardUnitCancel
+0x4dc   Ship::NotifyShipBoardingCancel     | void(Ship) | ScriptFn_Ship_NotifyShipBoardingCancel
+0x4dd   Ship::UnboardUnits                 | void(Ship, ObjList) | ScriptFn_Ship_UnboardUnits
+0x4de   Ship::UnboardAllUnits              | void(Ship) | ScriptFn_Ship_UnboardAllUnits
+0x4df   IsPointInWater                     | bool(point) | ScriptFn_IsPointInWater
+0x4e0   Ship::FindPointToStay              | point(Ship) | ScriptFn_Ship_FindPointToStay
+0x4e1   Ship::UnitsCount                   | int(Ship) | ScriptFn_Ship_UnitsCount
+0x4e2   Ship::UnitsMax                     | int(Ship) | ScriptFn_Ship_UnitsMax
+0x4e3 L Ship::Idle                         | void(Ship) extra=4 | ScriptFn_Ship_Idle
+0x4e4   Ship::HasAiTransport               | bool(Ship) | ScriptFn_Ship_HasAiTransport
+0x4e5   Ship::GetUnitsOnBoard              | ObjList(Ship) | ScriptFn_Ship_GetUnitsOnBoard
+0x4e6   Ship::ApplyAiTransport             | void, Ship ship | ScriptFn_Ship_ApplyAiTransport
+0x4e7   Ship::ClearAiTransport             | void, Ship ship | ScriptFn_Ship_ClearAiTransport
+0x4e8   Ship::GetTransPt                   | point(Ship) | ScriptFn_Ship_GetTransPt
+0x4e9   Ship::IsBuilding                   | bool(Ship) | ScriptFn_Ship_IsBuilding
+0x4ea   Ship::NumUnitsToBoard              | int(Ship) | ScriptFn_Ship_NumUnitsToBoard
+
+## RegisterUnitBonusScriptFunctions 005e0df0
+0x4eb   Unit::RecalcBonuses                | void(Unit) | ScriptFn_Unit_RecalcBonuses
+0x4ec   Unit::AddBonus                     | void(Unit, int, int, int, int, int) | ScriptFn_Unit_AddBonus
+0x4ed   Unit::RemoveBonus                  | void(Unit, int, int, int, int, int) | ScriptFn_Unit_RemoveBonus
+
+## RegisterItemScriptFunctions 0053c000
+0x4ee   ItemUsed                           | void(int) | ScriptFn_ItemUsed
+0x4ef   GetUseCount                        | int() | ScriptFn_GetUseCount
+0x4f0   Item::use_count                    | int(Item) | ScriptFn_Item_use_count
+0x4f1   Item::custom_data                  | int(Item) | ScriptFn_Item_custom_data
+0x4f2   Item::id                           | str(Item) | ScriptFn_Item_id
+0x4f3   Item::name                         | str(Item) | ScriptFn_Item_name
+0x4f4   Item::display_name                 | str(Item) | ScriptFn_Item_display_name
+0x4f5   Item::Use                          | void(Item) | ScriptFn_Item_Use_1Arg
+0x4f6   Item::Use                          | void(Item, Obj) | ScriptFn_Item_Use_2Args
+0x4f7   Item::Use                          | void(Item, point) | Script_Item_Use_Point
+0x4f8   Item::SetCustomData                | void(Item, int) | ScriptFn_Item_SetCustomData
+0x4f9   GetThis                            | Item() | ScriptFn_GetThis
+
+## RegisterFlyingScriptFunctions 0051cb50
+0x4fa L Flying::PlayAnim                   | void(Flying, int, point, int) extra=0 | Script_Flying_PlayAnim
+0x4fb   Flying::IsInAir                    | bool(Flying) | Script_Flying_IsInAir
+0x4fc   Flying::IsLanding                  | bool(Flying) | Script_Flying_IsLanding
+0x4fd   Flying::z                          | int(Flying) | Script_Flying_z
+0x4fe   Flying::PickFlyingPoint            | point(Flying, int) | Script_Flying_PickFlyingPoint
+0x4ff   Flying::PickLandingPoint           | point(Flying, int) | Script_Flying_PickLandingPoint
+0x500   Flying::FindNearBird               | Flying(Flying) | ScriptFn_Flying_FindNearBird
+0x501   Flying::AdjustFlyDir               | void(Flying, point&) | ScriptFn_Flying_AdjustFlyDir
+0x502   GetTerrainHeight                   | int(point) | Script_GetTerrainHeight
+0x503   GetVecByDir                        | point(point, int) | Script_GetVecByDir
+0x504   GetAngleByDir                      | int(point) | Script_GetAngleByDir
+0x505   GetDirByAngle                      | point(int) | ScriptFn_GetDirByAngle
+0x506   MapSize                            | int() | ScriptFn_MapSize
+0x507   Unit::GetAnimDuration              | int(Unit, int) | Script_Unit_GetAnimDuration
+0x508   Unit::dir                          | point(Unit) | ScriptFn_Unit_dir
+0x509   OnLeft                             | bool(point, point) | ScriptFn_OnLeft
+
+## RegisterAIScriptFunctions 0043af30
+      TIPO   Squad (id 0x29, 4 bytes)
+      HERENCIA Squad hereda de int
+      TIPO   GAIKA (id 0x2a, 4 bytes)
+      HERENCIA GAIKA hereda de int
+      TIPO   SquadList (id 0x28, 4 bytes)
+0x50a   NumSquads                          | int(int) | ScriptFn_NumSquads
+0x50b   GetSquad                           | Squad(int, int) | ScriptFn_GetSquad
+0x50c   Unit::GetSquad                     | Squad(Unit) | ScriptFn_Unit_GetSquad
+0x50d   Squad::Player                      | int(Squad) | ScriptFn_Squad_Player
+0x50e   Squad::No                          | int(Squad) | ScriptFn_Squad_No
+0x50f   Squad::Eval                        | int(Squad) | ScriptFn_Squad_Eval
+0x510   Squad::State                       | int(Squad) | ScriptFn_Squad_State
+0x511   Squad::SetState                    | void(Squad, int) | ScriptFn_Squad_SetState
+0x512   Squad::StateTime                   | int(Squad) | ScriptFn_Squad_StateTime
+0x513   Squad::Size                        | int(Squad) | ScriptFn_Squad_Size
+0x514   Squad::SrcGAIKA                    | GAIKA(Squad) | ScriptFn_Squad_SrcGAIKA
+0x515   Squad::DestGAIKA                   | GAIKA(Squad) | ScriptFn_Squad_DestGAIKA
+0x516   Squad::GAIKAIn                     | GAIKA(Squad) | ScriptFn_Squad_GAIKAIn
+0x517   Squad::Leader                      | Unit(Squad) | ScriptFn_Squad_Leader
+0x518   Squad::Units                       | ObjList(Squad) | Squad::Units
+0x519   Squad::SetState                    | void, Squad sq, int nState, int nSetFlags, int nClrFlags | ScriptFn_Squad_SetState_2
+0x51a   Squad::ClrCmd                      | void, Squad sq, int nState, int nSetFlags, int nClrFlags | ScriptFn_Squad_ClrCmd
+0x51b   Squad::SetCmd                      | void, Squad sq, int nState, int nSetFlags, int nClrFlags, str cmd | ScriptFn_Squad_SetCmd
+0x51c   Squad::SetCmd                      | void, Squad sq, int nState, int nSetFlags, int nClrFlags, str cmd, point pt | ScriptFn_Squad_SetCmd_Point
+0x51d   Squad::SetCmd                      | void, Squad sq, int nState, int nSetFlags, int nClrFlags, str cmd, Obj obj | ScriptFn_Squad_SetCmd
+0x51e   ObjList::Siege                     | void, ObjList ol, Obj target, int max_cats, int nSiegeState | ObjList::Siege
+0x51f   Squad::Siege                       | void, Squad sq, Obj target, int max_cats, int nSiegeState, int nAttackState | Squad::Siege
+0x520   Squad::SendTo                      | void(Squad, GAIKA, int) | ScriptFn_Squad_SendTo
+0x521   Squad::AIDest                      | GAIKA(Squad) | ScriptFn_Squad_AIDest
+0x522   Squad::OrderDest                   | GAIKA(Squad) | ScriptFn_Squad_OrderDest
+0x523   Squad::DelOrder                    | void(Squad) | ScriptFn_Squad_DelOrder
+0x524   Squad::GetFlags                    | int(Squad) | ScriptFn_Squad_GetFlags
+0x525   Squad::TestFlags                   | bool(Squad, int) | ScriptFn_Squad_TestFlags
+0x526   Squad::SetFlags                    | void(Squad, int, int) | ScriptFn_Squad_SetFlags
+0x527   Squad::Lock                        | void(Squad) | ScriptFn_Squad_Lock
+0x528   Squad::Unlock                      | void(Squad) | ScriptFn_Squad_Unlock
+0x529   Squad::LastFightTime               | int(Squad) | ScriptFn_Squad_LastFightTime
+0x52a   Squad::InHolder                    | bool(Squad) | ScriptFn_Squad_InHolder
+0x52b   Squad::pos                         | point(Squad) | ScriptFn_Squad_pos
+0x52c   Squad::health                      | int(Squad) | ScriptFn_Squad_health
+0x52d   Squad::maxhealth                   | int(Squad) | ScriptFn_Squad_maxhealth
+0x52e   Squad::food                        | int(Squad) | ScriptFn_Squad_food
+0x52f   Squad::FoodComing                  | int(Squad) | ScriptFn_Squad_FoodComing
+0x530   Squad::SendFoodWagon               | bool(Squad, int, int) | ScriptFn_Squad_SendFoodWagon
+0x531   Squad::EvalAttach                  | int(Squad, Unit, int) | ScriptFn_Squad_EvalAttach
+0x532   Squad::Count                       | int(Squad, str) | ScriptFn_Squad_Count
+0x533   Squad::HasFreedom                  | bool(Squad) | ScriptFn_Squad_HasFreedom
+0x534   GAIKACount                         | int() | ScriptFn_GAIKACount
+0x535   GetGAIKA                           | GAIKA(int) | IsBetaExpired
+0x536   GetGAIKA                           | GAIKA(Obj) | ScriptFn_GetGAIKA_Obj
+0x537   GetGAIKA                           | GAIKA(point) | ScriptFn_point_GetGAIKA
+0x538   GetGAIKA                           | GAIKA(int, int) | ScriptFn_GetGAIKA_XY
+0x539   LAIKA                              | GAIKA(int, int) | ScriptFn_LAIKA
+0x53a   GAIKA::ID                          | int(GAIKA) | IsBetaExpired
+0x53b   GAIKA::Empty                       | bool(GAIKA) | ScriptFn_GAIKA_Empty
+0x53c   GAIKA::Type                        | int(GAIKA) | ScriptFn_GAIKA_Type
+0x53d   GAIKA::Center                      | point(GAIKA) | ScriptFn_GAIKA_Center
+0x53e   GAIKA::GetDestPoint                | point(GAIKA, Unit) | ScriptFn_GAIKA_GetDestPoint
+0x53f   GAIKA::settlement                  | Settlement(GAIKA) | ScriptFn_GAIKA_settlement
+0x540   GAIKA::GetSquads                   | void(GAIKA, SquadList&) | GAIKA::GetSquads_2
+0x541   GAIKA::GetSquads                   | void(GAIKA, SquadList&, int) | GAIKA::GetSquads_3
+0x542   GAIKA::GetSquads                   | void(GAIKA, SquadList&, int, int) | GAIKA::GetSquads_4
+0x543   GAIKA::GetSquads                   | void(GAIKA, SquadList&, int, int, int) | GAIKA::GetSquads_5
+0x544   GAIKA::Eval                        | int(GAIKA, int) | ScriptFn_GAIKA_Eval_2
+0x545   GAIKA::Eval                        | int(GAIKA, int, int) | ScriptFn_GAIKA_Eval_3
+0x546   GAIKA::Eval                        | int(GAIKA, int, int, int) | ScriptFn_GAIKA_Eval_4
+0x547   GAIKA::Eval                        | void(GAIKA, int, int, int&, int&, int&, int&) | ScriptFn_GAIKA_Eval
+0x548   GAIKA::EvalNeighbors               | void(GAIKA, int, int, int&, int&, int&, bool) | ScriptFn_GAIKA_EvalNeighbors
+0x549   GAIKA::Count                       | void(GAIKA, int, int, int&, int&, int&, int&) | ScriptFn_GAIKA_Count
+0x54a   GAIKA::GetPriority                 | int(GAIKA, int) | ScriptFn_GAIKA_GetPriority
+0x54b   GAIKA::GetLAIKA                    | int(GAIKA, int) | ScriptFn_GAIKA_GetLAIKA
+0x54c   GAIKA::CalcPriority                | int(GAIKA, int) | ScriptFn_GAIKA_CalcPriority
+0x54d   GAIKA::SetPriority                 | void(GAIKA, int, int) | ScriptFn_GAIKA_SetPriority
+0x54e   GAIKA::Prioritized                 | bool(GAIKA, int) | ScriptFn_GAIKA_Prioritized
+0x54f   GAIKA::Explored                    | bool(GAIKA, int) | ScriptFn_GAIKA_Explored
+0x550   GAIKA::Explore                     | void(GAIKA, int, bool) | ScriptFn_GAIKA_Explore
+0x551   GAIKA::CanExplore                  | bool(GAIKA, int) | ScriptFn_GAIKA_CanExplore
+0x552   GAIKA::Revealed                    | bool(GAIKA, int) | ScriptFn_GAIKA_Revealed
+0x553   GAIKA::LastSeen                    | int(GAIKA, int) | ScriptFn_GAIKA_LastSeen
+0x554   GAIKA::NoAttack                    | bool(GAIKA, int) | ScriptFn_GAIKA_NoAttack
+0x555   GAIKA::SetNoAttack                 | void(GAIKA, int, bool) | ScriptFn_GAIKA_SetNoAttack
+0x556   GAIKA::NoRecruit                   | bool(GAIKA, int) | ScriptFn_GAIKA_NoRecruit
+0x557   GAIKA::SetNoRecruit                | void(GAIKA, int, bool) | ScriptFn_GAIKA_SetNoRecruit
+0x558   GAIKA::GetDistToPlayers            | void(GAIKA, int, int&, int&, int&) | ScriptFn_GAIKA_GetDistToPlayers
+0x559   GAIKA::GetDistToArmies             | int(GAIKA, int) | ScriptFn_GAIKA_GetDistToArmies
+0x55a   GAIKA::Count                       | int(GAIKA, int, int, str) | GAIKA::Count_4
+0x55b   GAIKA::MinNeed                     | int, GAIKA g, int idPlayer, int own,  int ally, int enemy | ScriptFn_GAIKA_MinNeed
+0x55c   GAIKA::MaxNeed                     | int, GAIKA g, int idPlayer, int own,  int ally, int enemy | ScriptFn_GAIKA_MaxNeed
+0x55d   GAIKA::Recruit                     | int, GAIKA g, int idPlayer, int nMin, int nMax, int *nAvail | ScriptFn_GAIKA_Recruit
+0x55e   GAIKA::GetStrat                    | int, GAIKA g, int idPlayer | ScriptFn_GAIKA_GetStrat
+0x55f   GAIKA::StratRunning                | int, GAIKA g, int idPlayer | ScriptFn_GAIKA_StratRunning
+0x560   GAIKA::RunStrat                    | void, GAIKA g, int idPlayer, int Strat | ScriptFn_GAIKA_RunStrat
+0x561   GAIKA::AllEnemiesInHolder          | bool, GAIKA g, int idPlayer | ScriptFn_GAIKA_AllEnemiesInHolder
+0x562   GAIKA::MilitaryPresence            | bool, GAIKA g, int idPlayer | ScriptFn_GAIKA_MilitaryPresence
+0x563   GAIKA::Neighbors                   | int, GAIKA g | ScriptFn_GAIKA_Neighbors
+0x564   GAIKA::Neighbor                    | GAIKA, GAIKA g, int idx | ScriptFn_GAIKA_Neighbor
+0x565   SetNoAttack                        | void(str, int, bool) | ScriptFn_SetNoAttack
+0x566   SetNoRecruit                       | void(str, int, bool) | ScriptFn_SetNoRecruit
+0x567   AreaAINoRecruit                    | void(str, int, bool) | ScriptFn_AreaAINoRecruit
+0x568   AreaAINoAttack                     | void(str, int, bool) | ScriptFn_AreaAINoAttack
+0x569   AreaAIMaxPriority                  | void(str, int, bool) | AreaAIMaxPriority
+0x56a   AreaAISetAttackOptimism            | void(str, int, int) | AreaAISetAttackOptimism
+0x56b   SetMAIKA                           | void, GAIKA gSrc, GAIKA gDst, GAIKA gMAIKA | ScriptFn_SetMAIKA
+0x56c   DumpMAIKA                          | void, int Src, int gDst, int gMAIKA | ScriptFn_DumpMAIKA
+0x56d   Settlement::UnitsInHolderEval      | int, Settlement s | ScriptFn_Settlement_UnitsInHolderEval
+0x56e   SquadList::IsValid                 | bool(SquadList) | ScriptFn_SquadList_IsValid
+0x56f   SquadList::EOL                     | bool(SquadList) | ScriptFn_SquadList_EOL
+0x570   SquadList::Rewind                  | bool(SquadList) | ScriptFn_SquadList_Rewind
+0x571   SquadList::Next                    | bool(SquadList) | ScriptFn_SquadList_Next
+0x572   SquadList::Cur                     | Squad(SquadList) | ScriptFn_SquadList_Cur
+0x573   SquadList::Size                    | int(SquadList) | ScriptFn_SquadList_Size
+0x574   SquadList::Eval                    | int(SquadList) | ScriptFn_SquadList_Eval
+0x575   SquadList::Lock                    | void(SquadList) | ScriptFn_SquadList_Lock
+0x576   SquadList::Unlock                  | void(SquadList) | ScriptFn_SquadList_Unlock
+0x577   SquadList::Add                     | void(SquadList&, Squad) | ScriptFn_SquadList_Add
+0x578   SquadList::Select                  | void(SquadList, int) | ScriptFn_SquadList_Select
+0x579   SquadList::Train                   | int, SquadList SL, int nTrainState, int nEnterState, int nStopOn, int nStartOn, Obj objEnter | SquadList::Train
+0x57a   Settlement::NumTowers              | int(Settlement) | Settlement::NumTowers
+0x57b   Settlement::NumTowersBroken        | int(Settlement) | Settlement::NumTowersBroken
+0x57c   Settlement::NumGates               | int(Settlement) | ScriptFn_Settlement_NumGates
+0x57d   Settlement::NumGatesBroken         | int(Settlement) | ScriptFn_Settlement_NumGatesBroken
+0x57e   Settlement::EvalDefences           | int(Settlement) | Settlement::EvalDefences
+0x57f   Settlement::FindCatapultSpot       | point(Settlement, point) | ScriptFn_Settlement_FindCatapultSpot
+0x580   Settlement::BestGate               | Gate(Settlement, point) | ScriptFn_Settlement_BestGate
+0x581   Settlement::OpenAllGates           | void(Settlement) | ScriptFn_Settlement_OpenAllGates
+0x582   Settlement::IdleAllGates           | void(Settlement) | ScriptFn_Settlement_IdleAllGates
+0x583   Building::IsVeryBroken             | bool(Building) | ScriptFn_Building_IsVeryBroken
+0x584   Settlement::CanBeCaptured          | bool(Settlement) | ScriptFn_Settlement_CanBeCaptured
+0x585   Settlement::IsStronghold           | bool, Settlement s | ScriptFn_Settlement_IsStronghold
+0x586   Settlement::IsVillage              | bool, Settlement s | ScriptFn_Settlement_IsVillage
+0x587   Settlement::IsOutpost              | bool, Settlement s | ScriptFn_Settlement_IsOutpost
+0x588   Settlement::IsTTent                | bool, Settlement s | ScriptFn_Settlement_IsTTent
+0x589   Settlement::IsShipyard             | bool, Settlement s | ScriptFn_Settlement_IsShipyard
+0x58a   Settlement::IsAlly                 | bool, Settlement s, int idPlayer | ScriptFn_Settlement_IsAlly
+0x58b   Settlement::IsEnemy                | bool, Settlement s, int idPlayer | ScriptFn_Settlement_IsEnemy
+0x58c   Settlement::IsOwn                  | bool, Settlement s, int idPlayer | ScriptFn_Settlement_IsOwn
+0x58d   Settlement::IsIndependent          | bool, Settlement s | ScriptFn_Settlement_IsIndependent
+0x58e   Settlement::IsIndependentGuarded   | bool, Settlement s | ScriptFn_Settlement_IsIndependentGuarded
+0x58f   Settlement::GetRel                 | int,  Settlement s, int idPlayer | ScriptFn_Settlement_GetRel
+0x590   Settlement::MaxPopulation          | int,  Settlement s | ScriptFn_Settlement_MaxPopulation
+0x591   Settlement::SupplyCount            | int(Settlement, str) | ScriptFn_Settlement_SupplyCount
+0x592   Settlement::BestToSupply           | Settlement, Settlement s | ScriptFn_Settlement_BestToSupply
+0x593   SettlementCount                    | int,  point around, int dist, str class | ScriptFn_SettlementCount
+0x594   FindRuins                          | Obj,  point around, int dist, int level | ScriptFn_FindRuins
+0x595   AttackSetForTraining               | bool(Obj, point, int) | AttackSetForTraining
+0x596   Unit::BestTargetInGAIKA            | Obj,  Unit u | ScriptFn_Unit_BestTargetInGAIKA
+0x597   Unit::AI                           | bool, Unit u | ScriptFn_Unit_AI
+0x598   AIRun                              | int,        str script | ScriptFn_AIRun
+0x599   AIRun                              | int,        str script, Settlement set, ObjList ol, Obj objParam, int nParam | ScriptFn_AIRun_Obj
+0x59a   AIRun                              | int,        int player, str script, Settlement set, ObjList ol, Obj objParam, int nParam | ScriptFn_AIRun_Player
+0x59b   AIBreakScript                      | void,       int id | ScriptFn_AIBreakScript
+0x59c   AIBreakScript                      | void,       int player, int idScript | ScriptFn_AIBreakScript_2
+0x59d   AIExecCmd                          | void,       Obj obj, str signature | ScriptFn_AIExecCmd
+0x59e   IsAIShow                           | void() | ScriptFn_IsAIShow
+0x59f L ScrollTo                           | void(point, int) extra=12 | ScriptFn_ScrollTo
+0x5a0   Settlement::BestBarrack            | Barrack,    Settlement s,   int nMinQueue | ScriptFn_Settlement_BestBarrack
+0x5a1   GetGaikaCenter                     | point,      int nGaika | ScriptFn_GetGaikaCenter
+0x5a2   GetSquadCenter                     | point,      int nPlayerID,  int nSquad | ScriptFn_GetSquadCenter
+0x5a3   Settlement::FindBuilding           | Building,   Settlement s, str base_class | ScriptFn_Settlement_FindBuilding
+0x5a4   Settlement::FindResearchLab        | Building,   Settlement s, str strTech | ScriptFn_Settlement_FindResearchLab
+0x5a5   Building::IsBarrack                | bool,       Building b | ScriptFn_Building_IsBarrack
+0x5a6   SetToIdx                           | int,        Settlement pSet | ScriptFn_SetToIdx
+0x5a7   IdxToSet                           | Settlement, int nSetIdx | ScriptFn_IdxToSet
+0x5a8   MaxSetIdx                          | int | ScriptFn_MaxSetIdx
+0x5a9   AIH_UnitBuilt                      | void,       Unit unit | ScriptFn_AIH_UnitBuilt
+0x5aa   AIGetPlayer                        | int | ScriptFn_AIGetPlayer
+0x5ab   AIO_SendSquad                      | void, int nSquad, int nGAIKA, int nWeight | ScriptFn_AIO_SendSquad
+0x5ac   AIO_Train                          | void, int nSetIdx, str UnitType, int nCount, int nWeight | ScriptFn_AIO_Train
+0x5ad   ViewSlot                           | point() | ScriptFn_ViewSlot
+0x5ae   Squadize                           | void, ObjList ol, SquadList *sl, int nState | ScriptFn_Squadize
+0x5af   IsResearched                       | bool, Settlement set, str research | ScriptFn_IsResearched
+0x5b0   IsResearched                       | bool, int idPlayer,   str research | ScriptFn_IsResearched_2
+0x5b1   IsResearching                      | bool, Settlement set, str research | ScriptFn_IsResearching
+0x5b2   IsResearching                      | bool, int idPlayer,   str research | ScriptFn_IsResearching_2
+0x5b3   GetCmdCost                         | bool, str cmd,        int *gold, int *food | ScriptFn_GetCmdCost
+0x5b4   GetCmdStaminaCost                  | int,  str cmd | ScriptFn_GetCmdStaminaCost
+0x5b5   Settlement::CanAfford              | bool, Settlement set, int gold,  int food | ScriptFn_Settlement_CanAfford_GoldFood
+0x5b6   Settlement::CanAfford              | bool, Settlement set, str cmd | ScriptFn_Settlement_CanAfford_Cmd
+0x5b7   Settlement::CanAfford              | bool, Settlement set, str cmd,   int nCount | ScriptFn_Settlement_CanAfford_CmdN
+0x5b8   Settlement::MaxAffordCount         | int,  Settlement set, str cmd | ScriptFn_Settlement_MaxAffordCount
+0x5b9   Settlement::CanResearch            | bool, Settlement set, str research | ScriptFn_CanResearch
+0x5ba   Settlement::Research               | void, Settlement set, str research | ScriptFn_Settlement_Research
+0x5bb   Settlement::Reserve                | int, Settlement set | ScriptFn_Settlement_Reserve
+0x5bc   Settlement::StopReserving          | void, Settlement set | ScriptFn_Settlement_StopReserving
+0x5bd   Settlement::ReserveFor             | bool, Settlement set, str tech, int percent | ScriptFn_Settlement_ReserveFor
+0x5be   Settlement::GoldSpentOnArmy        | int,  Settlement set | ScriptFn_Settlement_GoldSpentOnArmy
+0x5bf   Settlement::SpentGoldOnArmy        | void, Settlement set, int amount | ScriptFn_Settlement_SpentGoldOnArmy
+0x5c0   Settlement::GoldSpentOnTech        | int,  Settlement set | ScriptFn_Settlement_GoldSpentOnTech
+0x5c1   Settlement::SpentGoldOnTech        | void, Settlement set, int amount | ScriptFn_Settlement_SpentGoldOnTech
+0x5c2   Settlement::CheckTechBudget        | bool, Settlement set, str tech, int budget | ScriptFn_Settlement_CheckTechBudget
+0x5c3   Settlement::WaterLsa               | int, Settlement set | ScriptFn_Settlement_WaterLsa
+0x5c4   Settlement::LandLsa                | int, Settlement set | ScriptFn_Settlement_LandLsa
+0x5c5   MilUnits                           | int, int idPlayer | ScriptFn_MilUnits
+0x5c6   HeroArmiesFullPerc                 | int,int idPlayer | ScriptFn_HeroArmiesFullPerc
+0x5c7   MilEval                            | int, int idPlayer | ScriptFn_MilEval
+0x5c8   AllyMilUnits                       | int, int idPlayer | ScriptFn_AllyMilUnits
+0x5c9   AllyMilEval                        | int, int idPlayer | ScriptFn_AllyMilEval
+0x5ca   EnemyMilUnits                      | int, int idPlayer | ScriptFn_EnemyMilUnits
+0x5cb   EnemyMilEval                       | int, int idPlayer | ScriptFn_EnemyMilEval
+0x5cc   EnemyPlayersEval                   | int, int idPlayer, int *pMinEval, int *pMaxEval, int *pAverEval | ScriptFn_EnemyPlayersEval
+0x5cd   Strongholds                        | int, int idPlayer | ScriptFn_Strongholds
+0x5ce   AllyStrongholds                    | int, int idPlayer | ScriptFn_AllyStrongholds
+0x5cf   EnemyStrongholds                   | int, int idPlayer | ScriptFn_EnemyStrongholds
+0x5d0   Villages                           | int, int idPlayer | ScriptFn_Villages
+0x5d1   AllyVillages                       | int, int idPlayer | ScriptFn_AllyVillages
+0x5d2   EnemyVillages                      | int, int idPlayer | ScriptFn_EnemyVillages
+0x5d3   Outposts                           | int, int idPlayer | ScriptFn_Outposts
+0x5d4   AllyOutposts                       | int, int idPlayer | ScriptFn_AllyOutposts
+0x5d5   EnemyOutposts                      | int, int idPlayer | ScriptFn_EnemyOutposts
+0x5d6   Count                              | int, int idPlayer, str class | ScriptFn_Count
+0x5d7   AllyCount                          | int, int idPlayer, str class | ScriptFn_AllyCount
+0x5d8   EnemyCount                         | int, int idPlayer, str class | ScriptFn_EnemyCount
+0x5d9   GAIKA::LSA                         | int, GAIKA gaika | ScriptFn_GAIKA_LSA
+0x5da   LSA                                | int, int x, int y | ScriptFn_LSA_XY
+0x5db   LSA                                | int, point pt | ScriptFn_LSA_Point
+0x5dc   Obj::LSA                           | int, Obj obj | ScriptFn_Obj_LSA
+0x5dd   CheckLsaPath                       | int, int lsaSrc,   int lsaDst, int playerId | ScriptFn_CheckLsaPath
+0x5de   Ships                              | int, int idPlayer, int lsa | ScriptFn_Ships
+0x5df   EnemyShips                         | int, int idPlayer, int lsa | ScriptFn_EnemyShips
+0x5e0   AllyShips                          | int, int idPlayer, int lsa | ScriptFn_AllyShips
+0x5e1   ShipNeeds                          | int, int idPlayer, int lsa | ScriptFn_ShipNeeds
+0x5e2   ClrShipNeeds                       | void, int idPlayer, int lsa | ScriptFn_ClrShipNeeds
+0x5e3   IncShipNeeds                       | void, int idPlayer, int lsa | ScriptFn_IncShipNeeds
+0x5e4   IsWaterLsa                         | bool, int lsa | ScriptFn_IsWaterLsa
+0x5e5   AIAssist                           | void | ScriptFn_AIAssist
+0x5e6   AIStart                            | void, int player | ScriptFn_AIStart
+0x5e7   AIStart                            | void, int player, str profile | ScriptFn_AIStart_2
+0x5e8   AIStart                            | void, int player, str profile, int difficulty | ScriptFn_AIStart_3
+0x5e9   AIStop                             | void, int player | ScriptFn_AIStop
+0x5ea   NearestHospital                    | GAIKA,      Squad sq | ScriptFn_NearestHospital
+0x5eb   NearestStronghold                  | Settlement, point pt, int idPlayer, int fltPlayer | ScriptFn_NearestStronghold_Pt_Player_Flt
+0x5ec   NearestStronghold                  | Settlement, point pt, int idPlayer | ScriptFn_NearestStronghold_Pt_Player
+0x5ed   NearestStronghold                  | Settlement, point pt | ScriptFn_NearestStronghold_Pt
+0x5ee   NearestSet                         | Settlement, point pt, str type, int idPlayer, int fltPlayer | ScriptFn_NearestSet_Pt_Type_Player_Flt
+0x5ef   NearestSet                         | Settlement, point pt, str type, int idPlayer | ScriptFn_NearestSet_Pt_Type_Player
+0x5f0   NearestSet                         | Settlement, point pt | ScriptFn_NearestSet_Pt
+0x5f1   GetSettlements                     | ObjList(str, int) | ScriptFn_GetSettlements
+0x5f2   Settlement::GetEconomyScript       | int(Settlement, int) | ScriptFn_Settlement_GetEconomyScript
+0x5f3   Settlement::RunEconomyScript       | void(Settlement, int) | ScriptFn_Settlement_RunEconomyScript
+0x5f4   Settlement::EconomyScript          | int(Settlement) | ScriptFn_Settlement_EconomyScript
+0x5f5   Settlement::GetTacticScript        | int(Settlement, int) | ScriptFn_Settlement_GetTacticScript
+0x5f6   Settlement::RunTacticScript        | void(Settlement, int) | ScriptFn_Settlement_RunTacticScript
+0x5f7   Settlement::TacticScript           | int(Settlement) | ScriptFn_Settlement_TacticScript
+0x5f8   Settlement::GetGaika               | GAIKA(Settlement) | ScriptFn_Settlement_GetGaika
+0x5f9   Settlement::CancelSupply           | void(Settlement) | ScriptFn_Settlement_CancelSupply
+0x5fa   Gate::Inside                       | bool(Gate, Squad) | ScriptFn_Gate_Inside
+0x5fb   Gate::Outside                      | bool(Gate, Squad) | ScriptFn_Gate_Outside
+0x5fc   Settlement::UpgradeBestBarrack     | bool(Settlement, int) | Settlement::UpgradeBestBarrack
+0x5fd   Settlement::RepairAll              | void(Settlement) | ScriptFn_Settlement_RepairAll
+0x5fe   PrepareAiTransportShip             | Ship(int, int, int, str, point) | ScriptFn_PrepareAiTransportShip
+0x5ff   CheckLP                            | void() | ScriptFn_CheckLP
+0x600   SendSquadToLsaX                    | void() | ScriptFn_SendSquadToLsaX
+0x601   GetMouseXY                         | void() | ScriptFn_GetMouseXY
+0x602   RUType                             | int,  str strClass, int nRace | ScriptFn_RUType
+0x603   UType                              | str,  int nType, int nRace | ScriptFn_UType
+0x604   UTech                              | str,  int nType, int nRace | ScriptFn_UTech
+0x605   UTrainCmd                          | str,  int nType, int nRace | ScriptFn_UTrainCmd
+0x606   UEnabled                           | bool, int mask,  int bit | ScriptFn_UEnabled
+0x607   CheckUEnabled                      | bool, int *mask, int idPlayer, int max, int nType, int nRace | ScriptFn_CheckUEnabled
+0x608   Squad::CalcGoAround                | bool, Squad sq | ScriptFn_Squad_CalcGoAround
+0x609   Squad::TakeNearbyItems             | bool, Squad sq, int range | ScriptFn_Squad_TakeNearbyItems
+0x60a   Obj::HasItem                       | bool, Obj obj,  str name | ScriptFn_Obj_HasItem
+0x60b   Obj::UseItem                       | bool, Obj obj,  str name | ScriptFn_Obj_UseItem
+0x60c   FindTeleport                       | Obj, int player, point ptSrc, point ptDst | ScriptFn_FindTeleport
+0x60d   Squad::UseTeleport                 | bool, Squad sq, Obj tel, int state, str cmd, point pt | ScriptFn_Squad_UseTeleport
+0x60e   Squad::InvadeThroughGate           | void, Squad sq, Obj gate, int state | ScriptFn_Squad_InvadeThroughGate
+0x60f   Eval                               | void, int idPlayer, point pt, int range, int *own, int *ally, int *enemy | ScriptFn_Eval
+0x610   EvalGroup                          | int, str group | ScriptFn_EvalGroup
+0x611   Unit::BestMDPos                    | point, Unit this, int MDRange, int MinRange, int MaxRange, int MinEval, bool bProtectFriendly | Unit::BestMDPos
+0x612   Unit::BestProtPos                  | Obj, Unit this, int Range, int MinRange, int MaxRange, int MinEval | Unit::BestProtPos
+0x613   IsProtected                        | bool, int player, point pos, str class | IsProtected
+0x614   NeedTraining                       | bool(int) | ScriptFn_NeedTraining
+0x615   GetCounterUnits                    | void, Settlement pSet, IntArray *pW | ScriptFn_GetCounterUnits
+0x616   GetClassHealt                      | int(str) | ScriptFn_GetClassHealt
+0x617   GetTrainGold                       | int(str) | ScriptFn_GetTrainGold
+0x618   IsAIPlayer                         | bool(int) | ScriptFn_IsAIPlayer
+0x619   Hero::AIGetSkillToDevelop          | void(Hero, int&, int&) | ScriptFn_Hero_AIGetSkillToDevelop
+0x61a   SetNoAIFlag                        | void(ObjList, bool) | SetNoAIFlag
+0x61b   GAIKA::GetAIControlledUnits        | ObjList(GAIKA, str, int, int, bool) | GAIKA::GetAIControlledUnits
+0x61c   Settlement::TSRecruitArmy          | ObjList(Settlement, str, int) | ScriptFn_Settlement_TSRecruitArmy
+0x61d   Settlement::TSGetAllBarracks       | ObjList(Settlement) | ScriptFn_Settlement_TSGetAllBarracks
+0x61e   Settlement::TSGetAllArenae         | ObjList(Settlement) | Settlement::TSGetAllArenae
+0x61f   Settlement::TSGetAllTemples        | ObjList(Settlement) | Settlement::TSGetAllTemples
+0x620   Settlement::BestArena              | Building(Settlement) | Settlement::BestArena
+0x621   ArenaTrainCmd                      | str(int) | ScriptFn_ArenaTrainCmd
+0x622   Settlement::TSArenaRecruit         | ObjList(Settlement, int) | Settlement::TSArenaRecruit
+0x623   ArenaUTech                         | str(int) | ScriptFn_ArenaUTech
+0x624   ArenaUType                         | str(int) | ScriptFn_ArenaUType
+0x625   Settlement::TSRecruitHero          | Hero(Settlement) | ScriptFn_Settlement_TSRecruitHero
+0x626   Settlement::TSResearch             | bool(Settlement, str) | ScriptFn_Settlement_TSResearch
+0x627   Settlement::TSTempleRecruit        | ObjList(Settlement, int) | Settlement::TSTempleRecruit
+0x628   Settlement::BestTemple             | Building(Settlement) | Settlement::BestTemple
+0x629   TempleUType                        | str(int) | ScriptFn_TempleUType
+0x62a   TempleUTrain                       | str(int) | ScriptFn_TempleUTrain
+0x62b   Hero::TSAdvHeroSkills              | void(Hero, IntArray&, IntArray&) | ScriptFn_Hero_TSAdvHeroSkills
+  -> llama a RegisterAIDebugScriptFunctions 00420970
+0x62c   SelSquad                           | void | ScriptFn_SelSquad
+0x62d   SelSquad                           | void, int nPlayerID, int nSquad | ScriptFn_SelSquad_2
+0x62e   SelSquadLeader                     | void | ScriptFn_SelSquadLeader
+0x62f   GAIKA::Dump                        | void(GAIKA) | ScriptFn_GAIKA_Dump
+0x630   Squad::Dump                        | void(Squad) | ScriptFn_Squad_Dump
+0x631   SquadList::Dump                    | void(SquadList) | ScriptFn_SquadList_Dump
+0x632   Breakpoint                         | void() | IsBetaExpired
+0x633   PrGAIKAStrat                       | void(GAIKA, int) | ScriptFn_PrGAIKAStrat
+0x634   ViewGAIKA                          | GAIKA() | ScriptFn_ViewGAIKA
+0x635   vg                                 | void, int gaika | ScriptFn_vg
+0x636   SS_STR                             | str, int state | ScriptFn_SS_STR
+0x637   GS_STR                             | str, int strat | ScriptFn_GS_STR
+0x638   Settlement::IsTeutonTent           | bool(Settlement) | ScriptFn_Settlement_IsTeutonTent
+0x639   AIV                                | void(int) | ScriptFn_AIV
+0x63a   AIV                                | void(int, str) | ScriptFn_AIV_2
+0x63b   DbgAI                              | void, int idPlayer | ScriptFn_DbgAI
+0x63c   DbgArmy                            | void, int idPlayer | ScriptFn_DbgArmy
+0x63d   dp                                 | void, int n | ScriptFn_dp
+0x63e   LsaStr                             | str, int lsa | ScriptFn_LsaStr
+  -> llama a RegisterAIScriptConstants 00443480
+      CONST  AI_NONE = 0
+      CONST  AI_ALL = 0xffff
+      CONST  AI_COMING = 1
+      CONST  AI_LEAVING = 2
+      CONST  AI_STAYING = 4
+      CONST  AI_OWN = 1
+      CONST  AI_ALLY = 2
+      CONST  AI_ENEMY = 4
+      CONST  AI_FRIENDLY = 3
+      CONST  SF_NOAI = 1
+      CONST  SF_ADVCHOOSER = 2
+      CONST  SF_PEACEFUL = 4
+      CONST  SF_SENTRIES = 0x20
+      CONST  GS_NONE = 0
+      CONST  ES_NONE = 0
+      CONST  TS_NONE = 0
+      CONST  SF_WANTDRUIDS = 0x10
+      CONST  MaxGAIKAPriority = 100
+      CONST  SS_IDLE = 0
+  -> llama a RegisterAIStateNames 0043ef20
+      CONST  pbVar3 = iVar4
+  -> llama a RegisterAIVarNames 0043ef70
+      CONST  pbVar3 = iVar4
+0x63f   AIVar                              | int, int idPlayer, int var | ScriptFn_AIVar
+0x640   AIVar                              | bool, int idPlayer, int var, int bit | ScriptFn_AIVar_2
+0x641   SetAIVar                           | void, int idPlayer, int var, int value | ScriptFn_SetAIVar
+0x642   SetAIVar                           | void, int idPlayer, int var, int bit, bool value | ScriptFn_SetAIVar_2
+0x643   AIRun                              | void, int idPlayer, str script | ScriptFn_AIRun_2
+0x644   AIRun                              | void, int idPlayer, str script, int i1 | ScriptFn_AIRun_3
+0x645   AIRun                              | void, int idPlayer, str script, int i1, int i2 | ScriptFn_AIRun_4
+0x646   AIRun                              | void, int idPlayer, str script, int i1, int i, int i3 | ScriptFn_AIRun_5
+0x647   AIRun                              | void, int idPlayer, str script, int i1, int i2, int i3, int i4 | AIRun_6
+0x648   AIRun                              | void, int idPlayer, str script, int i1, int i2, int i3, int i4, int i5 | AIRun_7
+0x649   AIIRun                             | int, int idPlayer, str script | ScriptFn_AIIRun_2
+0x64a   AIIRun                             | int, int idPlayer, str script, int i1 | ScriptFn_AIIRun_3
+0x64b   AIIRun                             | int, int idPlayer, str script, int i1, int i2 | AIIRun_4
+0x64c   AIIRun                             | int, int idPlayer, str script, int i1, int i, int i3 | AIIRun_5
+0x64d   AIIRun                             | int, int idPlayer, str script, int i1, int i2, int i3, int i4 | AIIRun_6
+0x64e   AIIRun                             | int, int idPlayer, str script, int i1, int i2, int i3, int i4, int i5 | AIIRun_7
+0x64f   Settlement::AIRun                  | void, Settlement set, str script | ScriptFn_Settlement_AIRun
+0x650   GAIKA::AIRun                       | void, GAIKA g, str script, int idPlayer | ScriptFn_GAIKA_AIRun
+0x651   Squad::AIRun                       | void, Squad sq, str script | ScriptFn_Squad_AIRun
+
+## RegisterDebugConsoleFunctions 006aa500
+0x652   AppendFile                         | void, str file, str string | ScriptFn_AppendFile
+0x653   pr                                 | void, str n | ScriptFn_pr_Str
+0x654   pr                                 | void, int n | ScriptFn_pr_Int
+0x655   pr                                 | void, bool b | ScriptFn_pr_Bool
+0x656   cls                                | void | ScriptFn_cls
+0x657   quit                               | void | ScriptFn_quit
+0x658   switch                             | void | ScriptFn_switch
+0x659   _Black                             | void | ScriptFn__Black
+0x65a   _Place                             | void, str cls, int x, int y | ScriptFn__Place
+0x65b   _InvalidateAllToggle               | void | ScriptFn__InvalidateAllToggle
+0x65c   _ToggleInvRects                    | void | ScriptFn__ToggleInvRects
+0x65d   _SetCursor                         | void, str name | ScriptFn__SetCursor
+0x65e   ProfileStart                       | void | ScriptFn_ProfileStart
+0x65f   ProfileStop                        | void | ScriptFn_ProfileStop
+0x660   PerlinTest                         | void | IsBetaExpired
+0x661   ShrinkEntities                     | void | ScriptFn_ShrinkEntities
+0x662   ReloadConstIni                     | void | ScriptFn_ReloadConstIni
+0x663   BuildSPF                           | void | ScriptFn_BuildSPF
+0x664   BuildRLEMMap                       | void | ScriptFn_BuildRLEMMap
+0x665   PrintMemStats                      | void | ScriptFn_PrintMemStats
+0x666 L DumpObj                            | void (extra=4) | ScriptFn_DumpObj
+0x667   ConvTerrains                       | void | ScriptFn_ConvTerrains
+0x668   CheckClasses                       | void | ScriptFn_CheckClasses
+0x669   MakePassable                       | void | ScriptFn_MakePassable
+0x66a   SetPlayer                          | void, int playerID | ScriptFn_SetPlayer
+0x66b   CurPlayer                          | int | ScriptFn_CurPlayer
+0x66c   ToggleFog                          | void | ScriptFn_ToggleFog
+0x66d   SetFog                             | void, bool bFog | ScriptFn_SetFog
+0x66e   ExploreAll                         | void | ScriptFn_ExploreAll
+0x66f   Invalidate                         | void | ScriptFn_Invalidate
+0x670   Render                             | void | ScriptFn_Render
+0x671   ScreenShot                         | void | ScriptFn_ScreenShot
+0x672 L ActivateScreenShots                | void, int nShotsPerSec (extra=4) | ScriptFn_ActivateScreenShots
+0x673   ToggleScreenShots                  | void, int nShotsPerSec | ScriptFn_ToggleScreenShots
+0x674   DebugSelected                      | void | ScriptFn_DebugSelected
+0x675   Save                               | void | ScriptFn_Save
+0x676   ExportObjs                         | void, str name | ScriptFn_ExportObjs
+0x677   ExportTerrain                      | void, str name | ScriptFn_ExportTerrain
+0x678   Load                               | void | ScriptFn_Load
+0x679   Save                               | void, str name | ScriptFn_SaveNamed
+0x67a   Load                               | void, str name | ScriptFn_LoadNamed
+0x67b   ChMap                              | void, str Map | ScriptFn_ChMap
+0x67c   MousePos                           | void | ScriptFn_MousePos
+0x67d   Conv                               | void | ScriptFn_Conv
+0x67e   ToggleVis                          | void | ScriptFn_ToggleVis
+0x67f   Spawn                              | void, int our, int enemy | ScriptFn_Spawn
+0x680   RemoveDecors                       | void | ScriptFn_RemoveDecors
+0x681   Explorer                           | void | ScriptFn_Explorer
+0x682   (char *)&PTR_LAB_00676c41_3_007dec7c | void, str INI_name | ScriptFn_Dlg
+0x683   DumpStats                          | void, Obj unit | ScriptFn_DumpStats
+0x684   sel                                | ObjList | ScriptFn_sel
+0x685   selo                               | (char *)&PTR_LAB_007cce10 | ScriptFn_selo
+0x686   selu                               | Unit | ScriptFn_selu
+0x687   selh                               | Hero | ScriptFn_selh
+0x688   selb                               | Building | ScriptFn_selb
+0x689   sels                               | Settlement | ScriptFn_sels
+0x68a   selsq                              | Squad() | ScriptFn_selsq
+0x68b   selg                               | GAIKA() | ScriptFn_selg
+0x68c   Desync                             | void | ScriptFn_Desync
+0x68d   PFPersist                          | void, bool save | ScriptFn_PFPersist
+0x68e   AddFD                              | void | ScriptFn_AddFD
+0x68f   RemFD                              | void | ScriptFn_RemFD
+0x690   RebuildPass                        | void | ScriptFn_RebuildPass
+0x691   Splash                             | void, str sIni, str sSection | ScriptFn_Splash
+0x692   F5                                 | void | ScriptFn_Invalidate
+0x693   FlatTerrain                        | void | ScriptFn_FlatTerrain
+0x694   Pause                              | void | ScriptFn_Pause
+0x695   TestLoad                           | void | ScriptFn_TestLoad
+0x696   TestSave                           | void | ScriptFn_TestSave
+0x697   sd                                 | void | ScriptFn_sd
+0x698   _RedrawAll                         | void | ScriptFn__RedrawAll
+0x699   InsDecor                           | void, int x, int y, int decor | ScriptFn_InsDecor
+0x69a   DelDecor                           | void, int x, int y | ScriptFn_DelDecor
+0x69b   PreLit                             | void | ScriptFn_PreLit
+0x69c   DeepWater                          | void, int Level, int Step, int Size | ScriptFn_DeepWater
+0x69d   RayOfLight                         | void, int X, int Y, int Z, int Ambient | ScriptFn_RayOfLight
+0x69e   DumpFuncToXML                      | void | ScriptFn_DumpFuncToXML
+0x69f   (char *)&PTR_LAB_00525353_2_007dead0 | void | ScriptFn_USR
+0x6a0   ToggleLD                           | void | ScriptFn_ToggleLD
+0x6a1   ChangeFormation                    | void, str name | ScriptFn_ChangeFormation
+0x6a2   UndoMemory                         | void | ScriptFn_UndoMemory
+0x6a3   AdvExplorer                        | void | ScriptFn_AdvExplorer
+0x6a4   ae                                 | void | ScriptFn_AdvExplorer
+0x6a5   TTest                              | void, str teststr | ScriptFn_TTest
+0x6a6   TTestf                             | void | ScriptFn_TTestf
+0x6a7   SaveEdit                           | void | ScriptFn_SaveEdit
+0x6a8   EdgeOfForever                      | void | ScriptFn_EdgeOfForever
+0x6a9   TestAdventure                      | void | ScriptFn_TestAdventure
+0x6aa   TestAdventureDebug                 | void | ScriptFn_TestAdventureDebug
+0x6ab   SettlementCount                    | void | ScriptFn_SettlementCount
+0x6ac   LSA                                | void | ScriptFn_LSA
+0x6ad   GAIKAFD                            | void | ScriptFn_GAIKAFD
+0x6ae   ESG                                | void, int idPlayer1, int idPlayer2 | ScriptFn_ESG
+0x6af   GS                                 | void, int idPlayer | ScriptFn_GS
+0x6b0   cvar1                              | void, int nNewValue | ScriptFn_cvar1_Set
+0x6b1   cvar1                              | int | ScriptFn_cvar1_Get
+0x6b2   cvar2                              | void, int nNewValue | ScriptFn_cvar2_Set
+0x6b3   cvar2                              | int | ScriptFn_cvar2_Get
+0x6b4   TogglePtDraw                       | void, int ptTypeToToggle | ScriptFn_TogglePtDraw
+0x6b5   DisablePtDraw                      | void | ScriptFn_DisablePtDraw
+0x6b6   EnablePtDraw                       | void | ScriptFn_EnablePtDraw
+0x6b7   Unit::GetAnimState                 | int, Unit u | ScriptFn_Unit_GetAnimState
+0x6b8   ClearDecors                        | void | ScriptFn_ClearDecors
+0x6b9   GenTransTables                     | void | IsBetaExpired
+0x6ba   GetItem                            | void, str sItemID | ScriptFn_GetItem
+0x6bb   _PlayersAlly                       | void, int p1, int p2 | ScriptFn__PlayersAlly
+0x6bc   _PlayersShareControl               | void, int p1, int p2 | ScriptFn__PlayersShareControl
+0x6bd   _PlayersShareView                  | void, int p1, int p2 | ScriptFn__PlayersShareView
+0x6be   _PlayersShareSupport               | void, int p1, int p2 | ScriptFn__PlayersShareSupport
+0x6bf   _PlayersMakeEnemies                | void, int p1, int p2 | ScriptFn__PlayersMakeEnemies
+0x6c0   _chs                               | void, str season | ScriptFn__chs
+0x6c1   _SetNextSeason                     | void, str season | ScriptFn__SetNextSeason
+0x6c2   IngameDebugSelected                | void | IsBetaExpired
+0x6c3   gmp                                | void | ScriptFn_gmp
+0x6c4   GenHelpCmdIcons                    | void | ScriptFn_GenHelpCmdIcons
+0x6c5   Hero::_EnableAllSkills             | void, Hero h | ScriptFn_Hero__EnableAllSkills
+0x6c6   gdb                                | void | ScriptFn_gdb
+0x6c7   _handles                           | void | ScriptFn__handles
+0x6c8   GetFormDsc                         | str, str form | ScriptFn_GetFormDsc
+0x6c9   SetPlayerSettRace                  | void, int player, int race | ScriptFn_SetPlayerSettRace
+0x6ca   SetSettRace                        | void, str sett, int race | ScriptFn_SetSettRace
+0x6cb   SetShortcutSel                     | void, int player, int num, ObjList list | ScriptFn_SetShortcutSel
+0x6cc   GetShortcutSel                     | ObjList, int player, int num | ScriptFn_GetShortcutSel
+0x6cd   UIShowTab                          | void, int i | ScriptFn_UIShowTab
+0x6ce   UITabShown                         | int | ScriptFn_UITabShown
+0x6cf   BlurTerrain                        | void, int i | ScriptFn_BlurTerrain
+0x6d0   ShowFlatTerrain                    | void | ScriptFn_ShowFlatTerrain
+0x6d1   clock                              | (char *)&PTR_LAB_007c1a0c | ScriptFn_clock
+0x6d2   _DbgSel                            | void | ScriptFn__DbgSel
+
+## RegisterWaitScriptFunctions 005ee9c0
+0x6d3 L WaitIdle                           | bool(Query, int) extra=0 | ScriptFn_WaitIdle
+0x6d4 L WaitObjInQuery                     | bool(Obj, Query, int) extra=0 | ScriptFn_WaitObjInQuery
+0x6d5 L WaitQueryCountBetween              | bool(Query, int, int, int) extra=0 | ScriptFn_WaitQueryCountBetween
+0x6d6 L WaitCommonObjects                  | bool(Query, Query, int) extra=0 | ScriptFn_WaitCommonObjects
+0x6d7 L WaitHealthBetween                  | bool(Query, int, int, int) extra=0 | ScriptFn_WaitHealthBetween
+0x6d8 L WaitSettlementCapture              | bool(str, int, int) extra=4 | ScriptFn_WaitSettlementCapture
+0x6d9 L WaitSettlementAllied               | bool(str, int, int) extra=4 | ScriptFn_WaitSettlementAllied
+0x6da L WaitEnvStringEqual                 | bool(str, str, int) extra=0 | ScriptFn_WaitEnvStringEqual
+0x6db L WaitEnvIntBetween                  | bool(str, int, int, int) extra=0 | ScriptFn_WaitEnvIntBetween
+0x6dc L WaitAddNote                        | bool(str, int) extra=0 | ScriptFn_WaitAddNote
+0x6dd L WaitRemoveNote                     | bool(str, int) extra=0 | ScriptFn_WaitRemoveNote
+0x6de L WaitConvRequest                    | bool(Query, Query, int, Obj&, Obj&) extra=0 | ScriptFn_WaitConvRequest5
+0x6df L WaitUnitsInArea                    | bool(Query, str, int) extra=0 | ScriptFn_WaitUnitsInArea
+0x6e0 L WaitIdleUnitsInArea                | bool(Query, str, int) extra=0 | ScriptFn_WaitIdleUnitsInArea
+0x6e1 L WaitEmptyQuery                     | bool(Query, int) extra=0 | ScriptFn_WaitEmptyQuery
+0x6e2 L WaitNonEmptyQuery                  | bool(Query, int) extra=0 | ScriptFn_WaitNonEmptyQuery
+0x6e3 L WaitConvRequest                    | bool(Obj, Obj, int) extra=0 | ScriptFn_WaitConvRequest3
+0x6e4 L EndConvSetup                       | void(Obj, Obj) extra=0 | ScriptFn_EndConvSetup
+0x6e5 L WaitPlayerChat                     | void(int&, str&, int) extra=0 | ScriptFn_WaitPlayerChat
+
+## RegisterNotificationScriptFunctions 0055dd90
+0x6e6   ShowLastNotificationPos            | void() | ScriptFn_ShowLastNotificationPos
+0x6e7   UserNotification                   | void(str, str, point, int) | ScriptFn_UserNotification
+0x6e8   HasStarvingArmy                    | bool() | ScriptFn_HasStarvingArmy
+0x6e9   HasStarvingArmy                    | bool(int) | ScriptFn_HasStarvingArmy_Age
+0x6ea   StarvingArmyPos                    | Obj(int) | ScriptFn_StarvingArmyPos
+
+## RegisterAIHelperScriptFunctions 004d4160
+0x6eb   RunAIHelper                        | void(str, str) | ScriptFn_RunAIHelper_2
+0x6ec   RunAIHelper                        | void(str, str, str) | ScriptFn_RunAIHelper_3
+0x6ed   RunAIHelper                        | void(str, str, str, str) | ScriptFn_RunAIHelper_4
+0x6ee   RunAIHelper                        | void(str, str, str, str, str) | ScriptFn_RunAIHelper_5
+0x6ef   RunAIHelper                        | void(str, str, str, str, str, str) | ScriptFn_RunAIHelper_6
+0x6f0   RunAIHelper                        | void(str, str, str, str, str, str, str) | ScriptFn_RunAIHelper_7
+0x6f1   RunAIHelper                        | void(str, str, str, str, str, str, str, str) | ScriptFn_RunAIHelper_8
+0x6f2   RunAIHelper                        | void(str, str, str, str, str, str, str, str, str) | ScriptFn_RunAIHelper_9
+0x6f3   StopAIHelper                       | void(str) | ScriptFn_StopAIHelper
+0x6f4   IsAIHelperRunning                  | bool(str) | ScriptFn_IsAIHelperRunning
+
+## RegisterPathfinderConsoleCommands 0040c3b0
+0x6f5   pfd                                | void | ConsoleCmd_TogglePathfinderDebug
+0x6f6   testpf                             | void | ScriptFn_testpf
+
+## RegisterSmartPathfinderScriptFunctions 004166c0
+0x6f7   SPFDone                            | void | ScriptFn_SPFDone
+0x6f8   SPFFindAreas_Quant                 | bool | ScriptFn_SPFFindAreas_Quant
+0x6f9   SPFInitData                        | void | ScriptFn_SPFInitData
+0x6fa   SPFInitDirectionData               | void | ScriptFn_SPFInitDirectionData
+0x6fb   SPFInitPointToAreaData             | void | ScriptFn_SPFInitPointToAreaData
+0x6fc   SPFInitConnectData                 | void | ScriptFn_SPFInitConnectData
+0x6fd   SPFCalcConnectHighRes_Quant        | bool | ScriptFn_SPFCalcConnectHighRes_Quant
+0x6fe   SPFIncreaseConnect                 | void | ScriptFn_SPFIncreaseConnect
+0x6ff   SPFIncreaseConnect_Quant           | bool | ScriptFn_SPFIncreaseConnect_Quant
+
+## RegisterInnScriptFunctions 00533d10
+0x700   GetInnState                        | int(str, str) | ScriptFn_GetInnState_byName
+0x701   SetInnState                        | void(str, str, int) | ScriptFn_SetInnState_byName
+0x702   GetInnState                        | int(Obj) | ScriptFn_GetInnState_obj
+0x703   SetInnState                        | void(Obj, int) | ScriptFn_SetInnState_obj
+
+## RegisterDebugScriptFunctions 005bd8c0
+0x704   GenTransGame                       | void, str Language | ScriptFn_GenTransGame
+0x705   MousePtm                           | point | ScriptFn_MousePtm
+0x706   point::GetGAIKA                    | GAIKA, point pt | ScriptFn_point_GetGAIKA
+0x707   Goto                               | void, int x, int y | ScriptFn_Goto
+0x708   ToggleFD                           | void | ScriptFn_ToggleFD
+0x709   Catch                              | void, Obj o | ScriptType_Common8_Destroy
+0x70a   point::ClampToMap                  | point, point pt | ScriptFn_point_ClampToMap
+0x70b   RemakeVis                          | void | ScriptFn_RemakeVis
+0x70c   HeroStats                          | void | ScriptFn_HeroStats
+0x70d   EqualHeroes                        | void | ScriptFn_EqualHeroes
+
+## RegisterImportToolFunctions 004c43b0
+0x70e   _ui                                | void() | OpenUnitImportDialog
+0x70f   _di                                | void() | OpenDecorImportDialog
+0x710   _bi                                | void() | OpenBuildingImportDlg
+0x711   _itools                            | void() | IsBetaExpired
+
+## RegisterPlayerScriptFunctions 0056f9d0
+0x712   StartPlayerScript                  | void(int, str) | ScriptFn_StartPlayerScript
+0x713   StopPlayerScript                   | void(int, str) | ScriptFn_StopPlayerScript
+0x714   GetPlayerScriptsCount              | int(int) | ScriptFn_GetPlayerScriptsCount
+0x715   GetPlayerScript                    | str(int, int) | ScriptFn_GetPlayerScript
+
+## RegisterAnnouncementScriptFunctions 004d5e70
+0x716   ShowAnnouncement                   | void, str key, str value | ScriptFn_ShowAnnouncement
+0x717   HideAnnouncement                   | void, str key | ScriptFn_HideAnnouncement
+0x718   ShowAnnouncement                   | void, int player, str key, str value | ScriptFn_ShowAnnouncement_Player
+0x719   HideAnnouncement                   | void, int player, str key | ScriptFn_HideAnnouncement_Player
+0x71a   SetPlayerStatus                    | void, int player, int key, str value, bool important | ScriptFn_SetPlayerStatus_Str
+0x71b   SetPlayerStatus                    | void, int player, int key, bool important | ScriptFn_SetPlayerStatus
+
+## RegisterNotificationScriptFunctions 006b8710
+0x71c   ShowNotification                   | int(str, str, int, str, Obj) | ScriptFn_ShowNotification
+0x71d   ShowHint                           | int(str, str, Obj) | ScriptFn_ShowHint
+0x71e   ShowTutorial                       | int(str, str, Obj) | ScriptFn_ShowTutorial
+0x71f   HideNotification                   | void(int) | ScriptFn_HideNotification
+0x720   TutorialActive                     | bool() | ScriptFn_TutorialActive
+0x721   HintsActive                        | bool() | ScriptFn_HintsActive
+0x722   EnableHintsAndTutorials            | void() | ScriptFn_EnableHintsAndTutorials
+0x723   DisableHintsAndTutorials           | void() | ScriptFn_DisableHintsAndTutorials
+0x724   AreHintsAndTutorialsEnabled        | bool() | ScriptFn_AreHintsAndTutorialsEnabled
+
+## RegisterAreaEffectScriptFunctions 005ca6f0
+0x725   Obj::MistAction                    | void(Obj, int) | ScriptFn_Obj_MistAction
+0x726   Obj::MagicActionEnd                | void(Obj) | ScriptFn_Obj_MagicActionEnd
+0x727   Obj::CoverOfMercyAction            | void(Obj) | ScriptFn_Obj_CoverOfMercyAction
+
+## RegisterBuildingOutpostScriptFunctions 00564540
+0x728   Building::GetDefenderCls           | str(Building, int) | ScriptFn_Building_GetDefenderCls
+0x729   Building::GetDefendersMax          | int(Building, int) | ScriptFn_Building_GetDefendersMax
+0x72a   Building::GetDefendersOut          | int(Building, int) | ScriptFn_Building_GetDefendersOut
+0x72b   Building::GetStartLevel            | int(Building, int) | ScriptFn_Building_GetStartLevel
+0x72c   Building::GetEndLevel              | int(Building, int) | ScriptFn_Building_GetEndLevel
+0x72d   Building::GetOutpostFood           | int(Building) | ScriptFn_Building_GetOutpostFood
+
+## RegisterPrintMsgScriptFunction 004e6370
+0x72e   PrintMsg                           | void(int, str) | ScriptFn_PrintMsg
+
+## RegisterClassReportFunction 00488da0
+0x72f   _cr                                | void | ScriptFn__cr
+
+## RegisterConquestScriptFunctions 00503800
+      CONST  tsOwned = 1
+      CONST  tsEnemy = 0
+      CONST  tsDisabled = 2
+0x730   GetTerritoryState                  | int(str) | ScriptFn_GetTerritoryState
+0x731   SetTerritoryState                  | void(str, int) | ScriptFn_SetTerritoryState
+0x732   ConquestBonus                      | str() | ScriptFn_ConquestBonus
+
+## RegisterFormScriptFunctions 005f6720
+0x733   FormDescription                    | str(str) | ScriptFn_FormDescription
+
+## RegisterMiscGameplayFunctions 006aeb40
+0x734   GAIKA::SetControlFlag              | void, GAIKA g, int player, bool value | ScriptFn_GAIKA_SetControlFlag
+0x735   GAIKA::GetControlFlag              | bool, GAIKA g, int player | ScriptFn_GAIKA_GetControlFlag
+0x736   GAIKA::ControlledNeighbors         | int, GAIKA g, int player | ScriptFn_GAIKA_ControlledNeighbors
+0x737   Unit::SetFreedom                   | void(Unit, bool) | ScriptFn_Unit_SetFreedom
+0x738   EndGame                            | void(int, bool, str) | ScriptFn_EndGame_3
+0x739   Hero::IsArmyOutside                | bool(Hero) | ScriptFn_Hero_IsArmyOutside
+0x73a   RandomPathCast                     | void() | ScriptFn_RandomPathCast
+0x73b   DiplAreAllied                      | bool(int, int) | ScriptFn_DiplAreAllied
+0x73c   Squad::GetLastAttacker             | Obj(Squad) | ScriptFn_Squad_GetLastAttacker
+0x73d   GAIKA::ApproachingSquads           | int(GAIKA, int, int) | ScriptFn_GAIKA_ApproachingSquads
+0x73e   SetUseCount                        | void(int) | ScriptFn_SetUseCount
+0x73f   Item::SetUseCount                  | void(Item, int) | ScriptFn_Item_SetUseCount
+0x740 L WaitForMapChange                   | void() extra=4 | ScriptFn_WaitForMapChange
+
+# Summary by registration function (natives + conversions):
+#   131  CScriptEngine::RegisterBuiltins 00698580
+#     2  RegisterMapScriptFunctions 0053dbc0
+#   174  RegisterObjScriptFunctions 005b6a90
+#    77  RegisterGroupQueryScriptFunctions 005777c0
+#    36  RegisterBuildingScriptFunctions 004e1710
+#    16  RegisterCatapultScriptFunctions 004e3e30
+#   113  RegisterUnitScriptFunctions 005df710
+#    28  RegisterHeroScriptFunctions 00531500
+#    12  RegisterDruidScriptFunctions 00513f50
+#     2  RegisterScriptEditorFunctions 004b1a40
+#     3  RegisterDialogEditorFunctions 00492e00
+#     5  RegisterEditorChooseFunctions 00485280
+#     2  RegisterMiniMapScriptFunctions 006149d0
+#     5  RegisterZoomMapScriptFunctions 006163a0
+#    11  RegisterWagonScriptFunctions 005ec2f0
+#    68  RegisterSettlementScriptFunctions 005c5d10
+#     5  RegisterItemHolderScriptFunctions 0053cd20
+#    11  RegisterSettlementSupplyScriptFunctions 005ef5e0
+#    43  RegisterObjListScriptFunctions 00563420
+#     9  RegisterConversationScriptFunctions 0050d1f0
+#    31  RegisterEnvironmentFunctions 006ae7b0
+#     5  RegisterSequenceScriptFunctions 005bcb90
+#    83  RegisterGameplayScriptFunctions 004caa70
+#     7  RegisterAreaScriptFunctions 004d9250
+#     8  RegisterSacrificeScriptFunctions 00596660
+#     5  RegisterNoteScriptFunctions 00558c30
+#     4  RegisterFeedbackScriptFunctions 00518b00
+#    10  RegisterDiplomacyScriptFunctions 005657a0
+#     8  RegisterGateScriptFunctions 00529d40
+#     4  RegisterTeleportScriptFunctions 005cdd40
+#    21  RegisterShipScriptFunctions 005c8ae0
+#     3  RegisterUnitBonusScriptFunctions 005e0df0
+#    12  RegisterItemScriptFunctions 0053c000
+#    16  RegisterFlyingScriptFunctions 0051cb50
+#   328  RegisterAIScriptFunctions 0043af30
+#   129  RegisterDebugConsoleFunctions 006aa500
+#    19  RegisterWaitScriptFunctions 005ee9c0
+#     5  RegisterNotificationScriptFunctions 0055dd90
+#    10  RegisterAIHelperScriptFunctions 004d4160
+#     2  RegisterPathfinderConsoleCommands 0040c3b0
+#     9  RegisterSmartPathfinderScriptFunctions 004166c0
+#     4  RegisterInnScriptFunctions 00533d10
+#    10  RegisterDebugScriptFunctions 005bd8c0
+#     4  RegisterImportToolFunctions 004c43b0
+#     4  RegisterPlayerScriptFunctions 0056f9d0
+#     6  RegisterAnnouncementScriptFunctions 004d5e70
+#     9  RegisterNotificationScriptFunctions 006b8710
+#     3  RegisterAreaEffectScriptFunctions 005ca6f0
+#     6  RegisterBuildingOutpostScriptFunctions 00564540
+#     1  RegisterPrintMsgScriptFunction 004e6370
+#     1  RegisterClassReportFunction 00488da0
+#     3  RegisterConquestScriptFunctions 00503800
+#     1  RegisterFormScriptFunctions 005f6720
+#    13  RegisterMiscGameplayFunctions 006aeb40
+#  TOTAL 1537 ; next free id (inferred) 0x741 ; limit 0x1000 (2239 left)
+# Registered types: 0x0=void 0x1=int 0x3=float 0x6=point 0x7=bool 0x8=rect 0xa=pstr 0xb=str 0xc=IntArray 0xd=StrArray 0xe=StrMap 0x14=Obj 0x15=Unit 0x16=Building 0x17=ObjList 0x18=Hero 0x19=Tower 0x1a=Wagon 0x1b=Settlement 0x1c=ItemHolder 0x1d=Conversation 0x1e=Item 0x20=Query 0x21=Barrack 0x22=NamedObj 0x23=Druid 0x25=Ghost 0x26=Catapult 0x27=Sacrifice 0x28=SquadList 0x29=Squad 0x2a=GAIKA 0x2b=Gate 0x2c=Teleport 0x2d=Ship 0x2e=Flying
+# Signatures with types read from bytes: 1113 ; without types (the scanner couldn't): 0

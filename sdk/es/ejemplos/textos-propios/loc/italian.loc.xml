@@ -1,0 +1,4 @@
+<translationtable>
+  <translationtableentry text="Single player" result="Giocatore singolo"/>
+  <translationtableentry text="Multiplayer" result="Multigiocatore"/>
+</translationtable>

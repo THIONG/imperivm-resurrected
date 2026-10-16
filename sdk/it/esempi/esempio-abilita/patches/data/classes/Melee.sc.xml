@@ -1,0 +1,6 @@
+<patch>
+  <!-- Il metodo che esegue l'ordine "respiro". I metodi si ereditano: ce l'hanno tutte le classi che discendono da Melee -->
+  <add select="/class">
+    <method sig="respiro" vs="data/mod/respiro.vs"/>
+  </add>
+</patch>

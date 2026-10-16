@@ -1,0 +1,14 @@
+<class id="DTownhall" cpp_class="CVXTownHall" parent="BaseTownhall" entity="Buildings/Townhall/Townhall_as.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties foodperpop="45"/>
+	<properties icon="gameres/icons/Gtownhall.bmp"/>
+	<properties display_name="Gaul Townhall"/>
+	<properties radius="160" selection_radius="165"/>
+	<properties auto_repair="no"/>
+	<properties help="/contents/buildings/GTownhall"/>
+
+	<properties edittree_pos="Structures/Stronghold (Gaul)/Townhall"/>
+
+	
+</class>

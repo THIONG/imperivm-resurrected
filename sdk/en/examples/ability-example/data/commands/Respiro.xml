@@ -1,0 +1,21 @@
+<commands>
+
+<!-- The order (the button). It's a new file: the game loads every .xml in data\commands.
+     The order's name ("respiro") is the same as the "sig" of the method that runs it (see patches\data\classes\Melee.sc.xml).
+     It's an immediate order, like "stand_position" in data\commands\UNIT.XML -->
+<cmd name="respiro" priority="10"
+	offset="1"
+	button="Actions/Respiro.bmp"
+	key="y"
+	rollover="Second wind"
+	description="The soldier recovers 60 health (costs stamina)"
+	groupverifier=""
+	groupdispatch=""
+	voidgroupdispatch="1"
+	coststamina="5"
+	>
+	<!-- Every class that descends from Melee (the melee soldiers of every civilization) has it -->
+	<src obj="Melee"/>
+</cmd>
+
+</commands>

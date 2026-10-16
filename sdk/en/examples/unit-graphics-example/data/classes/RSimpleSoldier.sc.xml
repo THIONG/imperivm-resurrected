@@ -1,0 +1,19 @@
+<!-- A unit with its own graphics: the Simple Soldier. It's a full COPY of the hastatus class (data\classes\RHastatus.sc.xml) with another id
+     and, above all, another entity: units\RSimpleSoldier\RSimpleSoldier.ent.xml, which this mod ships along with its .rle files (the sprites).
+     It's copied whole (and not with parent="RHastatus") because the game doesn't inherit the entity (the model) from the parent. -->
+<class id="RSimpleSoldier" cpp_class="CVXUnit" parent="Melee" entity="Units/RSimpleSoldier/RSimpleSoldier.ent.xml">
+
+	<properties race="RepublicanRome"/>
+	<properties maxhealth="150"/>
+	<properties damage="14" armor_slash="10" armor_pierce="10"/>
+	<properties speed="60"/>
+	<properties unit_specials="Deflection"/>
+
+	<!-- No portrait or button of its own: it uses the hastatus's (tools/convert-image.js makes them, see the unit-example example) -->
+	<properties icon="gameres/icons/RHastatus.bmp"/>
+	<properties display_name="Simple Soldier" display_name_plural="Simple Soldiers"/>
+	<properties help="contents/units/RHastatus"/>
+	<properties edittree_pos="Units/Roman/SimpleSoldier"/>
+	<sounds command="data/sound entities/VoiceRHastatus.xml"/>
+
+</class>

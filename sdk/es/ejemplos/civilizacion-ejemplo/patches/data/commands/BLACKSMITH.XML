@@ -1,0 +1,5 @@
+<patch>
+	<add select="/commands/cmd[@name='repair blacksmith']"><src obj="DBlacksmith"/></add>
+	<add select="/commands/cmd[@name='Strenghten Stronghold Defences I']"><src obj="DBlacksmith"/></add>
+	<add select="/commands/cmd[@name='Strenghten Stronghold Defences II']"><src obj="DBlacksmith"/></add>
+</patch>

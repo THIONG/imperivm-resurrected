@@ -1,0 +1,23 @@
+<commands>
+
+<!-- The Roman barracks button to recruit the Simple Soldier. Copy of "trainRHastatus" (data\commands\RBARRACKS.XML) with another class and another cost. -->
+<cmd name="trainRSimpleSoldier" priority="3"
+	button="actions/train RHastatus.bmp"
+	queueicon="gameres/icons/RHastatus.bmp"
+	groupverifier="data/subai/verify_cmdcost_building.vs"
+	transpicon="1"
+	traincommand="yes"
+	key="x"
+	help="/contents/units/RHastatus"
+	costgold="90"
+	costfood="0"
+	costpop="1"
+	execdelay="6000"
+	rollover="Equip Simple Soldier"
+	method="train"
+	param="RSimpleSoldier"
+	sclass="RSimpleSoldier">
+	<src obj="RBarracks"/>
+</cmd>
+
+</commands>

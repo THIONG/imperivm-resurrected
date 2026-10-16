@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 THIONG
+// Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
+#pragma once
+
+#include <map>
+#include <string>
+#include <vector>
+
+struct Civ {
+	std::string id;
+	int index = 0;
+	int base = 0;
+	std::string internalName;
+	std::string letterUp, letterLow;
+	int biome = -1;
+	std::string templatePrefix;
+	bool random = true;
+	bool ai = false;
+	bool ownAi = false;
+	std::map<std::string, std::string> aliasClasses, aliasOrders;
+	bool AiAlias() const { return ai && !ownAi; }
+	std::string folder;
+	std::vector<std::pair<std::string, std::string>> names;
+	std::string modFolder;
+};
+
+void CivsRebuild();
+const Civ *CivByIndex(int index);
+const Civ *CivByName(const std::string &name);
+std::vector<Civ> CivsList();
+std::string CivDisplayName(const Civ &c);
+
+const char *GameCivName(int index);
+int GameCivByName(const std::string &name);
+
+std::vector<std::string> CivsErrorsFor(const std::string &folder);
+void CivsRegisterConstants(void *engine);
+
+void CivsOnRoomShown(void *dlg);
+const char *CivsRoomSeparator();
+void CivsBuildBegin();
+void CivsBuildEnd(void *settings);
+
+const char *CivsCityClassName(void *registry, const char *name, std::string &buf);
+
+void InstallCivs(bool knownExe);
+
+void InstallCivAi(bool knownExe);
+void CivAiRebuild();

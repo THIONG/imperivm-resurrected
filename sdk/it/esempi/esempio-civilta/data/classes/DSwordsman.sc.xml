@@ -1,0 +1,18 @@
+<class id="DSwordsman" cpp_class="CVXUnit" parent="Melee" entity="Units/GSwordsman/GSwordsman.ent.xml">
+
+	<properties race="Dacia"/>
+	<properties maxhealth="200"/>
+	<properties damage="12" armor_slash="6" armor_pierce="6"/>
+	<properties speed="80"/>
+	<properties unit_specials="Penetration"/>
+
+	<properties formation_priority="1200"/>
+	<properties formation_radius="26"/>
+
+	<properties icon="gameres/icons/GSwordsman.bmp"/>
+	<properties display_name="Swordsman" display_name_plural="Swordsmen"/>
+	<properties help="contents/units/GSwordsman"/>
+	<properties edittree_pos="Units/Gaul/Swordsman"/>
+	<sounds command="data/sound entities/VoiceGSwordsman.xml"/>
+
+</class>

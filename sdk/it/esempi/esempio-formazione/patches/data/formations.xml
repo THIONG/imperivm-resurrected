@@ -1,0 +1,22 @@
+<patch>
+  <!-- Una nuova formazione. Width/Height: dimensione della griglia della prima linea. Bonus*: bonus mentre la truppa è ferma (stand ground).
+       Description non compare sul pulsante: il gioco usa un testo proprio.
+       Ogni <Class> dice dove vanno le unità di quella classe: FrontLine (davanti), Wings (ai lati) o CentralBlock (al centro) -->
+  <add select="/Formations">
+    <FormationClass Name="Wedge"
+        Description="The warriors form a wedge with the cavalry at the point. Good for breaking an enemy line."
+        Width="3"
+        Height="1"
+        BonusDamage="3"
+        BonusArmor="1"
+        OffsetFrontLineByY="40"
+        OffsetWingsByX="30"
+        OffsetWingsByY="0">
+
+        <Class Name="Unit" Wings="1"/>
+        <Class Name="Horse" FrontLine="1"/>
+        <Class Name="BaseMage" CentralBlock="1"/>
+        <Class Name="Peasant" CentralBlock="1"/>
+    </FormationClass>
+  </add>
+</patch>

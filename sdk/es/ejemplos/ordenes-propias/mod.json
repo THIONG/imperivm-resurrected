@@ -1,0 +1,23 @@
+{
+  "id": "ejemplo-ordenes-propias",
+  "name": {
+    "spanish": "Ejemplo: órdenes propias",
+    "english": "Example: custom orders",
+    "italian": "Esempio: ordini propri"
+  },
+  "version": "1.0",
+  "category": "Gameplay & Balance",
+  "tags": ["Gameplay"],
+  "authors": ["Imperivm Resurrected"],
+  "description": {
+    "spanish": "Ejemplo del SDK: añade un archivo de órdenes nuevo (un segundo botón de hastatus en el cuartel romano) y le pone nombre en la pantalla de Controles. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",
+    "english": "SDK example: adds a new orders file (a second hastatus button in the Roman barracks) and names it on the Controls screen. Changes gameplay: everyone must have it in multiplayer.",
+    "italian": "Esempio dell'SDK: aggiunge un nuovo file di ordini (un secondo pulsante hastatus nella caserma romana) e gli dà un nome nella schermata dei Controlli. Cambia il gioco: in multigiocatore devono averlo tutti."
+  },
+  "redistributable": true,
+  "commands": {
+    "MiCuartel": {
+      "name": {"spanish": "Cuartel romano extra", "english": "Extra Roman barracks", "italian": "Caserma romana extra"}
+    }
+  }
+}

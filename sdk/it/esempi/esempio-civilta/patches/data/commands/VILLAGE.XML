@@ -1,0 +1,8 @@
+<patch>
+	<add select="/commands/cmd[@name='repair guard post']"><src obj="DGuardPost"/></add>
+	<add select="/commands/cmd[@name='tribute']"><nsrc obj="DGuardPost"/></add>
+	<add select="/commands/cmd[@name='tribute_default']"><nsrc obj="DGuardPost"/></add>
+	<add select="/commands/cmd[@name='stoptribute']"><nsrc obj="DGuardPost"/></add>
+	<add select="/commands/cmd[@name='createfoodmule1']"><nsrc obj="DGuardPost"/></add>
+	<add select="/commands/cmd[@name='createfoodmule2']"><nsrc obj="DGuardPost"/></add>
+</patch>

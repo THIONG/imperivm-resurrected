@@ -1,0 +1,7 @@
+<class id="DGateNW" cpp_class="CVXGate" parent="Gate" entity="Buildings/GWalls/GateNW/GateNW.ent.xml">
+	<properties race="Dacia"/>
+	<properties icon="gameres/icons/GGates.bmp"/>
+	<properties radius="170" selection_radius="170"/>
+	<properties wall_set="Gaul walls"/>
+	<properties sentry_class_name="DSentry1"/>
+</class>

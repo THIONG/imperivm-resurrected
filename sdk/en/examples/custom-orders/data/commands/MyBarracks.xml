@@ -1,0 +1,23 @@
+<commands>
+
+<!-- One more button in the Roman barracks. It's a new file: the game loads every .xml in data\commands -->
+<cmd name="trainMiHastatus" priority="20"
+	button="actions/train RHastatus.bmp"
+	queueicon="gameres/icons/RHastatus.bmp"
+	groupverifier="data/subai/verify_cmdcost_building.vs"
+	transpicon="1"
+	traincommand="yes"
+	key="j"
+	help="/contents/units/RHastatus"
+	costgold="100"
+	costfood="0"
+	costpop="1"
+	execdelay="6000"
+	rollover="Equip Hastatus (second button)"
+	method="train"
+	param="RHastatus"
+	sclass="RHastatus">
+	<src obj="RBarracks"/>
+</cmd>
+
+</commands>

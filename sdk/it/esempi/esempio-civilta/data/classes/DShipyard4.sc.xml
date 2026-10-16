@@ -1,0 +1,13 @@
+<class id="DShipyard4" cpp_class="CVXTownHall" parent="BaseShipyard"
+	entity="Buildings/Shipyard 4/Shipyard 4_as.ent.xml"
+	entity_autumn="Buildings/Shipyard 4/Shipyard 4_as.ent.xml"
+	entity_spring="Buildings/Shipyard 4/Shipyard 4_as.ent.xml"
+	entity_winter="Buildings/Shipyard 4/Shipyard 4_w.ent.xml"
+>
+	<properties race="Dacia"/>
+	<properties radius="350" selection_radius="400"/>
+	<properties importsettlement="Shipyard 4"/>
+	<properties edittree_pos="Structures/Shipyards/Wooden NW"/>
+	<properties exit_vector_x="-120" exit_vector_y="-100"/>
+	<properties build_ship_variation="1"/>
+</class>

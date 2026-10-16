@@ -1,0 +1,4 @@
+<translationtable>
+  <!-- In English the key is already the text; an english.loc.xml file is used to change how it looks -->
+  <translationtableentry text="Single player" result="Campaign and skirmish"/>
+</translationtable>
