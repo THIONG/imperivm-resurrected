@@ -1,8 +1,11 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Imperivm Resurrected" width="640">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png">
+    <img src="assets/banner.png" alt="Imperivm Resurrected" width="640">
+  </picture>
 </p>
 
-<p align="center"><a href="README.md">English</a> · <b>Español</b></p>
+<p align="center"><a href="README.md">English</a> · <b>Español</b> · <a href="README.it.md">Italiano</a></p>
 
 # Imperivm Resurrected
 
@@ -39,7 +42,7 @@ En el menú principal del juego, pulsa el corazón de abajo a la izquierda y **C
 y los datos de tu equipo, sin tu usuario de Windows, tus IDs de Steam ni las IP. El mod no envía nada: lo adjuntas tú.
 
 Después, [abre una incidencia](https://github.com/THIONG/imperivm-resurrected/issues/new/choose) con el zip, o pregunta en el
-[Discord](https://discord.gg/76gee3GMB7). Los registros están en `Logs\imperivm\`, dentro de la carpeta del juego.
+[Discord](https://discord.gg/6kCatX3Zbc). Los registros están en `Logs\imperivm\`, dentro de la carpeta del juego.
 
 ## Hacer mods
 

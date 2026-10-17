@@ -1,8 +1,11 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Imperivm Resurrected" width="640">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png">
+    <img src="assets/banner.png" alt="Imperivm Resurrected" width="640">
+  </picture>
 </p>
 
-<p align="center"><b>English</b> · <a href="README.es.md">Español</a></p>
+<p align="center"><b>English</b> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a></p>
 
 # Imperivm Resurrected
 
@@ -39,7 +42,7 @@ In the game's main menu, click the heart at the bottom left and then **Create re
 your system, with your Windows user name, Steam IDs and IP addresses replaced. The mod sends nothing: you attach it yourself.
 
 Then [open an issue](https://github.com/THIONG/imperivm-resurrected/issues/new/choose) with the zip, or ask on
-[Discord](https://discord.gg/76gee3GMB7). The logs are in `Logs\imperivm\`, inside the game folder.
+[Discord](https://discord.gg/6kCatX3Zbc). The logs are in `Logs\imperivm\`, inside the game folder.
 
 ## Making mods
 
