@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png">
-    <img src="assets/banner.png" alt="Imperivm Resurrected" width="640">
-  </picture>
+  <img src="assets/banner.png" alt="Imperivm Resurrected" width="640">
 </p>
 
 <p align="center"><b>English</b> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a></p>
