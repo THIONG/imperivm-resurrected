@@ -1,5 +1,12 @@
 # Credits
 
+## Contributors
+
+- **iiTzSenn** — https://github.com/iiTzSenn
+- **Villoh** — https://github.com/Villoh
+
+## Built on
+
 - **Syncrash** — AlvaroPeyleth (Discord: xtalvarotx), MIT license. https://github.com/AlvaroPeyleth/Imperivm-Syncrash
   The crash protection in `src/hooks/tweaks.cpp` (`InstallCrashFix`) comes from their research: the three sites of the script
   object lists (`0055f500`, `0057177c`, `005717f6`) and the piece that checks `IsKindOf("CVXMapObj")`
