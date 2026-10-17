@@ -27,9 +27,8 @@ using namespace ui;
 
 namespace {
 
-const char kBizum[] = "";
+const char kPaypal[] = "https://paypal.me/imperivmresurrected";
 const char kBtc[] = "bc1q58tsfh2h6yaqt7zlpqu08ykjrg8vf40wme0lzn";
-const char kIban[] = "";
 const char kGitHub[] = "https://github.com/THIONG";
 const char kLinkedIn[] = "https://www.linkedin.com/in/saulrodriguezg/";
 const char kDiscordUser[] = "thiong";
@@ -63,9 +62,13 @@ Canvas g_panelCanvas;
 
 void BuildRows(std::vector<Row> &donate, std::vector<Row> &contact)
 {
-	donate.push_back({"Bizum", kBizum, false, kBizum});
+	if (kPaypal[0]) {
+		const std::string url = kPaypal;
+		const size_t scheme = url.find("://");
+		const std::string shown = scheme == std::string::npos ? url : url.substr(scheme + 3);
+		donate.push_back({"PayPal", shown, true, url});
+	}
 	donate.push_back({"Bitcoin (BTC)", kBtc, false, kBtc});
-	donate.push_back({"IBAN", kIban, false, kIban});
 	contact.push_back({"GitHub", "github.com/THIONG", true, kGitHub});
 	contact.push_back({"LinkedIn", "linkedin.com/in/saulrodriguezg", true, kLinkedIn});
 	contact.push_back({"Discord", kDiscordUser, false, kDiscordUser});
