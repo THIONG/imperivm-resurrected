@@ -3,6 +3,7 @@
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #pragma once
 #include "ui/widgets.h"
+#include "core/transferrate.h"
 #include "mods/downloads.h"
 #include <functional>
 #include <set>
@@ -138,6 +139,7 @@ struct State {
 	ListGeom detailGeom;
 	bool passPrompt = false;
 	OnlineLobby passLobby;
+	bool passWatch = false;
 	OnlineRoom room;
 	bool loading = false;
 	bool ready = false;
@@ -160,6 +162,7 @@ struct State {
 		std::string password;
 		DWORD since = 0;
 		unsigned serial = 0;
+		bool watch = false;
 	} joinCheck;
 	DWORD selectedPoll = 0;
 	bool connecting = false;
@@ -186,6 +189,8 @@ struct State {
 	int createSpec = 1;
 	bool syncConfirm = false;
 	OnlineLobby syncLobby;
+	bool syncWatch = false;
+	bool syncLive = false;
 	std::string syncPass;
 	bool syncUpdate = false;
 	std::string syncUsing;
@@ -197,15 +202,14 @@ struct State {
 	DWORD syncStart = 0;
 	std::string syncError;
 	OnlineModDownload dl;
+	uint64_t hashDone = 0, hashTotal = 0;
 	int syncStage = 0;
 	std::vector<OnlineMod> syncHostList;
 	std::map<std::string, std::string> syncInstalled;
 	std::set<std::string> syncFromIo;
 	bool syncRetryHost = false;
 	RoomModStatus io;
-	uint64_t speedBytes = 0;
-	DWORD speedTick = 0;
-	double speed = 0;
+	TransferRate rate;
 	int pickSel = -1;
 	ListState pick;
 	ListGeom pickGeom;
@@ -297,7 +301,6 @@ struct DetailPaneState {
 extern DetailPaneState g_detail;
 extern void *g_mainMenu;
 extern Canvas g_canvas;
-bool SameGameplay(const State &st, const OnlineLobby &g);
 std::string SpectatorText(bool enabled, int delay);
 bool RoomHasNoSeat(const State &st);
 std::vector<int> Visible(const State &st);
@@ -311,10 +314,9 @@ void RecordOnlineGame(const OnlineRoom &room);
 void RecordOnlineGameRaw(const RecoverInfo &r);
 void ClearOnlineGame();
 void CheckRecover();
-bool ScenarioModMissing(const OnlineLobby &g);
 bool CanReturnToGame(const State &st, const OnlineLobby &g);
-void TryJoinNow(const OnlineLobby &g, const std::string &password);
-void TryJoin(const OnlineLobby &g, const std::string &password);
+void TryJoinNow(const OnlineLobby &g, const std::string &password, bool watch = false);
+void TryJoin(const OnlineLobby &g, const std::string &password, bool watch = false);
 void TrySpectate(const OnlineLobby &g, const std::string &password);
 extern ListGeom g_pickGeomOut;
 const int kPickRows = 13;
@@ -378,6 +380,8 @@ bool BonusesDisabled(const GameRoomSnapshot &g);
 void ApplySeatDisplay(GameRoomSnapshot &g);
 int RaceIdToCombo(int id);
 void ApplySaveLook(GameRoomSnapshot &g);
+bool RaceEditable(const GameRoomSnapshot &g, const GameRoomSlot &s, bool load);
+void RedirectReplacedRaces(GameRoomSnapshot &g);
 void ApplyPredicted(GameRoomSnapshot &g, std::vector<State::Predicted> &list);
 typedef unsigned(__fastcall *GameMenuMsg_t)(void *dlg, void *edx, int *msg);
 

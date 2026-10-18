@@ -8,6 +8,10 @@ on:
       tag:
         description: Tag of the release to check (for example v0.31.54)
         required: true
+      announce:
+        description: Also announce it in the Discord channels of new versions
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -47,3 +51,26 @@ jobs:
       - name: Attach the SDK zip and the checksums
         shell: bash
         run: gh release upload "$TAG" assets/imperivm-resurrected-sdk-*.zip assets/SHA256SUMS.txt --clobber
+
+  discord:
+    needs: assets
+    if: github.event_name == 'release' || inputs.announce
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      DISCORD_WEBHOOK_ES: ${{ secrets.DISCORD_WEBHOOK_ES }}
+      DISCORD_WEBHOOK_EN: ${{ secrets.DISCORD_WEBHOOK_EN }}
+      DISCORD_WEBHOOK_IT: ${{ secrets.DISCORD_WEBHOOK_IT }}
+      DISCORD_ROLE_ES: ${{ vars.DISCORD_ROLE_ES }}
+      DISCORD_ROLE_EN: ${{ vars.DISCORD_ROLE_EN }}
+      DISCORD_ROLE_IT: ${{ vars.DISCORD_ROLE_IT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Announce the release in the Discord channels of new versions (links to the website)
+        run: node tools/announce-release.js --tag "$TAG"

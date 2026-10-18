@@ -140,11 +140,6 @@ void CheckRecover()
 	g_s.recoverAsk = true;
 }
 
-bool ScenarioModMissing(const OnlineLobby &g)
-{
-	return !g.scenModId.empty() && !ModsMountedHasExact(g.scenModId, g.scenModVersion);
-}
-
 bool CanReturnToGame(const State &st, const OnlineLobby &g)
 {
 	if (!g.playing || g.specOnly || g.kickedMe || g.myNumber <= 0 || !g.owner) return false;
@@ -155,13 +150,17 @@ bool CanReturnToGame(const State &st, const OnlineLobby &g)
 	return false;
 }
 
-void TryJoinNow(const OnlineLobby &g, const std::string &password)
+void TryJoinNow(const OnlineLobby &g, const std::string &password, bool watch)
 {
+	if (watch && !g.specLobby) {
+		ModUiToast("This game does not allow spectators.");
+		return;
+	}
 	if (g.kickedMe) {
 		ModUiToast("You have been kicked from the room.");
 		return;
 	}
-	if (g.playing) {
+	if (g.playing && !watch) {
 		ModUiToast("That game has already started: you can't join midway.");
 		return;
 	}
@@ -172,21 +171,39 @@ void TryJoinNow(const OnlineLobby &g, const std::string &password)
 	}
 	if (g.password && password.empty()) {
 		g_s.passLobby = g;
+		g_s.passWatch = watch;
 		g_s.passPrompt = true;
 		g_s.joinPassInput.clear();
 		FocusField(kJoinPassField);
 		return;
 	}
-	if (!SameGameplay(g_s, g) || ScenarioModMissing(g)) {
-		std::vector<std::string> blockedNames;
+	OnlineLobby target = g;
+	if (watch) target.id = g.specLobby;
+	if (g_s.ownKey.empty()) g_s.ownKey = SteamOwnGameplayKey();
+	const RoomContent content = SteamRoomContent(g, g_s.ownKey);
+	if (content == RoomContent::kChecking) {
+		ModUiToast("Your content is still being checked: try again in a few seconds.");
+		return;
+	}
+	if (RoomContentDiffers(content)) {
+		std::vector<std::string> blockedNames, hostOnlyNames;
 		for (const OnlineMod &m : MissingMods(g_s, g)) {
 			if (!m.redistributable && !m.gbId) blockedNames.push_back(m.name + " " + m.version);
+			else if (!m.gbId) hostOnlyNames.push_back(m.name + " " + m.version);
 		}
 		if (!blockedNames.empty()) {
 			ModUiToast(Tr("This room uses content whose author doesn't allow sharing: ") + ShortList(blockedNames) +
-				". Download it from its page (Options > Content > Browse content).");
+				Tr(". Download it from its page (Options > Content > Browse content)."));
 			return;
 		}
+		const bool live = watch && g.playing;
+		if (live && !hostOnlyNames.empty()) {
+			ModUiToast(TrFmt("This game uses content that is not on GameBanana (%s). The host can't send it during a game: you can watch "
+				"once you have it.", {ShortList(hostOnlyNames)}), true);
+			return;
+		}
+		g_s.syncWatch = watch;
+		g_s.syncLive = live;
 		g_s.syncUsing.clear();
 		for (const OnlineMod &m : MissingMods(g_s, g)) {
 			const ModInfo *old = OlderInstalled(g_s, m);
@@ -195,18 +212,19 @@ void TryJoinNow(const OnlineLobby &g, const std::string &password)
 		}
 		g_s.syncUpdate = false;
 		g_s.syncConfirm = true, g_s.syncList = ListState();
-		g_s.syncLobby = g;
+		g_s.syncLobby = target;
 		g_s.syncPass = password;
 		return;
 	}
-	SteamJoinLobby(g.id, password);
+	SteamJoinLobby(target.id, password);
 }
 
-void TryJoin(const OnlineLobby &g, const std::string &password)
+void TryJoin(const OnlineLobby &g, const std::string &password, bool watch)
 {
 	if (g_s.joinCheck.id) return;
 	g_s.joinCheck.id = g.id;
 	g_s.joinCheck.password = password;
+	g_s.joinCheck.watch = watch;
 	g_s.joinCheck.since = GetTickCount();
 	g_s.joinCheck.serial = SteamLobbyDataSerial(g.id);
 	SteamRequestLobbyData(g.id);
@@ -218,10 +236,6 @@ void TrySpectate(const OnlineLobby &g, const std::string &password)
 		ModUiToast("This game does not allow spectators.");
 		return;
 	}
-	OnlineLobby target = g;
-	target.id = g.specLobby;
-	target.playing = false;
-	target.specOnly = false;
-	TryJoinNow(target, password);
+	TryJoin(g, password, true);
 }
 }

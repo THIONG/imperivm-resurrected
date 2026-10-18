@@ -237,6 +237,7 @@ bool ModUiHandleCornerMessage(UINT msg, WPARAM wp, LPARAM lp)
 
 bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 {
+	if ((msg == WM_LBUTTONDOWN || msg == WM_KEYDOWN) && ModUiIsOpen()) ModsReadPatchedFiles();
 	std::unique_lock<std::mutex> lock(g_lock);
 	if (msg == WM_MOUSEMOVE) {
 		g_hover.x = static_cast<short>(LOWORD(lp));

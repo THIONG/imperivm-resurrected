@@ -139,7 +139,9 @@ ModProfile ModsLooseProfileWith(const std::vector<std::string> &folders)
 	p.name = kNoProfile;
 	p.mods = folders;
 	const std::vector<ModInfo> installed = ModsList();
-	for (const std::string &f : ModsLoadProfile(ModsActiveProfileName()).mods) {
+	const ModProfile active = ModsLoadProfile(ModsActiveProfileName());
+	p.choices = active.choices;
+	for (const std::string &f : active.mods) {
 		bool cosmetic = false;
 		for (const ModInfo &m : installed) {
 			if (_stricmp(m.folder.c_str(), f.c_str()) == 0) cosmetic = !m.gameplay && m.forbidden.empty();
@@ -213,6 +215,7 @@ void InstallModsHooks(bool knownExe)
 	else {
 		LogE("content", "could not hook MountPakFilesInDir; mods will not be loaded");
 	}
+	InstallRleHook();
 }
 
 bool ModsAllowedFile(const std::string &relPath)

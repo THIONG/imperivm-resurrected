@@ -36,6 +36,8 @@ A `civs\<id>.json` file in your mod:
 | `ai` | (Optional) With `true`, the AI plays with your classes and commands. Otherwise it plays as the base civilization. The cloning tool sets it to `true`. See *The AI*. |
 | `ownAi` | (Optional, with `ai`) For mods that ship all their own AI scripts and want to see the civilization as itself (`Dacia`, not its base). |
 | `alias` | (Optional, written by the cloning tool) `classes` and `commands`: name in the base to name in your civilization (`"GArcher": "DArcher"`, `"trainGSwordsman": "trainGSwordsman Dacia"`). The AI uses them to translate. |
+| `variant` | (Optional) With `true`, it's a variant of its base: it plays with the base's classes and scripts see it as the base. See *Variants*. |
+| `replacesBase` | (Optional) With `true`, the base no longer shows in the lobby and this civilization takes its place. See *Variants*. |
 
 With just `id`, `index` and `base` you get a copy of the base under another name. From there, change whatever you like.
 
@@ -54,7 +56,8 @@ Gaul even if you have a civilization cloned from it.
 A class with `parent=` inherits stats and behaviors, but not the entity (`entity`, the model) or the sounds: set them again or
 the unit spawns without a model and vanishes. That's why the cloning tool copies whole classes.
 
-In scripts, each declared civilization is a constant named after its `id` with a capital first letter:
+In scripts, each declared civilization is a constant named after its `id` as you write it, with a capital first letter (`dacia` gives
+`Dacia`, `romeImperial` gives `RomeImperial`). The rest in lowercase also works (`Romeimperial`):
 
 ```
 if (GetPlayerRace(player) == Dacia)
@@ -67,10 +70,45 @@ civilization an object really plays as, use `Mod_TrueRace(objeto)`.
 ## In the lobby and on the map
 
 Declared civilizations appear in the multiplayer lobby's dropdowns, after the game's. On a random map, yours uses its biome's terrain and starts with a city and a village built from its classes
-(`DTownhall`, `DBarracks`…). If you don't give it templates, the building layout is the base's.
+(`DTownhall`, `DBarracks`…). If you don't give it templates, the building layout is the base's. The player's interface (command bars, corners, quick icons and the
+end screen) is the base's.
 
 If something doesn't show up, check `Logs\imperivm\imperivm-mod.log`: the lines tagged `civilizations` say what was registered and what failed (an invalid `id`,
 a missing or duplicate `index`, a `base` that doesn't exist). Errors also appear on the mod's card in the manager.
+
+## Variants
+
+A variant is a game civilization with another name in the lobby and something of its own at the start of the game. For example, a mod
+where Rome chooses at the start between republican, imperial and punic can offer all three in the lobby:
+
+```json
+{
+  "id": "RomeImperial",
+  "index": 21,
+  "base": "RepublicanRome",
+  "name": {"spanish": "Roma imperial", "english": "Roman Empire", "italian": "Roma imperiale"},
+  "variant": true,
+  "replacesBase": true
+}
+```
+
+With `"variant": true`:
+
+- It plays with the base's classes and commands. It has no classes of its own and no `letter`.
+- `GetPlayerRace` returns the base, so the game's and other mods' scripts treat it like the base (ships, sentries, AI).
+- `Mod_PlayerCiv(player)` returns the civilization chosen in the lobby (21 in the example). What sets it apart goes in a
+  [script patch](patches.md), for example researching the right Rome at the start:
+
+```
+@before while (EnvReadInt(set, "ChooseRomanRace") != 1)
+	if (Mod_PlayerCiv(.player) == RomeImperial && set.CanResearch("ChooseImperialRome"))
+		set.Research("ChooseImperialRome");
+```
+
+- The AI plays it too: `ai` is `true` unless you say otherwise.
+- With `"replacesBase": true` the base no longer shows in the lobby and its variants take its place. In the random draw, the base's
+  share is split among them. A player who had the base chosen moves to the first variant. Maps and saved games that fix the base still
+  use it.
 
 ## Cloning a civilization
 

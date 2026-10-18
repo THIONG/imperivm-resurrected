@@ -3,13 +3,18 @@
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #include <windows.h>
 #include <algorithm>
+#include <atomic>
 #include <set>
+#include <thread>
 #include "MinHook.h"
 #include "core/legacy.h"
 #include "core/guard.h"
 #include "mods/fingerprint.h"
+#include "mods/gbref.h"
 #include "mods/modvars.h"
 #include "mods/pak.h"
+#include "mods/rletail.h"
+#include "mods/hidefiles.h"
 
 #include "mods/mods_internal.h"
 
@@ -47,6 +52,24 @@ std::string LocalizedText(const Json &j, const char *key, const std::string &def
 
 namespace mods_impl {
 namespace {
+const uint64_t kPatchScanLimit = 8u << 20;
+
+std::string PatchText(const std::string &base, const ScanFile &f)
+{
+	std::string out;
+	if (f.size == 0 || f.size > kPatchScanLimit) return out;
+	std::string path = base + "\\" + f.rel;
+	std::replace(path.begin(), path.end(), '/', '\\');
+	HANDLE h = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+	if (h == INVALID_HANDLE_VALUE) return out;
+	out.resize(static_cast<size_t>(f.size));
+	DWORD got = 0;
+	if (!ReadFile(h, &out[0], static_cast<DWORD>(f.size), &got, nullptr)) got = 0;
+	CloseHandle(h);
+	out.resize(got);
+	return out;
+}
+
 void ReadManifest(ModInfo &m)
 {
 	const std::string path = ModsDir() + "\\" + m.folder + "\\mod.json";
@@ -147,7 +170,7 @@ void ReadManifest(ModInfo &m)
 	}
 	if (const Json *s = j.Get("sources")) {
 		m.sourceUrl = s->GetString("url", s->GetString("page"));
-		m.gbId = static_cast<uint64_t>(s->GetNumber("gamebanana"));
+		m.gbId = GbKeyFromJson(*s);
 		if (const Json *t = s->Get("tags")) {
 			for (const Json &v : t->arr) {
 				if (v.type == Json::String && std::find(m.tags.begin(), m.tags.end(), v.str) == m.tags.end()) m.tags.push_back(v.str);
@@ -167,7 +190,7 @@ ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files)
 	const std::string base = ModsDir() + "\\" + folder;
 	Walk(base, "", files);
 	const std::string lang = LanguageLower();
-	std::set<std::string> paths;
+	std::set<std::string> paths, loose;
 	auto addLanguage = [&](const std::string &code) {
 		for (const ModLanguage &l : m.languages) {
 			if (l.code == code) return;
@@ -182,6 +205,43 @@ ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files)
 		}
 		m.fileCount++;
 		m.totalBytes += f.size;
+		if (f.rel == kHiddenFile) {
+			std::string text;
+			HANDLE h = CreateFileA((base + "\\" + kHiddenFile).c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+			if (h != INVALID_HANDLE_VALUE) {
+				text.resize(static_cast<size_t>(f.size));
+				DWORD got = 0;
+				if (!text.empty() && ReadFile(h, &text[0], static_cast<DWORD>(text.size()), &got, nullptr)) text.resize(got);
+				CloseHandle(h);
+			}
+			m.hidden = HiddenParse(text, lang);
+			for (const std::string &p : m.hidden) {
+				f.gameplay = f.gameplay || IsGameplayPath(p);
+				f.content = f.content || IsContentPath(p);
+			}
+			m.gameplay = m.gameplay || f.gameplay;
+			m.content = m.content || f.content;
+			continue;
+		}
+		if (f.rel == kRleTailFile) {
+			m.rleTail = true;
+			unsigned char head[kRleTailHeaderSize] = {};
+			DWORD got = 0;
+			HANDLE h = CreateFileA((base + "\\" + kRleTailFile).c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+			if (h != INVALID_HANDLE_VALUE) {
+				ReadFile(h, head, sizeof(head), &got, nullptr);
+				CloseHandle(h);
+			}
+			RleTailHeader th;
+			if (RleTailParse(head, got, th)) {
+				m.rleBaseSize = th.baseSize;
+				m.rleBaseSha256 = th.baseSha256;
+			}
+			else {
+				m.rleTailError = "rle.mmp.tail is damaged: it was not made by the SDK tool";
+			}
+			continue;
+		}
 		if (!AllowedExtension(f.rel)) {
 			m.forbidden.push_back(f.rel);
 			continue;
@@ -197,17 +257,26 @@ ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files)
 			continue;
 		}
 		if (StartsWith(f.rel, "patches/")) {
-			f.gameplay = IsGameplayPath(f.rel.substr(8));
-			f.content = IsContentPath(f.rel.substr(8));
+			const std::string target = f.rel.substr(8);
+			f.gameplay = IsGameplayPath(target);
+			f.content = IsContentPath(target);
 			m.content = m.content || f.content;
 			m.gameplay = m.gameplay || f.gameplay;
+			if (EndsWith(target, ".xml") || EndsWith(target, ".ini")) {
+				const std::string text = PatchText(base, f);
+				for (PatchedValue &v : PatchValues(target, text)) m.patchValues.push_back(std::move(v));
+				if (EndsWith(target, ".xml")) f.text = text;
+			}
 			continue;
 		}
 		if (StartsWith(f.rel, "local/") && !inLocal) {
 			const size_t slash = f.rel.find('/', 6);
 			const std::string code = f.rel.substr(6, slash - 6);
 			addLanguage(code);
-			if (code == lang) paths.insert("currentlang/" + f.rel.substr(slash + 1));
+			if (code == lang) {
+				paths.insert("currentlang/" + f.rel.substr(slash + 1));
+				loose.insert("currentlang/" + f.rel.substr(slash + 1));
+			}
 			continue;
 		}
 		if ((inPacks || inLocal) && EndsWith(f.rel, ".pak")) {
@@ -229,12 +298,14 @@ ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files)
 		}
 		m.hasLoose = true;
 		paths.insert(f.rel);
+		loose.insert(f.rel);
 		f.gameplay = IsGameplayPath(f.rel);
 		f.content = IsContentPath(f.rel);
 		m.content = m.content || f.content;
 		m.gameplay = m.gameplay || f.gameplay;
 	}
 	m.paths.assign(paths.begin(), paths.end());
+	m.loosePaths.assign(loose.begin(), loose.end());
 	m.kind = m.gameplay ? kModRules : m.content ? kModContent : kModCosmetic;
 	if (m.declaredKind > m.kind) {
 		m.kind = m.declaredKind;
@@ -253,64 +324,122 @@ ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files)
 	m.content = m.content || m.kind == kModContent;
 	return m;
 }
+
+bool PatchTextOf(const std::string &folder, const std::string &target, std::string &out)
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	const auto it = g_scanFiles.find(folder);
+	if (it == g_scanFiles.end()) return false;
+	const std::string rel = "patches/" + target;
+	for (const ScanFile &f : it->second) {
+		if (f.rel != rel) continue;
+		out = f.text;
+		return true;
+	}
+	return false;
+}
 }
 
 namespace mods_impl {
 namespace {
+std::atomic<bool> g_hashAgain{false};
+std::atomic<uint64_t> g_hashDone{0}, g_hashTotal{0};
+
+struct ModHashWork {
+	std::string folder;
+	std::vector<ScanFile> files;
+	std::vector<std::string> shas;
+};
+
+struct PendingHash {
+	size_t mod = 0;
+	size_t file = 0;
+	std::string path;
+	uint64_t size = 0;
+};
+
+std::string FileKey(const ScanFile &f)
+{
+	char key[48];
+	sprintf_s(key, "%llu:%llu", f.size, f.mtime);
+	return key;
+}
+
+void HashPending(std::vector<ModHashWork> &mods, const std::vector<PendingHash> &pending)
+{
+	std::atomic<size_t> next{0};
+	auto work = [&mods, &pending, &next] {
+		for (size_t i = next++; i < pending.size(); i = next++) {
+			const PendingHash &p = pending[i];
+			mods[p.mod].shas[p.file] = HashFile(p.path);
+			g_hashDone += p.size;
+		}
+	};
+	const unsigned cores = std::thread::hardware_concurrency();
+	const size_t count = (std::min)(pending.size(), static_cast<size_t>((std::max)(2u, (std::min)(8u, cores))));
+	std::vector<std::thread> workers;
+	for (size_t i = 1; i < count; i++) workers.push_back(SafeThread(work));
+	work();
+	for (std::thread &t : workers) t.join();
+}
+
 void HashMods()
 {
-	std::map<std::string, std::vector<ScanFile>> work;
+	std::vector<ModHashWork> mods;
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
-		work = g_scanFiles;
+		for (const auto &entry : g_scanFiles) mods.push_back({entry.first, entry.second, {}});
 	}
-	for (auto &entry : work) {
-		const std::string &folder = entry.first;
-		const std::string cachePath = ModsDir() + "\\" + folder + "\\.fingerprint";
+	std::vector<PendingHash> pending;
+	uint64_t total = 0;
+	for (size_t m = 0; m < mods.size(); m++) {
+		ModHashWork &w = mods[m];
 		Json cache;
-		ReadJsonFile(cachePath, cache);
+		ReadJsonFile(ModsDir() + "\\" + w.folder + "\\.fingerprint", cache);
+		const Json *oldFiles = cache.Get("files");
+		std::sort(w.files.begin(), w.files.end(), [](const ScanFile &x, const ScanFile &y) { return x.rel < y.rel; });
+		w.files.erase(std::remove_if(w.files.begin(), w.files.end(), [](const ScanFile &f) { return FingerprintIgnores(f.rel); }), w.files.end());
+		w.shas.resize(w.files.size());
+		for (size_t i = 0; i < w.files.size(); i++) {
+			const ScanFile &f = w.files[i];
+			const Json *c = oldFiles ? oldFiles->Get(f.rel) : nullptr;
+			if (c && c->GetString("t") == FileKey(f)) w.shas[i] = c->GetString("sha256");
+			if (!w.shas[i].empty()) continue;
+			pending.push_back({m, i, ModsDir() + "\\" + w.folder + "\\" + f.rel, f.size});
+			total += f.size;
+		}
+	}
+	g_hashDone = 0;
+	g_hashTotal = total;
+	const DWORD started = GetTickCount();
+	if (!pending.empty()) HashPending(mods, pending);
+	for (const ModHashWork &w : mods) {
 		Json newCache = Json::MakeObject();
 		Json &cacheFiles = newCache.Set("files", Json::MakeObject());
-		const Json *oldFiles = cache.Get("files");
-		std::vector<ScanFile> files = entry.second;
-		std::sort(files.begin(), files.end(), [](const ScanFile &a, const ScanFile &b) { return a.rel < b.rel; });
 		std::vector<FingerprintFile> prints;
-		for (const ScanFile &f : files) {
-			if (FingerprintIgnores(f.rel)) {
-				continue;
-			}
-			char key[48];
-			sprintf_s(key, "%llu:%llu", f.size, f.mtime);
-			std::string sha;
-			if (oldFiles) {
-				const Json *c = oldFiles->Get(f.rel);
-				if (c && c->GetString("t") == key) {
-					sha = c->GetString("sha256");
-				}
-			}
-			if (sha.empty()) {
-				sha = HashFile(ModsDir() + "\\" + folder + "\\" + f.rel);
-			}
+		for (size_t i = 0; i < w.files.size(); i++) {
+			const ScanFile &f = w.files[i];
 			Json c = Json::MakeObject();
-			c.Set("t", Json::MakeString(key));
-			c.Set("sha256", Json::MakeString(sha));
+			c.Set("t", Json::MakeString(FileKey(f)));
+			c.Set("sha256", Json::MakeString(w.shas[i]));
 			cacheFiles.Set(f.rel, c);
-			prints.push_back({f.rel, sha, f.gameplay});
+			prints.push_back({f.rel, w.shas[i], f.gameplay});
 		}
 		const Fingerprint print = ComputeFingerprint(prints);
-		const std::string &h = print.all, &gh = print.gameplay;
-		newCache.Set("fingerprint", Json::MakeString(h));
-		newCache.Set("gameplayFingerprint", Json::MakeString(gh));
-		WriteJsonFile(cachePath, newCache);
+		newCache.Set("fingerprint", Json::MakeString(print.all));
+		newCache.Set("gameplayFingerprint", Json::MakeString(print.gameplay));
+		WriteJsonFile(ModsDir() + "\\" + w.folder + "\\.fingerprint", newCache);
 		std::lock_guard<std::mutex> lock(g_lock);
 		for (ModInfo &m : g_mods) {
-			if (m.folder == folder) {
-				m.hash = h;
-				m.gameplayHash = gh;
+			if (m.folder == w.folder) {
+				m.hash = print.all;
+				m.gameplayHash = print.gameplay;
 			}
 		}
 	}
-	LogD("content", "fingerprints computed (%u mods)", static_cast<unsigned>(work.size()));
+	g_hashTotal = 0;
+	LogD("content", "fingerprints computed (%u mods; %u files read, %.0f MB in %.1f s)", static_cast<unsigned>(mods.size()),
+		static_cast<unsigned>(pending.size()), total / 1048576.0, (GetTickCount() - started) / 1000.0);
 }
 }
 }
@@ -318,12 +447,14 @@ void HashMods()
 namespace mods_impl {
 void StartHashing()
 {
+	g_hashAgain = true;
 	if (g_hashing.exchange(true)) {
 		return;
 	}
 	SafeThread([] {
-		HashMods();
+		while (g_hashAgain.exchange(false)) HashMods();
 		g_hashing = false;
+		if (g_hashAgain) StartHashing();
 	}).detach();
 }
 
@@ -339,7 +470,23 @@ ModProfile ReadProfileFile(const std::string &path)
 				else if (v.type == Json::Object && !v.GetString("folder").empty()) p.mods.push_back(v.GetString("folder"));
 			}
 		}
+		if (const Json *c = j.Get("choices")) {
+			for (const Json &v : c->arr) {
+				if (v.type != Json::Object) continue;
+				ModChoice choice;
+				choice.use = v.GetString("use");
+				choice.over = v.GetString("over");
+				if (!choice.use.empty() && !choice.over.empty()) p.choices.push_back(choice);
+			}
+		}
 	}
 	return p;
 }
+}
+
+bool ModsHashProgress(uint64_t &done, uint64_t &total)
+{
+	total = g_hashTotal;
+	done = (std::min)(static_cast<uint64_t>(g_hashDone), total);
+	return total > 0;
 }

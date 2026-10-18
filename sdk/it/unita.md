@@ -76,6 +76,9 @@ file del gioco, estrai `data.pak` con [`estrai-dati.js`](strumenti/estrai-dati.j
 - `unit_specials` sono le [specialità](specialita.md), quelle del gioco e le tue.
 - Non copiare l'`altid` dell'originale. È un alias che gli script usano per trovare «il soldato» di una civiltà; due classi con lo
   stesso alias si confondono.
+- `edittree_pos` (per esempio `Units/Roman/Veteran`) è dove compare nell'editor di mappe e nel menu dei trucchi: una classe con `entity`
+  il cui `edittree_pos` inizia con `Units/` compare lì, nel gruppo della sua civiltà. Lo strumento lo copia dalla base e ne cambia
+  l'ultimo nome.
 - Un file nuovo in `data\classes\` si carica da solo. Non va registrato.
 
 ## 2. Il comando di reclutamento

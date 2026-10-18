@@ -21,8 +21,9 @@ Un error es algo que el juego rechazaría o que va a fallar. Un aviso es una sos
 
 ## Qué revisa
 
-- **`mod.json`**: JSON roto, categoría que no es de GameBanana, textos mal tipados (errores). Falta de `id`, `name`, `version` o `category`, nombre de categoría antiguo, etiquetas que el juego no usa, mapa sin etiqueta de jugadores y campaña, traducción o audio sin etiqueta de idioma (avisos).
+- **`mod.json`**: JSON roto, categoría que no es de GameBanana, textos mal tipados (errores). Falta de `id`, `name`, `version` o `category`, nombre de categoría antiguo, etiquetas mal escritas, con la forma antigua o que el juego no usa, mapa sin etiqueta de jugadores y campaña, traducción o audio sin etiqueta de idioma (avisos).
 - **Archivos**: extensiones de ejecutables y scripts del sistema (error: el mod no se cargaría) y rutas con `..`. Una extensión rara pero inofensiva (`.psd`, `.gif`, `.zip`…) solo da un aviso: el mod se carga, el archivo solo ocupa sitio.
+- **Mapas (`.bfhp`)**: el tipo que dice el propio mapa (escenario, aventura o conquista) frente a la carpeta donde está. Una aventura o una conquista en `scenarios\` no sale en la lista de Escenarios; un mapa suelto en la raíz se coloca al instalarlo (avisos).
 - **`civs\*.json`**: `id` que no vale, `index` fuera de 10–99 o repetido, `base` que no existe, `letter` de más de una letra, `biome` desconocido, `template` mal escrita o sin su archivo. Con `"ai": true` sin tabla `alias` avisa, y mira que el `alias` apunte a clases y órdenes que el mod tenga.
 - **`specials\*.json`**: `id` que no vale o que es una especialidad del juego, `bit` fuera de 36–63 o repetido.
 - **`options\*.json`**: el reparto de bits (entre todos los mods caben 8).
@@ -31,12 +32,12 @@ Un error es algo que el juego rechazaría o que va a fallar. Un aviso es una sos
 - **Parches INI**: líneas que no se entienden, y una sección nueva en `UNIT_SPECIALS.INI` (el juego puede cerrarse). No avisa de comentarios al final de una línea de parche, que el motor no soporta (ver [Parches](parches.md)).
 - **Clases (`data\classes`)**: XML mal formado, `race` desconocida, `unit_specials` mal escritas o desconocidas (el juego distingue mayúsculas: `Parry`, no `parry`), y una clase sin `entity` (aviso: el juego no la hereda del padre y la unidad desaparece).
 - **Codificación**: un XML de clase en Latin-1 con tildes. El juego no carga la clase y no avisa; guárdalo como UTF-8.
-- **Órdenes (`data\commands`)**: XML mal formado y órdenes repetidas en un archivo.
+- **Órdenes (`data\commands`)**: XML mal formado, y aviso si dos órdenes con el mismo nombre son para el mismo edificio (tendría dos botones con ese nombre). Con el mismo nombre para edificios distintos valen: el juego une cada una a los edificios de su `<src>`.
 - **Entidades (`.ent.xml`)**: error si la imagen no existe (el juego se cuelga al cargar la clase; con la carpeta del mod si trae sus `.rle`, y siempre con `--juego`), `idx` repetido o fuera de 1–32, capas y animaciones que apuntan a algo que no hay, límites del motor (32 imágenes, 32 capas, 8 estados, animaciones 1–28, 64 fotogramas), y `columns`, `rows` o número de `<frame>` que no cuadran. Una animación que lee más filas de las que tiene su imagen es solo un aviso.
 - **Gráficos (`.rle`, `.pass`)**: `.rle` cortado o corrupto, `.rle.mmp` renombrado (sin píxeles, no carga desde un mod), paleta vacía, `.pass` mal formado o vacío, `pass_file` que no existe, y un `.rle` con el mismo nombre que uno del juego (gana el del juego; con `--juego`).
 - **`placeobjects.xml`** (mapas aleatorios): una clase nombrada que no existe (con `--datos`). La generación del mapa se queda colgada sin mensaje.
 - **Textos (`loc`)**: XML mal formado, entradas sin `text` o sin `result`.
-- **Scripts (`.vs`)**: falta la firma en la primera línea, evento desconocido o con la firma equivocada, `Sleep` en un evento que no puede esperar, funciones `Mod_*` que no existen, `Mod_HasSpecial` con un `Obj` en vez de una `Unit`.
+- **Scripts (`.vs`)**: falta la firma en la primera línea (salvo en los comportamientos de una clase, los modos de victoria y los scripts de objetos, que el juego carga siempre con la suya), evento desconocido o con la firma equivocada, `Sleep` en un evento que no puede esperar, funciones `Mod_*` que no existen, `Mod_HasSpecial` con un `Obj` en vez de una `Unit`.
 
 ## Ejemplo de salida
 

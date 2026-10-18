@@ -3,7 +3,7 @@ project(imperivm_resurrected LANGUAGES C CXX)
 
 # Two things can be built, each with its own option:
 #   IMPERIVM_BUILD_DLL    build\winmm.dll (x86), the same output as build.bat. Needs MinHook, miniaudio and the Steamworks SDK.
-#   IMPERIVM_BUILD_TESTS  the unit tests (tests\*.cpp), run with ctest. They need none of those libraries.
+#   IMPERIVM_BUILD_TESTS  the unit tests (tests\*.cpp), run with ctest. Of those libraries they only need miniz.
 #
 #   cmake -S . -B build\cmake -G Ninja -DCMAKE_BUILD_TYPE=Release     (from an x86 Developer Command Prompt)
 #   cmake -S . -B build\cmake -A Win32                                (Visual Studio generators)
@@ -14,6 +14,7 @@ project(imperivm_resurrected LANGUAGES C CXX)
 #
 # Dependencies of the DLL, by default in the layout of the private workspace (..\tools) or in third_party\ (public repository):
 #   MINHOOK_DIR, MINIAUDIO_DIR, STEAMWORKS_SDK (folder that contains public\steam\steam_api.h)
+# miniz (MINIZ_DIR) is used by the DLL and by the tests of the zip code.
 
 option(IMPERIVM_BUILD_DLL "Build winmm.dll (needs the Steamworks SDK)" ON)
 option(IMPERIVM_BUILD_TESTS "Build the unit tests" ON)
@@ -33,12 +34,17 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	set(CMAKE_BUILD_TYPE Release)
 endif()
 
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/minhook")
+	set(_default_third_party "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
+else()
+	set(_default_third_party "${CMAKE_CURRENT_SOURCE_DIR}/../tools")
+endif()
+set(MINIZ_DIR "${_default_third_party}/miniz" CACHE PATH "miniz source folder (miniz.c and miniz.h)")
+if(NOT EXISTS "${MINIZ_DIR}/miniz.h")
+	message(FATAL_ERROR "Missing dependency: ${MINIZ_DIR}/miniz.h")
+endif()
+
 if(IMPERIVM_BUILD_DLL)
-	if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/minhook")
-		set(_default_third_party "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
-	else()
-		set(_default_third_party "${CMAKE_CURRENT_SOURCE_DIR}/../tools")
-	endif()
 	set(MINHOOK_DIR "${_default_third_party}/minhook" CACHE PATH "MinHook source tree")
 	set(MINIAUDIO_DIR "${_default_third_party}/miniaudio" CACHE PATH "miniaudio source tree")
 	set(STEAMWORKS_SDK "${_default_third_party}/steamworks_sdk" CACHE PATH "Steamworks SDK folder (provided by Valve)")
@@ -57,17 +63,19 @@ if(IMPERIVM_BUILD_DLL)
 		"${MINHOOK_DIR}/src/trampoline.c"
 		"${MINHOOK_DIR}/src/hde/hde32.c")
 	set(MINIAUDIO_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/hooks/miniaudio_impl.c")
+	set(MINIZ_SOURCE "${MINIZ_DIR}/miniz.c")
 
-	add_library(winmm SHARED ${MOD_SOURCES} ${MINHOOK_SOURCES} ${MINIAUDIO_IMPL} "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.def")
+	add_library(winmm SHARED ${MOD_SOURCES} ${MINHOOK_SOURCES} ${MINIAUDIO_IMPL} ${MINIZ_SOURCE} "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.def")
 	set_target_properties(winmm PROPERTIES PREFIX "" OUTPUT_NAME "winmm")
 
-	set_source_files_properties(${MINIAUDIO_IMPL} PROPERTIES COMPILE_OPTIONS "/W0")
+	set_source_files_properties(${MINIAUDIO_IMPL} ${MINIZ_SOURCE} PROPERTIES COMPILE_OPTIONS "/W0")
 	set_source_files_properties(${MOD_SOURCES} PROPERTIES COMPILE_OPTIONS "/W3;/EHsc;/utf-8")
 
 	target_include_directories(winmm PRIVATE
 		"${CMAKE_CURRENT_SOURCE_DIR}/src"
 		"${MINHOOK_DIR}/include"
 		"${MINIAUDIO_DIR}"
+		"${MINIZ_DIR}"
 		"${STEAMWORKS_SDK}/public")
 	target_compile_definitions(winmm PRIVATE $<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
 	target_compile_options(winmm PRIVATE $<$<NOT:$<CONFIG:Debug>>:/O2>)
@@ -80,7 +88,7 @@ if(IMPERIVM_BUILD_TESTS)
 
 	function(imperivm_test name)
 		add_executable(${name} tests/${name}.cpp ${ARGN})
-		target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+		target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}/tests" "${MINIZ_DIR}")
 		target_compile_options(${name} PRIVATE /W3 /EHsc /utf-8)
 		target_link_libraries(${name} PRIVATE user32 advapi32 bcrypt)
 		string(REGEX REPLACE "^test_" "" short_name ${name})
@@ -89,6 +97,8 @@ if(IMPERIVM_BUILD_TESTS)
 
 	set(TR_SOURCES src/i18n/tr.cpp src/i18n/tr_data.cpp src/core/legacy.cpp tests/log_stub.cpp)
 	set(HASH_SOURCES src/core/sha256.cpp)
+	set(ZIP_SOURCES src/core/zipfile.cpp "${MINIZ_DIR}/miniz.c")
+	set_source_files_properties("${MINIZ_DIR}/miniz.c" PROPERTIES COMPILE_OPTIONS "/W0")
 
 	imperivm_test(test_legacy src/core/legacy.cpp)
 	imperivm_test(test_json src/core/json.cpp ${TR_SOURCES})
@@ -104,8 +114,22 @@ if(IMPERIVM_BUILD_TESTS)
 	imperivm_test(test_logfiles src/core/logfiles.cpp)
 	imperivm_test(test_logredact src/core/logredact.cpp)
 	imperivm_test(test_modorder src/mods/modorder.cpp)
+	imperivm_test(test_modclash src/mods/modclash.cpp src/mods/modrules.cpp src/mods/patchxml.cpp ${HASH_SOURCES} ${TR_SOURCES})
 	imperivm_test(test_catalogfilter src/mods/catalogfilter.cpp)
-	imperivm_test(test_logreport src/core/logreport.cpp src/core/logfiles.cpp src/core/logredact.cpp tests/log_stub.cpp)
+	imperivm_test(test_looselayout src/mods/looselayout.cpp)
+	imperivm_test(test_leftovers src/mods/leftovers.cpp)
+	imperivm_test(test_gbref src/mods/gbref.cpp src/core/json.cpp ${TR_SOURCES})
+	imperivm_test(test_transferrate)
+	imperivm_test(test_serverpick src/mods/serverpick.cpp src/core/json.cpp ${TR_SOURCES})
+	imperivm_test(test_roomcontent src/net/roomcontent.cpp)
+	imperivm_test(test_rletail src/mods/rletail.cpp)
+	imperivm_test(test_hidefiles src/mods/hidefiles.cpp)
+	imperivm_test(test_civroom src/game/civroom.cpp)
+	imperivm_test(test_techplan src/game/techplan.cpp)
+	imperivm_test(test_unitcatalog src/game/unitcatalog.cpp)
+	imperivm_test(test_builtin src/hooks/builtin_data.cpp src/mods/patchxml.cpp ${TR_SOURCES})
+	imperivm_test(test_logreport src/core/logreport.cpp src/core/logfiles.cpp src/core/logredact.cpp ${ZIP_SOURCES} tests/log_stub.cpp)
+	imperivm_test(test_zip ${ZIP_SOURCES})
 
 	find_program(NODE_EXE node)
 	if(NODE_EXE)

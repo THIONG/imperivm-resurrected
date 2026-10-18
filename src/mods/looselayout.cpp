@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 THIONG
+// Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
+#include "mods/looselayout.h"
+
+#include <cctype>
+#include <cstdlib>
+
+#include "mods/catalogfilter.h"
+
+namespace {
+std::string Lower(std::string s)
+{
+	for (char &c : s) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+	return s;
+}
+
+std::string Extension(const std::string &file)
+{
+	const size_t dot = file.find_last_of('.');
+	return dot == std::string::npos ? "" : Lower(file.substr(dot));
+}
+
+std::string Stem(const std::string &file)
+{
+	const size_t dot = file.find_last_of('.');
+	return Lower(dot == std::string::npos ? file : file.substr(0, dot));
+}
+
+bool Attribute(const std::string &element, const std::string &name, std::string &value)
+{
+	for (size_t at = element.find(name); at != std::string::npos; at = element.find(name, at + 1)) {
+		const size_t open = at + name.size();
+		if (at == 0 || !isspace(static_cast<unsigned char>(element[at - 1]))) continue;
+		if (element.compare(open, 2, "=\"") != 0) continue;
+		const size_t close = element.find('"', open + 2);
+		if (close == std::string::npos) return false;
+		value = element.substr(open + 2, close - open - 2);
+		return true;
+	}
+	return false;
+}
+
+int FolderKind(int mapKind, int category)
+{
+	if (mapKind == kMapUnknown) {
+		if (category == kCatAdventures) return kMapAdventure;
+		if (category == kCatConquests) return kMapConquest;
+		return kMapScenario;
+	}
+	if (mapKind == kMapScenario && category == kCatAdventures) return kMapAdventure;
+	return mapKind;
+}
+}
+
+int BfhpMapKind(const std::string &head)
+{
+	const size_t start = head.find("<properties");
+	if (start == std::string::npos) return kMapUnknown;
+	const size_t end = head.find('>', start);
+	if (end == std::string::npos) return kMapUnknown;
+	const std::string element = head.substr(start, end - start);
+	std::string type, adventure;
+	int kind = kMapScenario;
+	if (Attribute(element, "game_type", type)) {
+		if (type == "0") kind = kMapScenario;
+		else if (type == "1") kind = kMapAdventure;
+		else if (type == "2") kind = kMapConquest;
+		else return kMapUnknown;
+	}
+	if (kind == kMapScenario && Attribute(element, "adventure", adventure) && atol(adventure.c_str()) != 0) kind = kMapAdventure;
+	return kind;
+}
+
+const char *MapKindFolder(int mapKind)
+{
+	if (mapKind == kMapAdventure) return "adventures";
+	if (mapKind == kMapConquest) return "conquests";
+	return "scenarios";
+}
+
+std::vector<LooseMove> PlanLooseFiles(const std::vector<LooseFile> &rootFiles, bool hasGameFolders, int category)
+{
+	std::vector<LooseMove> out;
+	if (hasGameFolders) return out;
+	std::vector<std::string> adventures;
+	for (const LooseFile &f : rootFiles) {
+		if (Extension(f.name) != ".bfhp") continue;
+		const int kind = FolderKind(f.mapKind, category);
+		out.push_back({f.name, MapKindFolder(kind)});
+		if (kind == kMapAdventure) adventures.push_back(Stem(f.name));
+	}
+	for (const LooseFile &f : rootFiles) {
+		if (Extension(f.name) != ".bmp") continue;
+		for (const std::string &a : adventures) {
+			if (Stem(f.name) == a) out.push_back({f.name, MapKindFolder(kMapAdventure)});
+		}
+	}
+	return out;
+}

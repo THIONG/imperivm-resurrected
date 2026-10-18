@@ -32,7 +32,7 @@ std::string ModsColumn(const State &st, const OnlineLobby &g, COLORREF &color)
 		color = kGold;
 		return Tr("Missing ") + std::to_string(missing.size()) + " (" + HumanBytes(bytes) + ")";
 	}
-	if (!SameGameplay(st, g)) {
+	if (SteamRoomContent(g, st.ownKey) == RoomContent::kOtherGameplay) {
 		color = kGold;
 		return "Restart";
 	}
@@ -168,7 +168,7 @@ void PaintLobbyDetail(Painter &p, const State &st, const std::vector<int> &vis)
 	}
 	const OnlineLobby &g = st.lobbies[vis[st.selected]];
 	const bool full = g.players >= g.maxPlayers;
-	const bool same = SameGameplay(st, g);
+	const bool same = SteamRoomContent(g, st.ownKey) != RoomContent::kOtherGameplay;
 	const std::vector<OnlineMod> missing = MissingMods(st, g);
 	uint64_t bytes = 0;
 	for (const OnlineMod &m : missing) bytes += m.bytes;
@@ -328,7 +328,7 @@ void PaintPassPrompt(Painter &p, const State &st)
 	const int mx = st.mouseX, my = st.mouseY;
 	const Dialog d = DialogBegin(p, kW, kH, 480, 214, "Password-protected room", kGold, 26);
 	DrawLock(p, d.x + 24, d.y + 22, kGold);
-	DialogText(p, d, 58, "\"" + st.passLobby.name + Tr("\", hosted by ") + st.passLobby.host + ". Enter the password to join.", kDim, 3);
+	DialogText(p, d, 58, "\"" + st.passLobby.name + Tr("\", hosted by ") + st.passLobby.host + Tr(". Enter the password to join."), kDim, 3);
 	PaintField(p, st, d.x + 24, d.y + 104, d.w - 48, 34, st.joinPassInput, "Password", st.focus == kJoinPassField, kFieldJoinPass, true);
 	DialogButtons(p, d, {{"OK", kPassOk, 0, true}, {"Cancel", kPassCancel}}, mx, my);
 }
@@ -406,43 +406,48 @@ void PaintRanked(Painter &p, const State &st)
 	const int mx = st.mouseX, my = st.mouseY;
 	p.Fill(16, 132, 380, 430, pal::wellRaised);
 	p.Frame(16, 132, 380, 430, pal::line);
-	p.Fill(146, 152, 120, 120, RGB(90, 70, 30));
-	p.Frame(146, 152, 120, 120, kGold);
-	p.Frame(152, 158, 108, 108, kGold);
+	p.Fill(150, 184, 112, 112, RGB(70, 54, 24));
+	p.Frame(150, 184, 112, 112, kGold);
+	p.Frame(156, 190, 100, 100, pal::line);
 	p.Font(2);
-	p.Text(146, 152, 120, 120, "LEAGUE", kGold, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-	p.Text(16, 284, 380, 30, "Coming soon", kText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	p.Text(150, 184, 112, 112, "LEAGUES", kGold, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	p.Font(2);
+	p.Text(16, 322, 380, 40, "Coming soon", kGold, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	p.Font(1);
+	p.Text(16, 364, 380, 30, "Ranked play", kText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	p.Fill(176, 404, 60, 1, kGold);
 	p.Font(3);
-	p.TextWrapped(36, 320, 340, 60,
-		"Ranked matches (Elo, leagues and seasons) need the league server. This is a preview of how they "
-		"will look.",
-		kDim);
-	p.Button(40, 380, 160, 44, "Find 1v1", kQueue1v1, 0, mx, my, !st.searching, true);
-	p.Button(212, 380, 160, 44, "Find 2v2", kQueue2v2, 0, mx, my, !st.searching, true);
+	p.Text(40, 420, 332, 96, "Elo rating, leagues and seasons will arrive in a future update.", kDim, DT_CENTER | DT_WORDBREAK);
 	const int lx = 412, lw = kW - lx - 16;
 	p.Fill(lx, 132, lw, 430, pal::well);
 	p.Frame(lx, 132, lw, 430, pal::line);
 	p.Font(1);
-	p.Text(lx + 12, 138, lw - 24, 26, "Season ranking (example)", kGold);
+	p.Text(lx + 12, 138, lw - 160, 26, "Season ranking", kGold);
+	p.Font(3);
+	p.Fill(lx + lw - 136, 142, 124, 22, RGB(70, 54, 24));
+	p.Frame(lx + lw - 136, 142, 124, 22, kGold);
+	p.Text(lx + lw - 136, 142, 124, 22, "PREVIEW", kGold, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	struct Row {
 		const char *name, *league;
 		int elo, wins, losses;
 	} rows[] = {{"Scipio", "Caesar", 2210, 88, 21}, {"Vercingetorix", "Caesar", 2154, 75, 30}, {"Hannibal", "Praetorian", 1987, 64, 33},
 		{"Boudica", "Praetorian", 1902, 51, 29}, {"Spartacus", "Praetorian", 1866, 70, 52}, {"Cleopatra", "Gold I", 1790, 40, 25},
 		{"Marco", "Gold I", 1754, 38, 30}, {"Livia", "Gold II", 1702, 33, 28}};
-	p.Font(3);
-	p.Text(lx + 12, 168, 40, 20, "#", kDim);
-	p.Text(lx + 52, 168, 200, 20, "Player", kDim);
-	p.Text(lx + 260, 168, 110, 20, "League", kDim);
-	p.Text(lx + 380, 168, 80, 20, "Elo", kDim);
-	p.Text(lx + 460, 168, 100, 20, "V-D", kDim);
-	int y = 192;
-	for (int i = 0; i < 8; i++, y += 28) {
-		p.Text(lx + 12, y, 40, 26, std::to_string(i + 1), kGold);
-		p.Text(lx + 52, y, 200, 26, rows[i].name, kText);
-		p.Text(lx + 260, y, 110, 26, rows[i].league, kDim);
-		p.Text(lx + 380, y, 80, 26, std::to_string(rows[i].elo), kText);
-		p.Text(lx + 460, y, 100, 26, std::to_string(rows[i].wins) + "-" + std::to_string(rows[i].losses), kDim);
+	const COLORREF dimText = RGB(150, 138, 118);
+	p.Text(lx + 14, 176, 40, 20, "#", kDim);
+	p.Text(lx + 54, 176, 200, 20, "Player", kDim);
+	p.Text(lx + 262, 176, 110, 20, "League", kDim);
+	p.Text(lx + 382, 176, 80, 20, "Elo", kDim);
+	p.Text(lx + 462, 176, 100, 20, "W-L", kDim);
+	p.Fill(lx + 8, 198, lw - 16, 1, pal::line);
+	int y = 204;
+	for (int i = 0; i < 8; i++, y += 36) {
+		if (i % 2 == 0) p.Fill(lx + 8, y, lw - 16, 34, pal::wellRaised);
+		p.Text(lx + 14, y, 40, 34, std::to_string(i + 1), dimText);
+		p.Text(lx + 54, y, 200, 34, rows[i].name, dimText);
+		p.Text(lx + 262, y, 110, 34, rows[i].league, dimText);
+		p.Text(lx + 382, y, 80, 34, std::to_string(rows[i].elo), dimText);
+		p.Text(lx + 462, y, 100, 34, std::to_string(rows[i].wins) + "-" + std::to_string(rows[i].losses), dimText);
 	}
 	p.Button(lx + lw - 180, 132 + 430 - 42, 168, 32, "Back to list", kListView, 0, mx, my);
 }
@@ -526,7 +531,8 @@ void PaintSyncConfirm(Painter &p, const State &st)
 	for (const OnlineMod &m : missing) bytes += m.bytes;
 	bool updatable = false;
 	for (const OnlineMod &m : missing) updatable = updatable || OlderInstalled(st, m) != nullptr;
-	const Dialog d = DialogBegin(p, kW, kH, updatable ? 760 : 560, updatable ? 400 : 340, "This room uses other content");
+	const bool watch = st.syncWatch;
+	const Dialog d = DialogBegin(p, kW, kH, updatable ? 760 : 560, updatable ? 400 : 340, watch ? "This game uses other content" : "This room uses other content");
 	const std::vector<ListLine> lines = OnlineLobbyLines(st, g, true);
 	g_syncGeomOut = ListGeom();
 	{
@@ -534,28 +540,32 @@ void PaintSyncConfirm(Painter &p, const State &st)
 		ListPaint(p, d.x + 24, d.y + 56, d.w - 48, 6 * 24 + 8, lines, ls, g_syncGeomOut, 3, 24, mx, my);
 	}
 	p.Font(0);
-	const std::string where = "They will be downloaded from GameBanana; whatever isn't there, the host sends you through Steam";
-	p.TextWrapped(d.x + 24, d.y + d.h - 130, d.w - 48, 64,
-		missing.empty() ? "You already have all its content. The game will restart with it and you'll return to the room automatically."
-										: where + " (" + HumanBytes(bytes) + Tr("). Then the game will restart with that content and you'll return to the room automatically."),
-		kDim);
+	const std::string where = st.syncLive ? "They will be downloaded from GameBanana"
+										  : "They will be downloaded from GameBanana; whatever isn't there, the host sends you through Steam";
+	const char *ready = watch ? "You already have all its content. The game will restart with it and you'll go back to watching automatically."
+							  : "You already have all its content. The game will restart with it and you'll return to the room automatically.";
+	const char *then = watch ? "). Then the game will restart with that content and you'll go back to watching automatically."
+							 : "). Then the game will restart with that content and you'll return to the room automatically.";
+	p.TextWrapped(d.x + 24, d.y + d.h - 130, d.w - 48, 64, missing.empty() ? std::string(ready) : Tr(where) + " (" + HumanBytes(bytes) + Tr(then), kDim);
 	if (updatable) {
 		p.TextWrapped(d.x + 24, d.y + d.h - 190, d.w - 48, 56,
 			Tr("Download separately leaves your version as it is and uses the room's only for this game. Update my "
 			"version replaces it on restart (the old one is kept as a backup in mods\\_downloads\\backup).") +
 				(st.syncUsing.empty() ? std::string() : Tr(" Used by your profiles: ") + st.syncUsing + "."),
 			kDim);
-		DialogButtons(p, d, {{"Download separately and join", kSyncAccept, 0, true}, {"Update my version and join", kSyncUpdate}, {"Cancel", kSyncCancel}}, mx, my);
+		DialogButtons(p, d, {{watch ? "Download separately and watch" : "Download separately and join", kSyncAccept, 0, true},
+			{watch ? "Update my version and watch" : "Update my version and join", kSyncUpdate}, {"Cancel", kSyncCancel}}, mx, my);
 	}
 	else {
-		DialogButtons(p, d, {{missing.empty() ? "Restart and enter" : "Download and enter", kSyncAccept, 0, true}, {"Cancel", kSyncCancel}}, mx, my);
+		const char *accept = missing.empty() ? (watch ? "Restart and watch" : "Restart and enter") : (watch ? "Download and watch" : "Download and enter");
+		DialogButtons(p, d, {{accept, kSyncAccept, 0, true}, {"Cancel", kSyncCancel}}, mx, my);
 	}
 }
 
 void PaintSyncProgress(Painter &p, const State &st)
 {
 	const int mx = st.mouseX, my = st.mouseY;
-	const char *title = st.syncPhase == 1 ? "Joining the room" : st.syncPhase == 2 ? "Receiving the room's content"
+	const char *title = st.syncPhase == 1 ? (st.syncWatch ? "Entering the spectator room" : "Joining the room") : st.syncPhase == 2 ? "Receiving the room's content"
 		: st.syncPhase == 3 ? "Checking the content" : "Failed";
 	const Dialog d = DialogBegin(p, kW, kH, 520, 200, title, st.syncPhase == 4 ? kBad : kGold);
 	p.Font(0);
@@ -564,7 +574,15 @@ void PaintSyncProgress(Painter &p, const State &st)
 		DialogButtons(p, d, {{"Close", kSyncCancel}}, mx, my);
 		return;
 	}
-	if (st.syncPhase == 2) {
+	if (st.syncPhase == 2 && st.syncStage == 1 && st.io.unpacking && st.io.unpackTotal) {
+		p.Font(3);
+		std::string what = Tr("Installing ") + st.io.what;
+		if (st.io.count > 1) what += Tr("  ·  pack ") + std::to_string(std::max(1, st.io.index)) + Tr(" of ") + std::to_string(st.io.count);
+		p.Text(d.x + 24, d.y + 56, d.w - 48, 18, what, kOk);
+		PaintProgress(p, d.x + 24, d.y + 80, d.w - 48, 14, static_cast<float>(static_cast<double>(st.io.unpacked) / st.io.unpackTotal));
+		p.Text(d.x + 24, d.y + 100, d.w - 48, 22, TransferText(st.io.unpacked, st.io.unpackTotal, 0), kDim);
+	}
+	else if (st.syncPhase == 2) {
 		const bool fromIo = st.syncStage == 1;
 		const uint64_t got = fromIo ? st.io.got : st.dl.got, all = fromIo ? st.io.total : st.dl.total;
 		const uint64_t total = std::max<uint64_t>(1, all);
@@ -574,9 +592,13 @@ void PaintSyncProgress(Painter &p, const State &st)
 		if (fromIo && st.io.count > 0) source += Tr("  ·  pack ") + std::to_string(std::max(1, st.io.index)) + Tr(" of ") + std::to_string(st.io.count);
 		p.Text(d.x + 24, d.y + 56, d.w - 48, 18, source, fromIo ? kOk : kGold);
 		PaintProgress(p, d.x + 24, d.y + 80, d.w - 48, 14, pct / 100.0f);
-		std::string line = std::to_string(pct) + " %  ·  " + HumanBytes(got) + (all ? Tr(" of ") + HumanBytes(all) : "");
-		if (st.speed > 1024) line += "  ·  " + HumanBytes(static_cast<uint64_t>(st.speed)) + "/s";
-		p.Text(d.x + 24, d.y + 100, d.w - 48, 22, line, kDim);
+		p.Text(d.x + 24, d.y + 100, d.w - 48, 22, TransferText(got, all, st.rate.perSecond), kDim);
+	}
+	else if (st.syncPhase == 3 && st.hashTotal) {
+		p.Font(3);
+		p.Text(d.x + 24, d.y + 56, d.w - 48, 18, "Checking the content's files; then the game restarts.", kGold);
+		PaintProgress(p, d.x + 24, d.y + 80, d.w - 48, 14, static_cast<float>(static_cast<double>(st.hashDone) / st.hashTotal));
+		p.Text(d.x + 24, d.y + 100, d.w - 48, 22, TransferText(st.hashDone, st.hashTotal, st.rate.perSecond), kDim);
 	}
 	else {
 		p.Font(3);
@@ -653,9 +675,9 @@ void PaintRecover(Painter &p, const State &st)
 	}
 	else if (r.host) {
 		const uint64_t min = r.saveAge / 60;
-		text = Tr("With ") + (r.others.empty() ? std::string("other players") : r.others) + ". Last saved: " +
-			(min < 1 ? std::string("less than a minute ago") : std::to_string(min) + (min == 1 ? Tr(" minute ago") : Tr(" minutes ago"))) +
-			". Continue it? A room will be created that loads it and the others will be able to join.";
+		text = Tr("With ") + (r.others.empty() ? Tr("other players") : r.others) + Tr(". Last saved: ") +
+			(min < 1 ? Tr("less than a minute ago") : std::to_string(min) + (min == 1 ? Tr(" minute ago") : Tr(" minutes ago"))) +
+			Tr(". Continue it? A room will be created that loads it and the others will be able to join.");
 	}
 	else {
 		text = Tr("Your game with ") + r.hostName + Tr(" was cut off. If it's still going you can return to it: the game will pause for a few seconds while "
@@ -706,7 +728,9 @@ bool RaceSeparator(const std::vector<std::string> &names)
 
 int RaceRealIndex(const std::vector<std::string> &names, int shown)
 {
-	return RaceSeparator(names) && shown >= 9 ? shown + 1 : shown;
+	if (!RaceSeparator(names)) return shown;
+	const std::vector<int> order = CivsRoomOrder(static_cast<int>(names.size()));
+	return shown >= 0 && shown < static_cast<int>(order.size()) ? order[shown] : shown;
 }
 
 std::vector<std::string> DropItems(const State &st, int &sel)
@@ -774,9 +798,13 @@ std::vector<std::string> DropItems(const State &st, int &sel)
 		const GameRoomSlot &s = st.game.slots[idx & 7];
 		sel = st.dropKind == kDropRace ? s.race : s.nameSel;
 		if (st.dropKind == kDropRace && RaceSeparator(s.raceNames)) {
-			std::vector<std::string> shown = s.raceNames;
-			shown.erase(shown.begin() + 9);
-			sel = sel == 9 ? -1 : sel > 9 ? sel - 1 : sel;
+			const std::vector<int> order = CivsRoomOrder(static_cast<int>(s.raceNames.size()));
+			std::vector<std::string> shown;
+			sel = -1;
+			for (size_t k = 0; k < order.size(); k++) {
+				if (order[k] == s.race) sel = static_cast<int>(k);
+				shown.push_back(s.raceNames[order[k]]);
+			}
 			return shown;
 		}
 		return st.dropKind == kDropRace ? s.raceNames : s.nameItems;

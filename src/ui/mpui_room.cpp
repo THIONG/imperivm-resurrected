@@ -8,6 +8,8 @@
 #include "mods/savelib.h"
 
 #include "ui/mpui_internal.h"
+#include "game/civs.h"
+#include "core/log.h"
 
 using namespace mpui_impl;
 
@@ -91,7 +93,7 @@ StartBlock StartBlocker(const State &st, const GameRoomSnapshot &g)
 		if (!missing || m.me || inRoom(m.name)) continue;
 		if (m.receiving >= 0) {
 			return {Tr("Waiting for ") + m.name + Tr(" (content ") + std::to_string(m.receiving) + " %)...",
-				m.name + (m.receivingFromGb ? Tr(" is downloading the content from GameBanana (") : Tr(" is receiving the content (")) +
+				m.name + Tr(" is downloading the content (") +
 					std::to_string(m.receiving) + Tr(" %). Wait for them to join or kick them from the room.")};
 		}
 		return {Tr("Waiting for ") + m.name + "...", m.name + Tr(" is joining the game. Wait for them to join or kick them from the room.")};
@@ -282,6 +284,31 @@ int RaceIdToCombo(int id)
 {
 	static const int kCombo[9] = {2, 0, 4, 3, 1, 7, 6, 5, 8};
 	return id >= 0 && id < 9 ? kCombo[id] : -1;
+}
+
+bool RaceEditable(const GameRoomSnapshot &g, const GameRoomSlot &s, bool load)
+{
+	return !load && (s.local || (g.host && s.type == 1)) && !s.raceNames.empty() && s.fixedRace < 0;
+}
+
+void RedirectReplacedRaces(GameRoomSnapshot &g)
+{
+	if (!g.active) return;
+	const bool load = g.online && (g.host ? !g_s.hostSave.name.empty() : !g_s.room.info.saveName.empty());
+	for (int i = 0; i < 8; i++) {
+		GameRoomSlot &s = g.slots[i];
+		if (!s.used || !RaceEditable(g, s, load) || !RaceSeparator(s.raceNames)) continue;
+		const int real = CivsRoomReplacement(s.race, static_cast<int>(s.raceNames.size()));
+		if (real < 0) continue;
+		static int logged = 0;
+		if (logged++ < 8) {
+			LogI("room", "slot %d had \"%s\", which a content pack replaces in the room; it now plays \"%s\"", i + 1, s.raceNames[s.race].c_str(),
+				s.raceNames[real].c_str());
+		}
+		s.race = real;
+		Predict(kPredRace, i, real);
+		GameRoomSetRace(i, real);
+	}
 }
 
 void ApplySaveLook(GameRoomSnapshot &g)

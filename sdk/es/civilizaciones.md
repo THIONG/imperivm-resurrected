@@ -36,6 +36,8 @@ Un archivo `civs\<id>.json` en tu mod:
 | `ai` | (Opcional) Con `true`, la IA juega con tus clases y tus órdenes. Si no, juega con la civilización base. La herramienta de clonado lo pone a `true`. Ver *La IA*. |
 | `ownAi` | (Opcional, con `ai`) Para mods que traen todos sus guiones de IA y quieren ver la civilización tal cual (`Dacia`, no su base). |
 | `alias` | (Opcional, lo escribe la herramienta de clonado) `classes` y `commands`: nombre en la base a nombre en tu civilización (`"GArcher": "DArcher"`, `"trainGSwordsman": "trainGSwordsman Dacia"`). La IA los usa para traducir. |
+| `variant` | (Opcional) Con `true`, es una variante de su base: juega con las clases de la base y los scripts la ven como la base. Ver *Variantes*. |
+| `replacesBase` | (Opcional) Con `true`, la base deja de salir en la sala y esta civilización ocupa su sitio. Ver *Variantes*. |
 
 Con solo `id`, `index` y `base` tienes una copia de la base con otro nombre. Desde ahí cambias lo que quieras.
 
@@ -54,7 +56,8 @@ siendo Galia aunque tengas una civilización clonada de ella.
 Una clase con `parent=` hereda estadísticas y comportamientos, pero no la entidad (`entity`, el modelo) ni los sonidos: vuélvelos a poner o
 la unidad se crea sin modelo y desaparece. Por eso la herramienta de clonado copia las clases enteras.
 
-En los scripts, cada civilización declarada es una constante con su `id` en mayúscula inicial:
+En los scripts, cada civilización declarada es una constante con su `id` tal como lo escribes, con la primera letra en mayúscula (`dacia` da
+`Dacia`, `romeImperial` da `RomeImperial`). También vale con el resto en minúsculas (`Romeimperial`):
 
 ```
 if (GetPlayerRace(player) == Dacia)
@@ -67,10 +70,45 @@ civilización juega de verdad un objeto, usa `Mod_TrueRace(objeto)`.
 ## En la sala y en el mapa
 
 Las civilizaciones declaradas salen en los desplegables de la sala de multijugador, detrás de las del juego. En un mapa aleatorio la tuya usa el terreno de su bioma y empieza con una ciudad y una aldea hechas con sus clases
-(`DTownhall`, `DBarracks`…). Si no le das plantillas propias, la distribución de los edificios es la de la base.
+(`DTownhall`, `DBarracks`…). Si no le das plantillas propias, la distribución de los edificios es la de la base. La interfaz del jugador (barras de órdenes, esquinas,
+iconos rápidos y la pantalla del final) es la de su base.
 
 Si algo no sale, mira `Logs\imperivm\imperivm-mod.log`: las líneas con la etiqueta `civilizations` dicen qué se ha registrado y qué ha fallado (un `id`
 que no vale, un `index` que falta o se repite, una `base` que no existe). Los errores salen también en la ficha del mod en el gestor.
+
+## Variantes
+
+Una variante es una civilización del juego con otro nombre en la sala y algo propio al empezar la partida. Por ejemplo, un mod en el que
+Roma elige al principio entre republicana, imperial y púnica puede ofrecer las tres en la sala:
+
+```json
+{
+  "id": "RomeImperial",
+  "index": 21,
+  "base": "RepublicanRome",
+  "name": {"spanish": "Roma imperial", "english": "Roman Empire", "italian": "Roma imperiale"},
+  "variant": true,
+  "replacesBase": true
+}
+```
+
+Con `"variant": true`:
+
+- Juega con las clases y las órdenes de la base. No lleva clases propias ni `letter`.
+- `GetPlayerRace` devuelve la base, así que los scripts del juego y de otros mods la tratan como a la base (barcos, centinelas, IA).
+- `Mod_PlayerCiv(jugador)` devuelve la civilización elegida en la sala (21 en el ejemplo). Lo que la distingue va en un
+  [parche de script](parches.md), por ejemplo investigar al empezar la Roma que toca:
+
+```
+@before while (EnvReadInt(set, "ChooseRomanRace") != 1)
+	if (Mod_PlayerCiv(.player) == RomeImperial && set.CanResearch("ChooseImperialRome"))
+		set.Research("ChooseImperialRome");
+```
+
+- La IA también la juega: `ai` vale `true` si no pones otra cosa.
+- Con `"replacesBase": true` la base deja de salir en la sala y sus variantes ocupan su sitio. En el sorteo aleatorio, la parte de la
+  base se reparte entre ellas. Un jugador que tuviera elegida la base pasa a la primera variante. Los mapas y las partidas guardadas que
+  fijan la base la siguen usando.
 
 ## Clonar una civilización
 

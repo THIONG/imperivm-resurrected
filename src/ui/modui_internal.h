@@ -7,8 +7,10 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <cstdint>
+#include "core/transferrate.h"
 #include "mods/downloads.h"
 #include "ui/widgets.h"
 #include "ui/modui.h"
@@ -26,11 +28,13 @@ const int kRowH = 28;
 
 const int kListX = 16;
 
-const int kListY = 122;
+const int kContentY = 100;
+
+const int kListY = 130;
 
 const int kListW = 520;
 
-const int kListH = 430;
+const int kListH = 422;
 const int kInstalledListH = kListH + 32;
 
 const int kDetailX = kListX + kListW + 16;
@@ -51,11 +55,12 @@ enum Action {
 	kIoShotOpen, kIoShotClose, kIoShotStep,
 	kRichLink, kShowProblems, kUpdateAll,
 	kIoFilterOpen, kIoFilterClose, kIoFilterToggle, kIoFilterClear,
+	kUseFiles,
 };
 
 enum Field { kNoField, kSearchField, kNameField, kIoSearchField };
 
-enum Drop { kDropNone, kDropProfile, kDropMenu, kDropFilter, kDropIoSort, kDropVersions };
+enum Drop { kDropNone, kDropProfile, kDropMenu, kDropFilter, kDropIoSort, kDropVersions, kDropClashFiles };
 
 const int kIoFilterTypes = 0;
 const int kIoFilterPlayers = 1;
@@ -93,7 +98,8 @@ struct State {
 	std::vector<Row> rows;
 	std::map<std::string, std::vector<std::string>> usedBy;
 	std::vector<std::string> pendingUninstall;
-	std::map<std::string, ModIssues> issues;
+	std::shared_ptr<const std::map<std::string, ModIssues>> issues = std::make_shared<const std::map<std::string, ModIssues>>();
+	std::vector<std::string> problems;
 	int selected = 0;
 	ListState list;
 	ListGeom listGeom;
@@ -157,7 +163,8 @@ const COLORREF kLink = RGB(130, 182, 238);
 
 const ModInfo *FindModIn(const std::vector<ModInfo> &mods, const std::string &folder);
 const ModInfo *FindMod(const std::string &folder);
-std::string OverlapText(const State &st, const std::string &folder, const ModIssues &is);
+std::string OverlapText(const ModOverlap &ov);
+const ModIssues *SelectedIssues(const State &st);
 bool Pending(const State &st, const std::string &folder);
 std::vector<int> VisibleRows(const State &st);
 void BuildRows();
@@ -213,6 +220,7 @@ struct CardState {
 	bool shown = false;
 	bool swallowUp = false;
 	Canvas canvas;
+	TransferRate rate;
 };
 extern CardState g_card;
 struct Card {

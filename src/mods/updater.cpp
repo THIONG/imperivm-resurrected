@@ -209,14 +209,14 @@ void DownloadAndInstall()
 	DeleteFileA(zip.c_str());
 	LogI("update", "downloading %s (%.1f MB)", version.c_str(), bytes / 1048576.0);
 	std::string err = DlHttpGet(url, nullptr, zip);
-	if (!err.empty()) return Fail(TrFmt("could not download: %s", {err}));
+	if (!err.empty()) return Fail(TrFmt("could not download: %s", {Tr(err)}));
 	if (DlFileSha256(zip) != sha) {
 		DeleteFileA(zip.c_str());
 		return Fail(Tr("the downloaded file is not the published one (different hash)"));
 	}
 	err = DlExtract(zip, work);
 	DeleteFileA(zip.c_str());
-	if (!err.empty()) return Fail(err);
+	if (!err.empty()) return Fail(Tr(err));
 	std::vector<std::string> files;
 	std::string bad;
 	if (!CollectFiles(work, "", files, bad)) {

@@ -32,6 +32,18 @@ void RenameIfNeeded(const std::string &from, const std::string &to)
 	if (Exists(from) && !Exists(to)) MoveFileExA(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH);
 }
 
+void RemoveIfContains(const std::string &path, const char *marker)
+{
+	HANDLE h = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+	if (h == INVALID_HANDLE_VALUE) return;
+	std::string text(64 * 1024, '\0');
+	DWORD got = 0;
+	const BOOL ok = ReadFile(h, &text[0], static_cast<DWORD>(text.size()), &got, nullptr);
+	CloseHandle(h);
+	text.resize(ok ? got : 0);
+	if (text.find(marker) != std::string::npos) DeleteFileA(path.c_str());
+}
+
 struct IniRename {
 	const char *section, *key, *newSection, *newKey;
 };
@@ -259,6 +271,9 @@ void LegacyMigrate()
 	RenameIfNeeded(mods + "\\_publicar", mods + "\\_publish");
 	RenameIfNeeded(mods + "\\_recibidos.txt", mods + "\\_received.txt");
 	MigrateProfilesFolder(dir + "\\Profiles");
+	RemoveIfContains(dir + "\\mod\\menuini\\mainmenu.ini", "Additional content");
+	RemoveIfContains(dir + "\\mod\\menuini\\gameoptions.ini", "ModWindowCheck");
+	RemoveDirectoryA((dir + "\\mod\\menuini").c_str());
 }
 
 const char *LegacyJsonKey(const std::string &key)

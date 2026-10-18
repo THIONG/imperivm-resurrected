@@ -2,6 +2,8 @@
 // Copyright (C) 2026 THIONG
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #include <windows.h>
+#include <set>
+#include <algorithm>
 #include "MinHook.h"
 #include "mods/downloads.h"
 #include "mods/lang.h"
@@ -10,6 +12,9 @@
 #include "mods/features.h"
 #include "mods/patch.h"
 #include "addr/engine.h"
+#include "hooks/media.h"
+#include "mods/hidefiles.h"
+#include "mods/vfs.h"
 
 #include "mods/mods_internal.h"
 
@@ -82,10 +87,49 @@ std::string ReadGameLanguage()
 
 std::string ShowStartupPicker(const std::string &current);
 
+std::atomic<const std::map<std::string, std::string> *> g_chosenFiles{nullptr};
+
+void PublishChosenFiles(const ModProfile &p)
+{
+	const std::map<std::string, std::string> chosen = ChosenFolders(p, ModsList());
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		g_mount.chosen = chosen;
+	}
+	if (chosen.empty()) return;
+	auto *open = new std::map<std::string, std::string>();
+	const std::string lang = LanguageLower();
+	for (const auto &c : chosen) {
+		std::vector<std::string> tries;
+		if (StartsWith(c.first, "currentlang/")) tries.push_back("mods/" + c.second + "/local/" + lang + "/" + c.first.substr(12));
+		tries.push_back("mods/" + c.second + "/" + c.first);
+		for (const std::string &t : tries) {
+			std::string disk = GameDir() + "\\" + t;
+			std::replace(disk.begin(), disk.end(), '/', '\\');
+			const DWORD a = GetFileAttributesA(disk.c_str());
+			if (a == INVALID_FILE_ATTRIBUTES || (a & FILE_ATTRIBUTE_DIRECTORY)) continue;
+			(*open)[Lower(c.first)] = t;
+			LogD("content", "%s comes from %s (chosen by the player)", c.first.c_str(), c.second.c_str());
+			break;
+		}
+	}
+	LogI("content", "%u of %u shared files come from the pack the player chose", static_cast<unsigned>(open->size()), static_cast<unsigned>(chosen.size()));
+	g_chosenFiles.store(open);
+}
+
+void LogValueClashes(const ModProfile &p)
+{
+	for (const ValueClash &c : ClashesOf(p, ModsList()).values) {
+		LogI("patch", "%s and %s set %u of the same values (such as %s in %s): the ones from %s are used", c.used.c_str(), c.lost.c_str(),
+			static_cast<unsigned>(c.values.size()), c.values[0].label.c_str(), c.values[0].file.c_str(), c.used.c_str());
+	}
+}
+
 void MountProfileLayers(void *list)
 {
 	ModsApplyPendingSwaps();
 	DlApplyPendingInstalls();
+	DlCleanLeftovers();
 	ModsApplyPendingUninstalls();
 	ModsScan();
 	std::string name = ModsActiveProfileName();
@@ -146,10 +190,42 @@ void MountProfileLayers(void *list)
 		}
 	}
 	LogI("content", "profile \"%s\" mounted (%u mods)", p.name.c_str(), static_cast<unsigned>(p.mods.size()));
+	PrepareRleMmp(p, ModsList());
+	{
+		std::vector<std::vector<std::string>> hides;
+		std::set<std::string> provided;
+		for (const std::string &folder : p.mods) {
+			ModInfo m;
+			if (!ModsFind(folder, m) || !m.forbidden.empty()) continue;
+			if (!m.hidden.empty()) hides.push_back(m.hidden);
+			provided.insert(m.paths.begin(), m.paths.end());
+		}
+		const std::set<std::string> hidden = HiddenEffective(hides, provided);
+		VfsSetHidden(hidden);
+		if (!hidden.empty()) LogI("content", "%u game files hidden by the active content packs", static_cast<unsigned>(hidden.size()));
+	}
+	{
+		std::vector<std::string> dirs;
+		{
+			std::lock_guard<std::mutex> lock(g_lock);
+			dirs = g_mount.dirs;
+		}
+		MediaSetModDirs(dirs);
+	}
+	PublishChosenFiles(p);
 	PatchRebuild();
+	LogValueClashes(p);
 	ModsRebuildFeatures();
 }
 }
+}
+
+const std::string *ModsChosenFile(const std::string &rel)
+{
+	const std::map<std::string, std::string> *files = g_chosenFiles.load();
+	if (!files) return nullptr;
+	const auto it = files->find(rel);
+	return it == files->end() ? nullptr : &it->second;
 }
 
 namespace mods_impl {

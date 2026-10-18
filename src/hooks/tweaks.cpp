@@ -69,6 +69,22 @@ void InstallCrashFix()
 	LogI("boot", "crash protection: %d of %d sites protected", done, static_cast<int>(sizeof(addr::kCrashFixSites) / sizeof(addr::kCrashFixSites[0])));
 }
 
+void RepaintClosedMenusWhole()
+{
+	const uint8_t original[] = {0x6a, 0x01, 0x6a, 0x00, 0xff, 0x50, 0x30};
+	uint8_t *at = reinterpret_cast<uint8_t *>(addr::kMenuSwitchInvalidate);
+	if (memcmp(at, original, sizeof(original)) != 0) {
+		LogW("display", "menus: the menu switch code is not the expected one, a closed menu may leave its image behind");
+		return;
+	}
+	DWORD old = 0;
+	if (!VirtualProtect(at, 2, PAGE_EXECUTE_READWRITE, &old)) return;
+	at[1] = 0x00;
+	VirtualProtect(at, 2, old, &old);
+	FlushInstructionCache(GetCurrentProcess(), at, 2);
+	LogI("display", "menus: a closed menu is repainted whole, also under its own opaque background");
+}
+
 typedef bool(__cdecl *InitResolutionList_t)();
 typedef int(__cdecl *VfsFileExists_t)(const char *);
 typedef void(__cdecl *LoadScrollSettings_t)();
@@ -496,6 +512,7 @@ void InstallTweaks(bool knownExe)
 		return;
 	}
 	if (GetConfig().crashFix) InstallCrashFix();
+	RepaintClosedMenusWhole();
 	HookAt(addr::kShowPausedMenu, reinterpret_cast<void *>(&HookShowPausedMenu), reinterpret_cast<void **>(&g_origShowPausedMenu), "ShowPausedMenu");
 	HookAt(addr::kRequestPause, reinterpret_cast<void *>(&HookRequestPause), reinterpret_cast<void **>(&g_origRequestPause), "CVXGameMultiplayer::RequestPause");
 	HookAt(addr::kRequestUnpause, reinterpret_cast<void *>(&HookRequestUnpause), reinterpret_cast<void **>(&g_origRequestUnpause),

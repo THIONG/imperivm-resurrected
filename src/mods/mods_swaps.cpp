@@ -2,10 +2,12 @@
 // Copyright (C) 2026 THIONG
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #include <windows.h>
+#include <atomic>
 #include <fstream>
 #include <algorithm>
 #include "MinHook.h"
 #include "i18n/tr.h"
+#include "core/guard.h"
 #include "core/log.h"
 
 #include "mods/mods_internal.h"
@@ -45,6 +47,55 @@ bool RemoveFolder(const std::string &path)
 	op.pFrom = from.c_str();
 	op.fFlags = FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
 	return SHFileOperationA(&op) == 0 && !op.fAnyOperationsAborted;
+}
+
+const char kRemovedPrefix[] = "removed-";
+std::atomic<bool> g_purging{false};
+std::atomic<bool> g_purgeAgain{false};
+
+std::string RemovedRoot()
+{
+	return ModsDir() + "\\_downloads";
+}
+
+bool MoveToRemoved(const std::string &folder)
+{
+	CreateDirectoryA(RemovedRoot().c_str(), nullptr);
+	const std::string from = ModsDir() + "\\" + folder;
+	for (DWORD i = 0; i < 5; i++) {
+		const std::string to = RemovedRoot() + "\\" + kRemovedPrefix + std::to_string(GetTickCount() + i) + "-" + folder;
+		if (MoveFileExA(from.c_str(), to.c_str(), 0)) return true;
+		if (GetLastError() != ERROR_ALREADY_EXISTS) return false;
+	}
+	return false;
+}
+
+void PurgeRemovedNow()
+{
+	std::vector<std::string> dirs;
+	WIN32_FIND_DATAA fd;
+	HANDLE h = FindFirstFileA((RemovedRoot() + "\\" + kRemovedPrefix + "*").c_str(), &fd);
+	if (h == INVALID_HANDLE_VALUE) return;
+	do {
+		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) dirs.push_back(fd.cFileName);
+	} while (FindNextFileA(h, &fd));
+	FindClose(h);
+	for (const std::string &d : dirs) {
+		const DWORD started = GetTickCount();
+		const bool ok = RemoveFolder(RemovedRoot() + "\\" + d);
+		LogAt(ok ? kLogInfo : kLogWarn, "content", "%s %s (%.1f s)", d.c_str(), ok ? "deleted from disk" : "could NOT be deleted; it is tried again on the next start",
+			(GetTickCount() - started) / 1000.0);
+	}
+}
+
+void PurgeRemoved()
+{
+	g_purgeAgain = true;
+	if (g_purging.exchange(true)) return;
+	SafeThread([] {
+		while (g_purgeAgain.exchange(false)) PurgeRemovedNow();
+		g_purging = false;
+	}).detach();
 }
 }
 }
@@ -153,14 +204,15 @@ void ModsApplyPendingUninstalls()
 	for (const std::string &folder : PendingUninstalls()) {
 		const std::string path = ModsDir() + "\\" + folder;
 		const bool exists = GetFileAttributesA(path.c_str()) != INVALID_FILE_ATTRIBUTES;
-		if (exists && !RemoveFolder(path)) {
+		if (exists && !MoveToRemoved(folder)) {
 			left.push_back(folder);
 			continue;
 		}
-		if (exists) LogI("content", "%s uninstalled (deleted from disk)", folder.c_str());
+		if (exists) LogI("content", "%s uninstalled (its files are deleted in the background)", folder.c_str());
 		RemoveFromProfiles(folder);
 	}
 	SetPendingUninstalls(left);
+	PurgeRemoved();
 }
 
 namespace mods_impl {
@@ -258,9 +310,10 @@ std::string ModsUninstall(const std::string &folder)
 		CollectMapNames(path, maps);
 		RemoveReceivedMaps(maps);
 	}
-	if (!mounted && RemoveFolder(path)) {
-		LogI("content", "%s uninstalled (deleted from disk)", folder.c_str());
+	if (!mounted && MoveToRemoved(folder)) {
+		LogI("content", "%s uninstalled (its files are deleted in the background)", folder.c_str());
 		ModsScan();
+		PurgeRemoved();
 		return name + Tr(" uninstalled");
 	}
 	std::vector<std::string> pending = PendingUninstalls();

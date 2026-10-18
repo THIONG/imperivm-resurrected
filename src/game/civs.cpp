@@ -6,6 +6,7 @@
 #include "MinHook.h"
 #include "hooks/hookcount.h"
 #include "game/civs.h"
+#include "game/civroom.h"
 #include "game/specials.h"
 #include "core/json.h"
 #include "core/log.h"
@@ -186,6 +187,23 @@ int __cdecl HookRaceLetterNative(int *pSP)
 	return orig(pSP);
 }
 
+Native_t g_origPlayerRace = nullptr;
+
+int __cdecl HookGetPlayerRace(int *pSP)
+{
+	const int r = g_origPlayerRace(pSP);
+	int *result = reinterpret_cast<int *>(*pSP - 4);
+	if (*result >= 10) {
+		const Civ *c = FindByIndex(*result);
+		if (c && c->variant) {
+			static int logged = 0;
+			if (logged++ < 5) LogD("civilizations", "GetPlayerRace of %s -> the base (%d): it is a variant", c->id.c_str(), c->base);
+			*result = c->base;
+		}
+	}
+	return r;
+}
+
 std::vector<const Civ *> SortedCivs();
 
 const unsigned char kRandomDrawOriginal[21] = {0x8b, 0x93, 0xa0, 0x12, 0x00, 0x00, 0x8d, 0x8b, 0xa0, 0x12, 0x00, 0x00, 0x6a,
@@ -196,16 +214,27 @@ int __cdecl PickRandomRace(char *game, char *frame)
 	const char *gs = *reinterpret_cast<char **>(frame + 8);
 	const int slot = *reinterpret_cast<int *>(frame - 0x18);
 	const bool isAi = gs && slot >= 0 && slot < 8 && *reinterpret_cast<const int *>(gs + 0xa4 + slot * 0xc0 + 8) == 1;
+	const std::vector<const Civ *> civs = SortedCivs();
 	std::vector<const Civ *> pool;
-	for (const Civ *c : SortedCivs()) {
-		if (c->random && (!isAi || c->ai)) pool.push_back(c);
+	for (const Civ *c : civs) {
+		if (c->random && !c->replacesBase && (!isAi || c->ai)) pool.push_back(c);
 	}
 	void *rng = game + 0x12a0;
 	void **vt = *reinterpret_cast<void ***>(rng);
 	auto rand = reinterpret_cast<int(__fastcall *)(void *, void *, int, int)>(vt[0x14 / 4]);
 	const int r = rand(rng, nullptr, 0, 7 + static_cast<int>(pool.size()));
-	if (r < 8) return r;
-	const Civ *civ = pool[r - 8];
+	const Civ *civ = nullptr;
+	if (r < 8) {
+		std::vector<const Civ *> share;
+		for (const Civ *c : civs) {
+			if (c->random && c->replacesBase && c->base == r && (!isAi || c->ai)) share.push_back(c);
+		}
+		if (share.empty()) return r;
+		civ = share[rand(rng, nullptr, 0, static_cast<int>(share.size()) - 1)];
+	}
+	else {
+		civ = pool[r - 8];
+	}
 	static int logged = 0;
 	if (logged++ < 20) LogD("civilizations", "random civilization of player %d%s -> %s (%d)", slot, isAi ? " (AI)" : "", civ->id.c_str(), civ->index);
 	return civ->index;
@@ -498,13 +527,8 @@ int __cdecl HookBestTemple(int *pSP)
 
 int __fastcall HookComputeNeeds(void *self, void *edx, char *player, int a, int b)
 {
-	int *raceSlot = player ? reinterpret_cast<int *>(player + 0x7c) : nullptr;
-	if (!raceSlot || *raceSlot < 10) return g_origComputeNeeds(self, edx, player, a, b);
-	const int real = *raceSlot;
-	*raceSlot = BaseOf(real);
-	const int r = g_origComputeNeeds(self, edx, player, a, b);
-	*raceSlot = real;
-	return r;
+	CivRaceAsBase scope(player);
+	return g_origComputeNeeds(self, edx, player, a, b);
 }
 
 void *__cdecl HookGenerateRandomMap(unsigned params, int *out)
@@ -539,14 +563,15 @@ void LoadCivFile(const std::string &folder, const std::string &path, const std::
 	}
 	auto civ = std::make_unique<Civ>();
 	civ->modFolder = folder;
-	civ->id = Lower(j.GetString("id"));
-	if (civ->id.empty()) {
-		civ->id = Lower(fileName.substr(0, fileName.rfind('.')));
-	}
+	std::string spelled = j.GetString("id");
+	if (spelled.empty()) spelled = fileName.substr(0, fileName.rfind('.'));
+	civ->id = Lower(spelled);
 	if (!ValidId(civ->id)) {
 		AddError(folder, TrFmt("%s: the id \"%s\" is not valid (letters, numbers and _; starts with a letter; up to 24)", {fileName, civ->id}));
 		return;
 	}
+	civ->constant = spelled;
+	civ->constant[0] = static_cast<char>(toupper(static_cast<unsigned char>(civ->constant[0])));
 	civ->index = static_cast<int>(j.GetNumber("index", 0));
 	if (civ->index < 10 || civ->index > 99) {
 		AddError(folder, TrFmt("%s: \"index\" is missing or not between 10 and 99 (numbers 0 to 9 belong to the game's civilizations)", {fileName}));
@@ -579,7 +604,9 @@ void LoadCivFile(const std::string &folder, const std::string &path, const std::
 	civ->letterUp = std::string(1, static_cast<char>(toupper(static_cast<unsigned char>(letter[0]))));
 	civ->folder = j.GetString("folder");
 	civ->random = j.GetBool("random", true);
-	civ->ai = j.GetBool("ai");
+	civ->variant = j.GetBool("variant");
+	civ->replacesBase = j.GetBool("replacesBase");
+	civ->ai = j.GetBool("ai", civ->variant);
 	civ->ownAi = j.GetBool("ownAi");
 	if (const Json *alias = j.Get("alias")) {
 		if (alias->type != Json::Object) {
@@ -612,6 +639,35 @@ void LoadCivFile(const std::string &folder, const std::string &path, const std::
 const char *GameCivName(int index)
 {
 	return index >= 0 && index < 8 ? kGameNames[index] : "";
+}
+
+int CivsPlayerCiv(int player)
+{
+	const char *gs = *reinterpret_cast<char **>(addr::kGameSettings);
+	if (!gs || player < 1 || player > 8) return -1;
+	return *reinterpret_cast<const int *>(gs + 0xa4 + (player - 1) * 0xc0);
+}
+
+void *CivsLocalPlayer()
+{
+	char *game = *reinterpret_cast<char **>(addr::kGame);
+	return game ? *reinterpret_cast<void **>(game + 0x12c8) : nullptr;
+}
+
+CivRaceAsBase::CivRaceAsBase(void *player)
+{
+	int *race = player ? reinterpret_cast<int *>(static_cast<char *>(player) + 0x7c) : nullptr;
+	if (!race || *race < 10) return;
+	const int base = BaseOf(*race);
+	if (base == *race) return;
+	slot = race;
+	real = *race;
+	*race = base;
+}
+
+CivRaceAsBase::~CivRaceAsBase()
+{
+	if (slot) *slot = real;
 }
 
 int GameCivByName(const std::string &name)
@@ -661,6 +717,8 @@ void CivsRebuild()
 	for (const Civ *c : unique) {
 		LogI("civilizations", "%s (index %d, base %s, letter %s, mod %s)", c->id.c_str(), c->index, kGameNames[c->base], c->letterUp.c_str(),
 			c->modFolder.empty() ? "mod\\civs" : c->modFolder.c_str());
+		if (c->variant) LogI("civilizations", "%s: variant of %s (the scripts see the base as the player's civilization)", c->id.c_str(), kGameNames[c->base]);
+		if (c->replacesBase) LogI("civilizations", "%s: replaces %s in the room and in the random draw", c->id.c_str(), kGameNames[c->base]);
 		if (c->ai) {
 			LogI("civilizations", "%s: the AI plays with it (%s; %d classes and %d alias commands)", c->id.c_str(),
 				c->ownAi ? "with the content package's scripts" : "with the game's scripts, which see the base", static_cast<int>(c->aliasClasses.size()),
@@ -713,11 +771,15 @@ void CivsRegisterConstants(void *engine)
 {
 	std::vector<Civ> civs = CivsList();
 	for (const Civ &c : civs) {
-		std::string name = c.id;
-		name[0] = static_cast<char>(toupper(static_cast<unsigned char>(name[0])));
-		const char *err = reinterpret_cast<RegisterIntConstant_t>(addr::kRegisterIntConstant)(engine, nullptr, name.c_str(), c.index);
-		if (err) LogE("civilizations", "could not register the constant %s for the scripts (%s)", name.c_str(), err);
-		else LogD("civilizations", "script constant %s = %d", name.c_str(), c.index);
+		std::string lowered = c.id;
+		lowered[0] = static_cast<char>(toupper(static_cast<unsigned char>(lowered[0])));
+		std::vector<std::string> names = {c.constant};
+		if (lowered != c.constant) names.push_back(lowered);
+		for (const std::string &name : names) {
+			const char *err = reinterpret_cast<RegisterIntConstant_t>(addr::kRegisterIntConstant)(engine, nullptr, name.c_str(), c.index);
+			if (err) LogE("civilizations", "could not register the constant %s for the scripts (%s)", name.c_str(), err);
+			else LogD("civilizations", "script constant %s = %d", name.c_str(), c.index);
+		}
 	}
 }
 
@@ -739,6 +801,25 @@ const char *CivsCityClassName(void *registry, const char *name, std::string &buf
 const char *CivsRoomSeparator()
 {
 	return "------------";
+}
+
+namespace {
+std::vector<RoomCiv> RoomCivs()
+{
+	std::vector<RoomCiv> out;
+	for (const Civ *c : SortedCivs()) out.push_back({c->base, c->replacesBase});
+	return out;
+}
+}
+
+std::vector<int> CivsRoomOrder(int items)
+{
+	return CivRoomOrder(RoomCivs(), items);
+}
+
+int CivsRoomReplacement(int item, int items)
+{
+	return CivRoomReplacement(RoomCivs(), item, items);
 }
 
 void CivsOnRoomShown(void *dlg)
@@ -804,6 +885,7 @@ void InstallCivs(bool knownExe)
 		{addr::kGetRaceFolderName, reinterpret_cast<void *>(&HookGetRaceFolder), reinterpret_cast<void **>(&g_origFolder), "GetRaceFolderName"},
 		{addr::kScriptGetRaceStrPref, reinterpret_cast<void *>(&HookRaceLetterNative<false, false>), reinterpret_cast<void **>(&g_origGetStrPref), "GetRaceStrPref"},
 		{addr::kScriptGetRaceStrPrefLow, reinterpret_cast<void *>(&HookRaceLetterNative<false, true>), reinterpret_cast<void **>(&g_origGetStrPrefLow), "GetRaceStrPrefLow"},
+		{addr::kScriptGetPlayerRace, reinterpret_cast<void *>(&HookGetPlayerRace), reinterpret_cast<void **>(&g_origPlayerRace), "GetPlayerRace"},
 		{addr::kScriptObjRaceStrPref, reinterpret_cast<void *>(&HookRaceLetterNative<true, false>), reinterpret_cast<void **>(&g_origObjStrPref), "Obj::raceStrPref"},
 		{addr::kScriptObjRaceStrPrefLow, reinterpret_cast<void *>(&HookRaceLetterNative<true, true>), reinterpret_cast<void **>(&g_origObjStrPrefLow), "Obj::raceStrPrefLow"},
 		{addr::kClassStartElement, reinterpret_cast<void *>(&HookClassStartElement), reinterpret_cast<void **>(&g_origClassStart), "CVXScriptClass::OnXmlStartElement"},

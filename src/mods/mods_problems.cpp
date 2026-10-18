@@ -66,7 +66,11 @@ bool ModsRestartNeeded()
 {
 	const ModProfile active = ModsLoadProfile(ModsActiveProfileName());
 	const ModProfile &mounted = ModsMountedProfile();
-	return !ModsSameSet(active.mods, mounted.mods);
+	if (!ModsSameSet(active.mods, mounted.mods)) return true;
+	std::map<std::string, std::string> chosen;
+	if (!active.choices.empty()) chosen = ChosenFolders(active, ModsList());
+	std::lock_guard<std::mutex> lock(g_lock);
+	return chosen != g_mount.chosen;
 }
 
 bool ModsSameSet(std::vector<std::string> a, std::vector<std::string> b)
@@ -78,29 +82,12 @@ bool ModsSameSet(std::vector<std::string> a, std::vector<std::string> b)
 	return a == b;
 }
 
-std::vector<ModConflict> ModsConflicts(const ModProfile &p)
+std::vector<std::string> ModsProblems(const ModProfile &p)
 {
-	std::map<std::string, std::vector<std::string>> owners;
-	std::lock_guard<std::mutex> lock(g_lock);
-	for (const std::string &folder : p.mods) {
-		for (const ModInfo &m : g_mods) {
-			if (m.folder == folder) {
-				for (const std::string &path : m.paths) {
-					owners[path].push_back(folder);
-				}
-			}
-		}
-	}
-	std::vector<ModConflict> out;
-	for (auto &o : owners) {
-		if (o.second.size() > 1) {
-			out.push_back({o.first, o.second});
-		}
-	}
-	return out;
+	return ModsProblemsFrom(p, ModsIssuesForAll(p));
 }
 
-std::vector<std::string> ModsProblems(const ModProfile &p)
+std::vector<std::string> ModsProblemsFrom(const ModProfile &p, const std::map<std::string, ModIssues> &issues)
 {
 	std::vector<std::string> out;
 	for (const std::string &folder : p.mods) {
@@ -109,7 +96,18 @@ std::vector<std::string> ModsProblems(const ModProfile &p)
 			out.push_back(Tr("Missing content pack \"") + folder + Tr("\" (not in the content folder)"));
 			continue;
 		}
-		for (const std::string &problem : ModsIssuesFor(p, folder).problems) out.push_back(m.name + ": " + problem);
+		const auto found = issues.find(m.folder);
+		if (found == issues.end()) continue;
+		const ModIssues &is = found->second;
+		std::vector<std::string> clashes;
+		for (const ModOverlap &ov : is.overlaps) {
+			if (!ov.problem) continue;
+			clashes.push_back(ClashProblemText(ov.name));
+			if (_stricmp(folder.c_str(), ov.folder.c_str()) < 0) out.push_back(TrFmt("%s and %s change the same gameplay files: use only one", {m.name, ov.name}));
+		}
+		for (const std::string &problem : is.problems) {
+			if (std::find(clashes.begin(), clashes.end(), problem) == clashes.end()) out.push_back(m.name + ": " + problem);
+		}
 	}
 	return out;
 }

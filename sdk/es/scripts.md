@@ -6,7 +6,7 @@ Ejemplo para copiar: [`ejemplos/scripts-ejemplo`](ejemplos/scripts-ejemplo). Ojo
 
 ## Cómo es un script
 
-Un archivo de texto `.vs`. La primera línea es un comentario con la firma: lo que devuelve y los parámetros que recibe. Cada sitio donde se usa un script espera una firma concreta.
+Un archivo de texto `.vs`. La primera línea es un comentario con la firma: lo que devuelve y los parámetros que recibe. Cada sitio donde se usa un script espera una firma concreta. Hay tres excepciones, que el juego carga siempre con su firma, lleven la línea o no: los comportamientos de una clase (`<behavior script="...">`), como `void, Obj This`; los modos de victoria (`data/GameScripts`), como `void, int player, str param`, y los scripts de objetos (ver [Objetos](objetos.md)), con la firma de su atributo.
 
 ```
 // void, Obj This
@@ -69,7 +69,7 @@ No hay un evento para esto (los objetos se crean en decenas de sitios, también 
 
 ## Funciones `Mod_`
 
-La versión actual de la API es la 6. `Mod_ApiVersion()` te la da, y un mod puede exigir una mínima.
+La versión actual de la API es la 7. `Mod_ApiVersion()` te la da, y un mod puede exigir una mínima.
 
 | Función | Qué hace |
 |---|---|
@@ -88,6 +88,8 @@ La versión actual de la API es la 6. `Mod_ApiVersion()` te la da, y un mod pued
 | `Mod_TrueRace(Obj objeto)` : `int` | La civilización real de un objeto (10 o más si es de un mod), aunque para la IA su raza sea la de su base (API 5). Ver [Civilizaciones](civilizaciones.md). |
 | `Mod_GetOption(str id)` : `bool` | ¿Está marcada en la sala la opción `id` (la de `options\<id>.json`)? Da lo mismo en todos los PCs (API 6). Ver [Opciones de partida](opciones.md). |
 | `Mod_GetOptionValue(str id)` : `int` | El valor elegido de la opción `id`: 0 o 1 en un interruptor, y el número de la opción elegida (desde 0) en una lista (API 6). |
+| `Mod_PlayerCiv(int jugador)` : `int` | La civilización que eligió el jugador en la sala (10 o más si es de un mod), aunque sea una variante y `GetPlayerRace` dé su base. -1 si no existe ese jugador (API 7). Ver [Civilizaciones](civilizaciones.md). |
+| `Mod_CanExecCmd(Obj objeto, str orden)` : `bool` | ¿Podría el jugador pulsar ahora el botón de esa orden en ese objeto? Es la misma comprobación del juego: el objeto la tiene, no está deshabilitada (`CmdDisable`) y su verificador (`groupverifier` o el de jugador) la acepta. No mira el coste (API 7). |
 
 Las funciones nuevas se añaden al final y las que ya existen no cambian. Si tu mod usa alguna, necesita una versión de Imperivm Resurrected que la traiga. La versión de la API entra en la comprobación de multijugador cuando hay mods de jugabilidad: todos tienen que tener la misma.
 

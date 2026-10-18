@@ -17,6 +17,7 @@
 #include <map>
 #include <atomic>
 #include <cstdint>
+#include "net/sharemsg.h"
 #include "net/steamnet.h"
 
 #define STEAM_FUNCS(X)                                                                                     \
@@ -152,6 +153,7 @@ struct LeaveState {
 extern LeaveState g_leave;
 void RequestLobbySearch();
 void Leave();
+void RefuseForContent(uint64 lobby, const OnlineLobby &info, RoomContent content);
 void ResolvePendingJoin();
 void Join(uint64 lobby);
 struct SpectatorLobbyState {
@@ -179,6 +181,7 @@ const int kShareChannel = 2;
 const int kShareChunk = 64 * 1024;
 
 enum : uint8_t { kShReq = 1, kShFile = 2, kShData = 3, kShModEnd = 4, kShDeny = 5, kShDone = 6, kShMapReq = 7, kShMapFile = 8, kShMapEnd = 9, kShCam = 10, kShSeat = 11, kShSwap = 12, kShProgress = 13, kShMapHave = 14 };
+static_assert(kContentMessages.Has(kShReq) && kContentMessages.Has(kShMapHave), "content messages out of their range");
 
 struct RejoinOut {
 	uint64 peer;

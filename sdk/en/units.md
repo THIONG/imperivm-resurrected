@@ -76,6 +76,9 @@ game files, extract `data.pak` with [`extract-data.js`](tools/extract-data.js): 
 - `unit_specials` are the [unit specials](specials.md), the game's and your own.
 - Don't copy the original's `altid`. It's an alias scripts use to find a civilization's "soldier"; two classes with the
   same alias get mixed up.
+- `edittree_pos` (for example `Units/Roman/Veteran`) is where it shows in the map editor and in the cheats menu: a class with an `entity`
+  whose `edittree_pos` starts with `Units/` shows there, in its civilization's group. The tool copies it from the base and changes the
+  last name.
 - A new file in `data\classes\` loads on its own. No registration needed.
 
 ## 2. The recruit command

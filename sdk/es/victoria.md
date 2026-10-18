@@ -14,7 +14,7 @@ data\GameScripts\6 Dominio.vs
 
 - **El nombre del archivo es el id del modo**, número incluido. La sala lista los modos por nombre de archivo completo. Dos mods chocan solo si usan exactamente el mismo nombre (`6 Dominio.vs` en los dos). Los del juego son del 1 al 5.
 - En la sala se muestra sin el número inicial y pasa por la traducción: si el texto "Dominio" tiene entrada en tu `loc`, saldrá traducido ([Idiomas](idiomas.md)).
-- La primera línea es la firma: `//void, int player, str param`. `player` es el jugador (1 a 8). `param` es el valor del límite que se elige en la sala (ver más abajo).
+- La firma es `//void, int player, str param`. El juego carga el script siempre con ella, así que la primera línea es opcional, pero conviene ponerla. `player` es el jugador (1 a 8). `param` es el valor del límite que se elige en la sala (ver más abajo).
 - El juego lanza 8 copias del script, una por jugador, cada una en su hilo, aunque haya menos jugadores. Escríbelo desde el punto de vista de un solo jugador y que mire a los demás. Tiene que aguantar los huecos vacíos: el del ejemplo los da por eliminados porque no tienen ni asentamientos ni tropas.
 
 ## Funciones que se usan

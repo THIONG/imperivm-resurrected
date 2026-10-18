@@ -178,6 +178,7 @@ void UpdateRoom()
 		room.info = ReadLobby(g_lobby);
 		const uint64 owner = S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby);
 		room.owner = owner == g_steam.me;
+		room.contentSync = g_lobby == g_pendingJoin.syncLobby;
 		const int n = S.SteamAPI_ISteamMatchmaking_GetNumLobbyMembers(g_steam.mm, g_lobby);
 		for (int i = 0; i < n; i++) {
 			OnlineMember m;
@@ -492,7 +493,7 @@ void MirrorSpectators()
 	if (g_spectate.wanted && !g_spectate.lobby && !g_spectate.creating && g_lobby) OpenSpectators(g_spectate.delay, g_spectate.visibility);
 	if (!g_spectate.lobby) return;
 	if (!g_lobby || S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby) != g_steam.me) return;
-	static const char *const kCopy[] = {"name", "host", "hostid", "map", "mode", "key", "pw", "vis", "irver", "mods", "slots", "plist", "opts", "rules", "save", "playing", "modsv", "nopt"};
+	static const char *const kCopy[] = {"name", "host", "hostid", "map", "mode", "key", "scen", "pw", "vis", "irver", "mods", "slots", "plist", "opts", "rules", "save", "playing", "modsv", "nopt"};
 	for (const char *k : kCopy) SpecSet(k, Data(g_lobby, k));
 	SpecSet("main", std::to_string(g_lobby));
 	SpecSet("delay", std::to_string(g_spectate.delay));

@@ -4,10 +4,13 @@
 #pragma once
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <string>
 #include <vector>
 
-inline constexpr int kScriptApiVersion = 6;
+#include "mods/patchxml.h"
+
+inline constexpr int kScriptApiVersion = 7;
 
 struct ModDependency {
 	std::string id;
@@ -53,7 +56,14 @@ struct ModInfo {
 	std::vector<ModOrderLabel> orderLabels;
 
 	std::vector<std::string> paths;
+	std::vector<std::string> loosePaths;
+	std::vector<PatchedValue> patchValues;
 	std::vector<std::string> forbidden;
+	bool rleTail = false;
+	uint64_t rleBaseSize = 0;
+	std::string rleBaseSha256;
+	std::string rleTailError;
+	std::vector<std::string> hidden;
 	bool hasLoose = false;
 	bool gameplay = false;
 	bool content = false;
@@ -76,13 +86,21 @@ inline bool ModsSameMod(const ModInfo &a, const ModInfo &b)
 	return ModsIsMod(a, b.id, b.gbId);
 }
 
+struct ModChoice {
+	std::string use;
+	std::string over;
+};
+
 struct ModProfile {
 	std::string name;
 	std::vector<std::string> mods;
+	std::vector<ModChoice> choices;
 };
 
 void ModsScan();
+bool ModsHashProgress(uint64_t &done, uint64_t &total);
 std::vector<ModInfo> ModsList();
+std::vector<ModInfo> ModsSummaries();
 bool ModsFind(const std::string &folder, ModInfo &out);
 
 std::vector<std::string> ModsProfileNames();
@@ -108,11 +126,6 @@ int ModsCompareVersions(const std::string &a, const std::string &b);
 void ModsQueueSwap(const std::string &newFolder, const std::string &oldFolder);
 void ModsApplyPendingSwaps();
 
-struct ModConflict {
-	std::string path;
-	std::vector<std::string> folders;
-};
-std::vector<ModConflict> ModsConflicts(const ModProfile &p);
 std::vector<std::string> ModsProblems(const ModProfile &p);
 std::string ModsProfileGameplayHash(const ModProfile &p);
 
@@ -157,10 +170,44 @@ std::string ModsFolderPath();
 
 std::vector<std::string> ModsLoadOrder(const std::vector<std::string> &folders);
 bool ModsSameSet(std::vector<std::string> a, std::vector<std::string> b);
+struct ModOverlap {
+	std::string folder;
+	std::string name;
+	int files = 0;
+	int gameplay = 0;
+	int mine = 0;
+	int theirs = 0;
+	bool problem = false;
+	bool declared = false;
+	bool choosable = false;
+	bool canUseMine = false;
+	bool canUseTheirs = false;
+	int chosen = 0;
+};
+struct ModOverlapFile {
+	std::string path;
+	int kind = kModCosmetic;
+	std::string used;
+	std::string usedName;
+	bool chosen = false;
+};
+struct ModOverlapValue {
+	std::string file;
+	std::string label;
+	int kind = kModCosmetic;
+	std::string usedName;
+};
 struct ModIssues {
 	std::vector<std::string> problems;
+	std::vector<std::string> notices;
 	int overwrites = 0;
-	std::vector<std::string> overlapWith;
-	std::vector<std::string> overlapFolders;
+	std::vector<ModOverlap> overlaps;
+	std::vector<ModOverlapFile> files;
+	std::vector<ModOverlapValue> values;
 };
 ModIssues ModsIssuesFor(const ModProfile &p, const std::string &folder);
+std::map<std::string, ModIssues> ModsIssuesForAll(const ModProfile &p);
+std::vector<std::string> ModsProblemsFrom(const ModProfile &p, const std::map<std::string, ModIssues> &issues);
+void ModsReadPatchedFiles();
+void ModsChooseFiles(ModProfile &p, const std::string &useFolder, const std::string &overFolder);
+const std::string *ModsChosenFile(const std::string &rel);

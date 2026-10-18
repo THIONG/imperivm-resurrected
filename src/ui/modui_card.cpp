@@ -26,7 +26,7 @@ int UpdatesAvailable()
 	const DWORD now = GetTickCount();
 	if (g_updatesAt && now - g_updatesAt < 5000) return g_updatesCount;
 	g_updatesAt = now;
-	const std::vector<ModInfo> mods = ModsList();
+	const std::vector<ModInfo> mods = ModsSummaries();
 	int n = 0;
 	for (const ModInfo &m : mods) {
 		CatalogEntry e;

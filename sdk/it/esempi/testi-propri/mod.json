@@ -7,7 +7,7 @@
   },
   "version": "1.0",
   "category": "Translations",
-  "tags": ["Spanish", "English", "Italian"],
+  "tags": ["Language: Spanish", "Language: English", "Language: Italian"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: cambia algunos textos del menú en español, inglés e italiano sin sustituir el archivo de textos del juego.",

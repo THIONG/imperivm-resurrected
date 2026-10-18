@@ -143,7 +143,8 @@ void __fastcall HookAiUpdate(void *execv)
 	const bool launched = !busy && AiBusy(exec);
 	{
 		uint32_t cnt2 = 0, act2 = 0;
-		AiHistoryNote(exec, hash, AiOrdersHash(exec, cnt2, act2), cnt2);
+		const uint32_t after = AiOrdersHash(exec, cnt2, act2);
+		AiHistoryNote(exec, hash, after, cnt2);
 	}
 	char *mgr = ThreadManager(0);
 	TracePush({tick, 'U', static_cast<uint16_t>(AiPlayer(exec)), mgr ? *reinterpret_cast<uint32_t *>(mgr) : 0, launched ? 1u : 0u,

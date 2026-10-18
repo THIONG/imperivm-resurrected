@@ -43,7 +43,7 @@ if (!modDir || !fs.existsSync(modDir) || !fs.statSync(modDir).isDirectory()) {
 }
 
 // --- ciò che sa il gioco ----------------------------------------------------------------------------------------------
-const ALLOWED = ['.pak', '.bfhp', '.xml', '.ini', '.vs', '.bmp', '.tga', '.png', '.jpg', '.wav', '.ogg', '.mp3', '.rle', '.mmp', '.txt',
+const ALLOWED = ['.pak', '.bfhp', '.xml', '.ini', '.vs', '.bmp', '.tga', '.png', '.jpg', '.wav', '.ogg', '.mp3', '.rle', '.mmp', '.tail', '.txt',
 	'.json', '.loc', '.dat', '.sgt', '.dls', '.sty', '.avi', '.wmv', '.bik', '.fnt', '.ttf', '.md', '.pdf', '.html', '.htm', '.rtf', '.csv',
 	'.sc', '.ent', '.cfg', '.lst', '.42', '.usr', '.sdw', '.pass'];
 const FORBIDDEN = ['.exe', '.dll', '.asi', '.bat', '.cmd', '.com', '.scr', '.ps1', '.vbs', '.js', '.msi', '.sys', '.cpl', '.lnk', '.reg', '.jar', '.hta', '.wsf', '.pif'];
@@ -196,13 +196,13 @@ else {
 				`"${k}" has to be a string or an object with one string per language`,
 				`"${k}" deve essere una stringa o un oggetto con una stringa per lingua`));
 		}
-		// categoria ed etichette (vedi pubblicare.md): la categoria è il tipo in Sfoglia contenuti; le etichette alimentano i filtri di giocatori (Maps) e lingua
-		const kCategorias = ['Gameplay & Balance', 'Units & Heroes', 'Civilizations', 'Maps', 'Campaigns', 'Conquest', 'Graphics',
+		// categoria ed etichette (vedi pubblicare.md): la categoria è quella principale in Esplora contenuti; le etichette aggiungono categorie e alimentano i filtri di giocatori e lingua
+		const kCategorias = ['Gameplay & Balance', 'Units & Heroes', 'Civilizations', 'Scenarios', 'Adventures', 'Conquests', 'Graphics',
 			'Audio & Voices', 'Translations'];
-		const kCategoriasAntiguas = { 'Scenarios': 'Maps', 'Interface': 'Graphics', 'Total Conversions': 'Gameplay & Balance' };
-		const kConIdioma = ['Campaigns', 'Audio & Voices', 'Translations'];
+		const kCategoriasAntiguas = { 'Maps': 'Scenarios', 'Campaigns': 'Adventures', 'Conquest': 'Conquests', 'Interface': 'Graphics',
+			'Total Conversions': 'Gameplay & Balance' };
+		const kConIdioma = ['Adventures', 'Audio & Voices', 'Translations'];
 		const kIdiomas = ['Spanish', 'English', 'Italian', 'German', 'French', 'Polish', 'Multilingual'];
-		const esJugadores = t => /^[2-8](-[2-8])? players$/.test(t);
 		if (m.category === undefined) {
 			warn('mod.json', 0, T(
 				`falta "category": la que elegirás al subirlo a GameBanana (${kCategorias.join(', ')})`,
@@ -224,40 +224,98 @@ else {
 		const categoria = kCategoriasAntiguas[m.category] || m.category;
 		const etiquetas = Array.isArray(m.tags) ? m.tags : [];
 		if (m.tags !== undefined && !Array.isArray(m.tags)) error('mod.json', 0, T('"tags" tiene que ser una lista', '"tags" has to be a list', '"tags" deve essere una lista'));
+		// ogni etichetta è "Titolo: valore"; il gioco usa Type (altre categorie), Players (giocatori) e Language (lingua)
+		const titulo = t => { const i = t.indexOf(':'); return i < 0 ? '' : t.slice(0, i).trim().toLowerCase(); };
+		const valor = t => { const i = t.indexOf(':'); return i < 0 ? t.trim() : t.slice(i + 1).trim(); };
+		const esJugadores = v => /^[2-8](-[2-8])?$/.test(v);
+		const tipos = new Set(kCategorias.includes(categoria) ? [categoria] : []);
+		for (const t of etiquetas.filter(t => titulo(t) === 'type')) {
+			const v = valor(t), nuevo = kCategoriasAntiguas[v] || v;
+			if (!kCategorias.includes(nuevo)) {
+				warn('mod.json', 0, T(
+					`etiqueta "${t}": "${v}" no es una categoría (${kCategorias.join(', ')})`,
+					`tag "${t}": "${v}" is not a category (${kCategorias.join(', ')})`,
+					`etichetta "${t}": "${v}" non è una categoria (${kCategorias.join(', ')})`));
+				continue;
+			}
+			if (nuevo !== v) warn('mod.json', 0, T(
+				`etiqueta "${t}": "${v}" es un nombre antiguo: usa "Type: ${nuevo}"`,
+				`tag "${t}": "${v}" is an old name: use "Type: ${nuevo}"`,
+				`etichetta "${t}": "${v}" è un nome vecchio: usa "Type: ${nuevo}"`));
+			if (tipos.has(nuevo)) warn('mod.json', 0, T(
+				`etiqueta "${t}": ${nuevo} ya es una de sus categorías`,
+				`tag "${t}": ${nuevo} is already one of its categories`,
+				`etichetta "${t}": ${nuevo} è già una delle sue categorie`));
+			tipos.add(nuevo);
+		}
+		const conJugadores = tipos.has('Scenarios'), conIdioma = kConIdioma.some(c => tipos.has(c));
+		let jugadores = false, idioma = false;
 		for (const t of etiquetas) {
+			const tit = titulo(t), v = valor(t);
+			if (tit === 'type') continue;
 			if (t === 'Gameplay' || t === 'Cosmetic' || t === 'Online tested') {
 				warn('mod.json', 0, T(
 					`etiqueta "${t}": ya no hace falta (el juego sabe por los archivos si cambia la jugabilidad)`,
 					`tag "${t}": no longer needed (the game knows from the files whether it changes gameplay)`,
 					`etichetta "${t}": non serve più (il gioco capisce dai file se cambia il gameplay)`));
 			}
-			else if (esJugadores(t)) {
-				if (categoria !== 'Maps') warn('mod.json', 0, T(
-					`etiqueta "${t}": los jugadores solo se filtran en la categoría Maps`,
-					`tag "${t}": players are only filtered in the Maps category`,
-					`etichetta "${t}": i giocatori si filtrano solo nella categoria Maps`));
+			else if (tit === 'players' || (!tit && /^[2-8](-[2-8])? players$/.test(t))) {
+				const n = tit ? v : t.replace(/ players$/, '');
+				if (!esJugadores(n)) {
+					warn('mod.json', 0, T(
+						`etiqueta "${t}": los jugadores van de 2 a 8, como "Players: 4" o "Players: 2-4"`,
+						`tag "${t}": players go from 2 to 8, like "Players: 4" or "Players: 2-4"`,
+						`etichetta "${t}": i giocatori vanno da 2 a 8, come "Players: 4" o "Players: 2-4"`));
+					continue;
+				}
+				jugadores = true;
+				if (!tit) warn('mod.json', 0, T(
+					`etiqueta "${t}": forma antigua, escríbela "Players: ${n}"`,
+					`tag "${t}": old form, write it as "Players: ${n}"`,
+					`etichetta "${t}": forma vecchia, scrivila "Players: ${n}"`));
+				if (!conJugadores) warn('mod.json', 0, T(
+					`etiqueta "${t}": los jugadores solo se filtran en Scenarios (como categoría o con "Type: Scenarios")`,
+					`tag "${t}": players are only filtered in Scenarios (as the category or with "Type: Scenarios")`,
+					`etichetta "${t}": i giocatori si filtrano solo in Scenarios (come categoria o con "Type: Scenarios")`));
 			}
-			else if (kIdiomas.includes(t)) {
-				if (!kConIdioma.includes(categoria)) warn('mod.json', 0, T(
+			else if ((tit === 'language' || !tit) && kIdiomas.includes(v)) {
+				idioma = true;
+				if (!tit) warn('mod.json', 0, T(
+					`etiqueta "${t}": forma antigua, escríbela "Language: ${v}"`,
+					`tag "${t}": old form, write it as "Language: ${v}"`,
+					`etichetta "${t}": forma vecchia, scrivila "Language: ${v}"`));
+				if (!conIdioma) warn('mod.json', 0, T(
 					`etiqueta "${t}": el idioma solo se filtra en ${kConIdioma.join(', ')}`,
 					`tag "${t}": the language is only filtered in ${kConIdioma.join(', ')}`,
 					`etichetta "${t}": la lingua si filtra solo in ${kConIdioma.join(', ')}`));
 			}
-			else {
+			else if (tit === 'language') {
 				warn('mod.json', 0, T(
-					`etiqueta "${t}": el juego no la usa para filtrar (valen "4 players", "2-4 players" y ${kIdiomas.join(', ')})`,
-					`tag "${t}": the game doesn't filter by it (valid ones: "4 players", "2-4 players" and ${kIdiomas.join(', ')})`,
-					`etichetta "${t}": il gioco non la usa per filtrare (valgono "4 players", "2-4 players" e ${kIdiomas.join(', ')})`));
+					`etiqueta "${t}": idioma desconocido (valen ${kIdiomas.join(', ')})`,
+					`tag "${t}": unknown language (valid ones: ${kIdiomas.join(', ')})`,
+					`etichetta "${t}": lingua sconosciuta (valgono ${kIdiomas.join(', ')})`));
+			}
+			else if (tit) {
+				warn('mod.json', 0, T(
+					`etiqueta "${t}": el juego no la usa (solo valen Type, Players y Language); quítala`,
+					`tag "${t}": the game doesn't use it (only Type, Players and Language are valid); remove it`,
+					`etichetta "${t}": il gioco non la usa (valgono solo Type, Players e Language); toglila`));
+			}
+			else if (!tit) {
+				warn('mod.json', 0, T(
+					`etiqueta "${t}": el juego no la usa para filtrar (valen "Type: …", "Players: …" y "Language: …")`,
+					`tag "${t}": the game doesn't filter by it (valid ones: "Type: …", "Players: …" and "Language: …")`,
+					`etichetta "${t}": il gioco non la usa per filtrare (valgono "Type: …", "Players: …" e "Language: …")`));
 			}
 		}
-		if (categoria === 'Maps' && !etiquetas.some(esJugadores)) warn('mod.json', 0, T(
-			'mapa sin etiqueta de jugadores: añade "4 players" (o "2-4 players") en "tags" y en las etiquetas de GameBanana, o no saldrá al filtrar por jugadores',
-			'map without a players tag: add "4 players" (or "2-4 players") to "tags" and to the GameBanana tags, or it won\'t show up when filtering by players',
-			'mappa senza etichetta dei giocatori: aggiungi "4 players" (o "2-4 players") in "tags" e nelle etichette di GameBanana, altrimenti non comparirà filtrando per giocatori'));
-		if (kConIdioma.includes(categoria) && !etiquetas.some(t => kIdiomas.includes(t))) warn('mod.json', 0, T(
-			`sin etiqueta de idioma: añade el idioma (${kIdiomas.join(', ')}) en "tags" y en las etiquetas de GameBanana, o no saldrá al filtrar por idioma`,
-			`no language tag: add the language (${kIdiomas.join(', ')}) to "tags" and to the GameBanana tags, or it won't show up when filtering by language`,
-			`nessuna etichetta della lingua: aggiungi la lingua (${kIdiomas.join(', ')}) in "tags" e nelle etichette di GameBanana, altrimenti non comparirà filtrando per lingua`));
+		if (categoria === 'Scenarios' && !jugadores) warn('mod.json', 0, T(
+			'escenario sin etiqueta de jugadores: añade "Players: 4" (o "Players: 2-4") en "tags" y en las etiquetas de GameBanana, o no saldrá al filtrar por jugadores',
+			'scenario without a players tag: add "Players: 4" (or "Players: 2-4") to "tags" and to the GameBanana tags, or it won\'t show up when filtering by players',
+			'scenario senza etichetta dei giocatori: aggiungi "Players: 4" (o "Players: 2-4") in "tags" e nelle etichette di GameBanana, altrimenti non comparirà filtrando per giocatori'));
+		if (kConIdioma.includes(categoria) && !idioma) warn('mod.json', 0, T(
+			`sin etiqueta de idioma: añade "Language: Spanish" (o el que sea: ${kIdiomas.join(', ')}) en "tags" y en las etiquetas de GameBanana, o no saldrá al filtrar por idioma`,
+			`no language tag: add "Language: English" (or the one it is: ${kIdiomas.join(', ')}) to "tags" and to the GameBanana tags, or it won't show up when filtering by language`,
+			`nessuna etichetta della lingua: aggiungi "Language: Italian" (o quella giusta: ${kIdiomas.join(', ')}) in "tags" e nelle etichette di GameBanana, altrimenti non comparirà filtrando per lingua`));
 	}
 	catch (e) { error('mod.json', 0, T('no es JSON válido: ', 'not valid JSON: ', 'JSON non valido: ') + e.message); }
 }
@@ -274,6 +332,39 @@ for (const f of files) {
 		`extension "${ext}": the game does not use it, the file only takes up space`,
 		`estensione "${ext}": il gioco non la usa, il file occupa solo spazio`));
 	if (f.includes('..') || /^[a-z]:/i.test(f)) error(f, 0, T('ruta no permitida', 'path not allowed', 'percorso non consentito'));
+}
+
+// --- mappe: il tipo che dichiara il .bfhp stesso (game_type 0 scenario, 1 avventura, 2 conquista; adventure="1" in quelli vecchi) -----
+// La lista Scenari mostra solo quelli di tipo 0; quella delle Avventure mostra tutto ciò che è in adventures\ (anche missioni di tipo 0).
+const kMapFolders = ['scenarios', 'adventures', 'conquests'];
+const kMapKinds = [T('un escenario', 'a scenario', 'uno scenario'), T('una aventura', 'an adventure', "un'avventura"), T('una conquista', 'a conquest', 'una conquista')];
+const mapKind = head => {
+	const start = head.indexOf('<properties');
+	if (start < 0) return -1;
+	const element = head.slice(start, head.indexOf('>', start));
+	const attr = name => (element.match(new RegExp('\\s' + name + '="([^"]*)"')) || [])[1];
+	const type = attr('game_type');
+	let kind = type === undefined ? 0 : ['0', '1', '2'].indexOf(type);
+	if (kind === 0 && Number(attr('adventure') || 0) !== 0) kind = 1;
+	return kind;
+};
+for (const f of files.filter(f => /\.bfhp$/i.test(f))) {
+	const kind = mapKind(fs.readFileSync(path.join(modDir, f)).subarray(0, 65536).toString('latin1'));
+	if (kind < 0) continue;
+	const folder = f.includes('/') ? lower(f.split('/')[0]) : '';
+	const what = kMapKinds[kind];
+	if (!folder) warn(f, 0, T(
+		`mapa suelto en la raíz: es ${what}, así que al instalarlo el juego lo coloca en ${kMapFolders[kind]}\\${kind === 0 ? ' (en adventures\\ si la categoría es Adventures)' : ''}; mejor súbelo ya en su carpeta`,
+		`loose map at the root: it is ${what}, so when installing the game places it in ${kMapFolders[kind]}\\${kind === 0 ? ' (in adventures\\ if the category is Adventures)' : ''}; better upload it already in its folder`,
+		`mappa sciolta nella radice: è ${what}, quindi durante l'installazione il gioco la sistema in ${kMapFolders[kind]}\\${kind === 0 ? ' (in adventures\\ se la categoria è Adventures)' : ''}; meglio caricarla già nella sua cartella`));
+	else if (folder === 'scenarios' && kind !== 0) warn(f, 0, T(
+		`es ${what} (game_type ${kind}): la lista de Escenarios solo enseña mapas de escaramuza, así que no saldrá; muévelo a ${kMapFolders[kind]}\\`,
+		`it is ${what} (game_type ${kind}): the Scenarios list only shows skirmish maps, so it won't show up; move it to ${kMapFolders[kind]}\\`,
+		`è ${what} (game_type ${kind}): la lista degli Scenari mostra solo mappe da schermaglia, quindi non comparirà; spostala in ${kMapFolders[kind]}\\`));
+	else if ((folder === 'adventures' && kind === 2) || (folder === 'conquests' && kind !== 2)) warn(f, 0, T(
+		`es ${what} (game_type ${kind}) pero está en ${folder}\\: muévelo a ${kMapFolders[kind]}\\`,
+		`it is ${what} (game_type ${kind}) but it is in ${folder}\\: move it to ${kMapFolders[kind]}\\`,
+		`è ${what} (game_type ${kind}) ma è in ${folder}\\: spostala in ${kMapFolders[kind]}\\`));
 }
 
 // --- opzioni di partita (options/<id>.json) ---------------------------------------------------------------------------
@@ -477,13 +568,19 @@ for (const f of files.filter(f => /^data\/commands\/[^/]+\.xml$/i.test(f))) {
 	const text = read(f);
 	const bad = checkXml(text);
 	if (bad) { error(f, bad.line, T('XML mal formado: ', 'malformed XML: ', 'XML malformato: ') + bad.msg); continue; }
-	const names = new Set();
-	for (const m of text.matchAll(/<cmd\b[^>]*?\bname\s*=\s*"([^"]*)"/g)) {
-		if (names.has(m[1])) error(f, lineOf(text, m.index), T(
-			`la orden "${m[1]}" está repetida en este archivo`,
-			`the command "${m[1]}" is repeated in this file`,
-			`il comando "${m[1]}" è ripetuto in questo file`));
-		names.add(m[1]);
+	// Due comandi con lo stesso nome valgono ognuno per gli edifici dei loro <src>: il gioco li lega per posizione, non per nome.
+	// Ciò che chiede il comando per nome (script, <defaultcmd>) riceve il primo. Si scontrano solo sullo stesso edificio
+	const buildings = new Map();
+	for (const m of text.matchAll(/<cmd\b[^>]*?\bname\s*=\s*"([^"]*)"[^>]*?(?:\/>|>([\s\S]*?)<\/cmd>)/g)) {
+		const srcs = [...(m[2] || '').matchAll(/<src\b[^>]*?\bobj\s*=\s*"([^"]*)"/g)].map(s => lower(s[1]));
+		const seen = buildings.get(m[1]) || new Set();
+		const shared = [...new Set(srcs.filter(s => seen.has(s)))];
+		if (shared.length) warn(f, lineOf(text, m.index), T(
+			`la orden "${m[1]}" ya estaba para ${shared.join(', ')}: ese edificio tendrá dos botones con ese nombre`,
+			`the command "${m[1]}" was already there for ${shared.join(', ')}: that building will have two buttons with that name`,
+			`il comando "${m[1]}" c'era già per ${shared.join(', ')}: quell'edificio avrà due pulsanti con quel nome`));
+		for (const s of srcs) seen.add(s);
+		buildings.set(m[1], seen);
 	}
 }
 
@@ -619,10 +716,20 @@ for (const f of files.filter(f => /^loc\/.+\.xml$/i.test(f))) {
 
 // --- script -----------------------------------------------------------------------------------------------------------
 const typesOf = sig => sig.split(',').map(s => s.trim().split(/\s+/)[0]).filter(Boolean);
+// Uno script di comportamento (<behavior script="..."> di una classe) non ha bisogno della firma: il gioco lo carica sempre come "void, Obj This"
+// Nemmeno le condizioni di vittoria (data\gamescripts) e gli script degli oggetti (i *_script di data\items.xml): il gioco passa loro la firma
+const behaviorScripts = new Set();
+for (const f of files.filter(f => /^data\/classes\/.+\.sc\.xml$/i.test(f))) {
+	for (const m of read(f).matchAll(/<behavior\b[^>]*?\bscript\s*=\s*"([^"]+)"/gi)) behaviorScripts.add(lower(m[1].replace(/\\/g, '/')));
+}
+const itemScripts = new Set();
+for (const f of files.filter(f => /^data\/items\.xml$/i.test(f))) {
+	for (const m of read(f).matchAll(/\b\w+_script\s*=\s*"file:\/\/([^"]+)"/gi)) itemScripts.add(lower(m[1].replace(/\\/g, '/')));
+}
 for (const f of files.filter(f => /\.vs$/i.test(f) && !/^patches\//i.test(f))) {  // le patch degli script non hanno firma: sono pezzi di codice con direttive
 	const text = read(f);
 	const first = text.split('\n')[0].replace(/\r$/, '');
-	if (!/^\s*\/\/\s*\S+/.test(first)) {
+	if (!/^\s*\/\/\s*\S+/.test(first) && !behaviorScripts.has(lower(f)) && !itemScripts.has(lower(f)) && !/^data\/gamescripts\//i.test(f)) {
 		error(f, 1, T(
 			'la primera línea tiene que ser un comentario con la firma, por ejemplo "// void, Obj This"',
 			'the first line has to be a comment with the signature, for example "// void, Obj This"',
@@ -746,7 +853,7 @@ for (const f of files.filter(f => /^data\/commands\/[^/]+\.xml$/i.test(f))) {
 for (const f of files.filter(f => /^civs\/[^/]+\.json$/i.test(f))) {
 	let j;
 	try { j = modernKeys(JSON.parse(read(f))); } catch (e) { continue; }
-	if (j.ai === true) {
+	if (j.ai === true && j.variant !== true) {
 		if (!j.alias && !j.ownAi) warn(f, 0, T(
 			'"ia": true sin tabla "alias": los guiones de IA del juego no encontrarán tus clases ni órdenes. La herramienta de clonado la genera',
 			'"ia": true without an "alias" table: the game\'s AI scripts will not find your classes or commands. The cloning tool generates it',

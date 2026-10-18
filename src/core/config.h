@@ -46,6 +46,7 @@ struct Config {
 
 	bool logFiles = false;
 	bool rejoinTrace = false;
+	bool rejoinReload = true;
 	std::string dumpFiles;
 	std::string dumpAtStartup;
 };

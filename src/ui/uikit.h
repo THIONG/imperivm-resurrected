@@ -253,6 +253,15 @@ inline std::string HumanBytes(uint64_t b)
 	return buf;
 }
 
+inline std::string TransferText(uint64_t done, uint64_t total, double perSecond)
+{
+	std::string out;
+	if (total) out = std::to_string(std::min<uint64_t>(100, done * 100 / total)) + " %  ·  ";
+	out += HumanBytes(done) + (total ? Tr(" of ") + HumanBytes(total) : "");
+	if (perSecond > 1024) out += "  ·  " + HumanBytes(static_cast<uint64_t>(perSecond)) + "/s";
+	return out;
+}
+
 const COLORREF kText = RGB(232, 216, 160), kDim = RGB(160, 146, 116), kGold = RGB(214, 170, 84),
 			   kBad = RGB(236, 110, 90), kOk = RGB(140, 200, 120);
 

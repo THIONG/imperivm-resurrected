@@ -101,11 +101,6 @@ bool HasAllMods(const State &st, const OnlineLobby &g)
 }
 
 namespace mpui_impl {
-bool SameGameplay(const State &st, const OnlineLobby &g)
-{
-	return g.gameplayKey.empty() || st.ownKey.empty() || g.gameplayKey == st.ownKey;
-}
-
 std::string SpectatorText(bool enabled, int delay)
 {
 	if (!enabled) return "No spectators";

@@ -14,6 +14,7 @@ if not defined HAVE_CL call "!VSDIR!\VC\Auxiliary\Build\vcvars32.bat" >nul 2>nul
 if not defined HAVE_CL set "PATH=!VSDIR!\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;!VSDIR!\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;!PATH!"
 set OUT=build\tests
 node tools\gen-tr.js || exit /b 1
+node tools\gen-builtin.js || exit /b 1
 node tools\check-addresses.js || exit /b 1
 node tools\check-layering.js || exit /b 1
 node tools\check-conventions.js || exit /b 1

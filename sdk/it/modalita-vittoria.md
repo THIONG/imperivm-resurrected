@@ -14,7 +14,7 @@ data\GameScripts\6 Dominio.vs
 
 - **Il nome del file è l'id della modalità**, numero compreso. La lobby elenca le modalità per nome completo del file. Due mod entrano in conflitto solo se usano esattamente lo stesso nome (`6 Dominio.vs` in entrambi). Quelle del gioco vanno dall'1 al 5.
 - Nella lobby compare senza il numero iniziale e passa per la traduzione: se il testo "Dominio" ha una voce nel tuo `loc`, apparirà tradotto ([Lingue](lingue.md)).
-- La prima riga è la firma: `//void, int player, str param`. `player` è il giocatore (da 1 a 8). `param` è il valore del limite scelto nella lobby (vedi più avanti).
+- La firma è `//void, int player, str param`. Il gioco carica sempre lo script con essa, quindi la prima riga è facoltativa, ma conviene scriverla. `player` è il giocatore (da 1 a 8). `param` è il valore del limite scelto nella lobby (vedi più avanti).
 - Il gioco lancia 8 copie dello script, una per giocatore, ognuna nel suo thread, anche se i giocatori sono meno. Scrivilo dal punto di vista di un solo giocatore, che guarda gli altri. Deve reggere i posti vuoti: quello dell'esempio li considera eliminati perché non hanno né insediamenti né truppe.
 
 ## Funzioni che si usano

@@ -68,7 +68,7 @@ void BuildRows(std::vector<Row> &donate, std::vector<Row> &contact)
 		const std::string shown = scheme == std::string::npos ? url : url.substr(scheme + 3);
 		donate.push_back({"PayPal", shown, true, url});
 	}
-	donate.push_back({"Bitcoin (BTC)", kBtc, false, kBtc});
+	donate.push_back({"Bitcoin address", kBtc, false, kBtc});
 	contact.push_back({"GitHub", "github.com/THIONG", true, kGitHub});
 	contact.push_back({"LinkedIn", "linkedin.com/in/saulrodriguezg", true, kLinkedIn});
 	contact.push_back({"Discord", kDiscordUser, false, kDiscordUser});

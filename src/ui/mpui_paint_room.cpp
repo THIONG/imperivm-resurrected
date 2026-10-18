@@ -61,7 +61,7 @@ void PaintGameRoom(Painter &p, const State &st)
 			}
 			if (inGame) continue;
 			if (m.receiving >= 0) {
-				waiting.push_back({m.name + Tr(m.receivingFromGb ? "  ·  downloading content from GameBanana " : "  ·  receiving content ") +
+				waiting.push_back({m.name + Tr("  ·  downloading content ") +
 					std::to_string(m.receiving) + " %", m.id, m.name});
 			}
 			else {
@@ -189,7 +189,7 @@ void PaintGameRoom(Painter &p, const State &st)
 			if (seat && !movingRows) p.Button(px + 196, y + 6, 60, 24, "Take", kGSeat, i, mx, my, true, false, 0);
 		}
 		if (!s.used) continue;
-		const bool raceEditable = !load && (s.local || (g.host && s.type == 1)) && !s.raceNames.empty() && s.fixedRace < 0;
+		const bool raceEditable = RaceEditable(g, s, load);
 		const bool hidden = (g.rules & kRuleBlindPick) && !load && !s.local && !(g.host && s.type == 1);
 		const std::string race = hidden ? "Hidden"
 			: s.race >= 0 && s.race < static_cast<int>(s.raceNames.size()) ? (RaceSeparator(s.raceNames) && s.race == 9 ? "—" : s.raceNames[s.race]) : "?";

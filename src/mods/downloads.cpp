@@ -18,15 +18,21 @@
 #include "core/guard.h"
 #include "core/pathsafe.h"
 #include "core/versioncmp.h"
+#include "core/zipfile.h"
 #include "mods/mods.h"
+#include "mods/catalogfilter.h"
+#include "mods/gbdownload.h"
+#include "mods/gbref.h"
+#include "mods/leftovers.h"
+#include "mods/looselayout.h"
 #include "i18n/tr.h"
 #include "core/uiport.h"
 
 namespace {
 
-const wchar_t kUserAgent[] = L"Imperivm-mod/0.9";
 const uint64_t kMaxDownload = 4ull << 30;
 const size_t kMaxJson = 8u << 20;
+const size_t kMapHeaderBytes = 64 * 1024;
 
 std::string GameDir()
 {
@@ -195,6 +201,14 @@ void SetProgress(uint64_t done, uint64_t total)
 	g_status.total = total;
 }
 
+void SetUnpack(bool unpacking, uint64_t done, uint64_t total)
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	g_status.unpacking = unpacking;
+	g_status.unpacked = done;
+	g_status.unpackTotal = total;
+}
+
 void Finish(bool ok, const std::string &msg)
 {
 	{
@@ -208,8 +222,7 @@ void Finish(bool ok, const std::string &msg)
 	if (ok) UiRefreshMainMenuButton();
 }
 
-std::string HttpGet(const std::string &url, const std::vector<std::wstring> &headers, std::string *toMemory,
-	const std::string &toFile, bool progress)
+std::string HttpGet(const std::string &url, const std::vector<std::wstring> &headers, std::string *toMemory, const std::string &toFile)
 {
 	std::wstring wurl = Wide(url);
 	URL_COMPONENTS uc = {sizeof(uc)};
@@ -227,16 +240,14 @@ std::string HttpGet(const std::string &url, const std::vector<std::wstring> &hea
 	}
 	std::wstring object = std::wstring(uc.lpszUrlPath, uc.dwUrlPathLength) +
 		(uc.lpszExtraInfo ? std::wstring(uc.lpszExtraInfo, uc.dwExtraInfoLength) : L"");
-	HINTERNET s = WinHttpOpen(kUserAgent, WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME,
+	HINTERNET s = WinHttpOpen(DownloadUserAgent(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME,
 		WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!s) {
-		s = WinHttpOpen(kUserAgent, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+		s = WinHttpOpen(DownloadUserAgent(), WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	}
 	HINTERNET c = s ? WinHttpConnect(s, std::wstring(uc.lpszHostName, uc.dwHostNameLength).c_str(), uc.nPort, 0) : nullptr;
-	HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", object.c_str(), nullptr, WINHTTP_NO_REFERER,
-						  WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE)
+	HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", object.c_str(), nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE)
 					: nullptr;
-	std::string err;
 	auto close = [&] {
 		if (r) WinHttpCloseHandle(r);
 		if (c) WinHttpCloseHandle(c);
@@ -249,15 +260,14 @@ std::string HttpGet(const std::string &url, const std::vector<std::wstring> &hea
 	for (const std::wstring &h : headers) {
 		WinHttpAddRequestHeaders(r, h.c_str(), static_cast<DWORD>(-1), WINHTTP_ADDREQ_FLAG_ADD);
 	}
-	if (!WinHttpSendRequest(r, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
-		!WinHttpReceiveResponse(r, nullptr)) {
+	if (!WinHttpSendRequest(r, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) || !WinHttpReceiveResponse(r, nullptr)) {
 		char buf[64];
 		sprintf_s(buf, "network error %lu", GetLastError());
 		close();
 		return buf;
 	}
-	DWORD code = 0, size = sizeof(code);
-	WinHttpQueryHeaders(r, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, nullptr, &code, &size, nullptr);
+	DWORD code = 0, codeSize = sizeof(code);
+	WinHttpQueryHeaders(r, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, nullptr, &code, &codeSize, nullptr);
 	if (code != 200) {
 		std::string detail;
 		char body[2048];
@@ -271,7 +281,7 @@ std::string HttpGet(const std::string &url, const std::vector<std::wstring> &hea
 			}
 		}
 		close();
-		return Tr("the server responded ") + std::to_string(code) + (detail.empty() ? "" : ": " + detail);
+		return "the server responded " + std::to_string(code) + (detail.empty() ? "" : ": " + detail);
 	}
 	wchar_t lenText[32] = {};
 	DWORD lenSize = sizeof(lenText);
@@ -288,17 +298,13 @@ std::string HttpGet(const std::string &url, const std::vector<std::wstring> &hea
 		file = CreateFileA(toFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
 		if (file == INVALID_HANDLE_VALUE) {
 			close();
-			return Tr("could not create ") + toFile;
+			return "could not create " + toFile;
 		}
 	}
 	std::vector<char> buf(256 * 1024);
 	uint64_t done = 0;
-	if (progress) SetProgress(0, total);
+	std::string err;
 	for (;;) {
-		if (g_cancel) {
-			err = Tr("canceled");
-			break;
-		}
 		DWORD n = 0;
 		if (!WinHttpReadData(r, buf.data(), static_cast<DWORD>(buf.size()), &n)) {
 			err = "connection interrupted";
@@ -316,8 +322,8 @@ std::string HttpGet(const std::string &url, const std::vector<std::wstring> &hea
 			err = "could not write to disk";
 			break;
 		}
-		if (progress) SetProgress(done, total);
 	}
+	if (err.empty() && total && done < total) err = "connection interrupted";
 	if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
 	if (!err.empty() && !toFile.empty()) DeleteFileA(toFile.c_str());
 	close();
@@ -327,14 +333,13 @@ std::string HttpGet(const std::string &url, const std::vector<std::wstring> &hea
 std::string HttpGetJson(const std::string &url, const std::vector<std::wstring> &headers, Json &out)
 {
 	std::string body;
-	std::string err = HttpGet(url, headers, &body, "", false);
+	std::string err = HttpGet(url, headers, &body, "");
 	if (!err.empty()) return err;
 	std::string perr;
-	if (!Json::Parse(body, out, &perr)) return TrFmt("invalid response (%s)", {perr});
+	if (!Json::Parse(body, out, &perr)) return "invalid response (" + perr + ")";
 	return "";
 }
 
-const char kGbApi[] = "https://gamebanana.com/apiv11";
 
 std::string GbGame()
 {
@@ -404,17 +409,6 @@ std::string StripHtml(const std::string &html)
 	return clean;
 }
 
-std::string GbImageUrl(const Json &m)
-{
-	const Json *media = m.Get("_aPreviewMedia");
-	const Json *images = media ? media->Get("_aImages") : nullptr;
-	if (!images || images->arr.empty()) return "";
-	const Json &img = images->arr[0];
-	const std::string base = img.GetString("_sBaseUrl");
-	const std::string file = img.GetString("_sFile530", img.GetString("_sFile"));
-	return base.empty() || file.empty() ? "" : base + "/" + file;
-}
-
 std::string DateVersion(uint64_t ts)
 {
 	const time_t t = static_cast<time_t>(ts);
@@ -425,27 +419,37 @@ std::string DateVersion(uint64_t ts)
 	return buf;
 }
 
-void GbFillSummary(GbMod &r, const Json &m)
+bool SystemReadsWebp()
 {
-	r.id = static_cast<uint64_t>(m.GetNumber("_idRow"));
+	static const bool webp = [] {
+		const GUID kWebpContainer = {0xe094b0e2, 0x67f2, 0x45b3, {0xb0, 0xea, 0x11, 0x53, 0x37, 0xca, 0x7c, 0xf3}};
+		const HRESULT co = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+		IWICImagingFactory *factory = nullptr;
+		IWICBitmapDecoder *decoder = nullptr;
+		const bool ok = SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory))) &&
+			SUCCEEDED(factory->CreateDecoder(kWebpContainer, nullptr, &decoder));
+		if (decoder) decoder->Release();
+		if (factory) factory->Release();
+		if (SUCCEEDED(co)) CoUninitialize();
+		LogI("download", "images: this system %s WebP, %s", ok ? "reads" : "does not read", ok ? "GameBanana thumbnails are used" : "the original images are used");
+		return ok;
+	}();
+	return webp;
+}
+
+void GbFillSummary(GbMod &r, const Json &m, bool sound)
+{
+	const uint64_t row = static_cast<uint64_t>(m.GetNumber("_idRow"));
+	r.id = row && sound ? GbSoundKey(row) : row;
 	r.name = m.GetString("_sName");
 	r.page = m.GetString("_sProfileUrl");
 	if (const Json *u = m.Get("_aSubmitter")) r.author = u->GetString("_sName");
-	r.logoUrl = GbImageUrl(m);
+	const std::vector<GbPicture> pictures = GbPictures(m, SystemReadsWebp());
+	r.logoUrl = pictures.empty() ? "" : pictures.front().card;
 	r.shots.clear();
-	if (const Json *media = m.Get("_aPreviewMedia")) {
-		if (const Json *images = media->Get("_aImages")) {
-			for (const Json &img : images->arr) {
-				const std::string base = img.GetString("_sBaseUrl"), file = img.GetString("_sFile");
-				if (base.empty() || file.empty()) continue;
-				GbShot s;
-				s.big = base + "/" + file;
-				const std::string thumbFile = img.GetString("_sFile220", img.GetString("_sFile530", file));
-				s.thumb = base + "/" + thumbFile;
-				r.shots.push_back(s);
-				if (r.shots.size() >= 14) break;
-			}
-		}
+	for (const GbPicture &p : pictures) {
+		r.shots.push_back({p.thumb, p.big});
+		if (r.shots.size() >= 14) break;
 	}
 	r.likes = static_cast<int>(m.GetNumber("_nLikeCount"));
 	r.views = static_cast<uint64_t>(m.GetNumber("_nViewCount"));
@@ -463,14 +467,19 @@ void GbFillSummary(GbMod &r, const Json &m)
 	}
 	if (const Json *t = m.Get("_aTags")) {
 		for (const Json &tag : t->arr) {
-			const std::string n = tag.type == Json::String ? tag.str : tag.GetString("_sValue", tag.GetString("_sTitle"));
+			const std::string title = tag.GetString("_sTitle"), value = tag.GetString("_sValue");
+			const std::string n = tag.type == Json::String ? tag.str : title.empty() ? value : value.empty() ? title : title + ": " + value;
 			if (!n.empty() && std::find(r.tags.begin(), r.tags.end(), n) == r.tags.end()) r.tags.push_back(n);
 		}
 	}
 	r.facts = CatalogFactsOf(r.category, r.tags);
+	if (sound) {
+		r.facts.category = kCatAudio;
+		r.facts.categories |= 1u << kCatAudio;
+	}
 	CatalogEntry &e = r.entry;
 	e.source = "GameBanana";
-	e.id = "gamebanana-" + std::to_string(r.id);
+	e.id = GbCatalogId(r.id);
 	e.name = r.name;
 	e.page = r.page;
 	e.gbId = r.id;
@@ -500,9 +509,9 @@ std::string GbFileVersion(const Json &file, const std::string &modVersion, size_
 	return DateVersion(static_cast<uint64_t>(file.GetNumber("_tsDateAdded")));
 }
 
-void GbFillDetails(GbMod &r, const Json &p)
+void GbFillDetails(GbMod &r, const Json &p, bool sound)
 {
-	GbFillSummary(r, p);
+	GbFillSummary(r, p, sound);
 	r.summary = p.GetString("_sDescription");
 	r.descriptionHtml = p.GetString("_sText");
 	r.description = StripHtml(r.descriptionHtml);
@@ -532,10 +541,7 @@ void GbFillDetails(GbMod &r, const Json &p)
 	if (const Json *req = p.Get("_aRequirements")) {
 		for (const Json &q : req->arr) {
 			if (q.type != Json::Array || q.arr.size() < 2 || q.arr[1].type != Json::String) continue;
-			const std::string url = Lower(q.arr[1].str);
-			const size_t at = url.find("gamebanana.com/mods/");
-			if (at == std::string::npos) continue;
-			const uint64_t dep = _strtoui64(url.c_str() + at + 20, nullptr, 10);
+			const uint64_t dep = GbKeyFromUrl(q.arr[1].str);
 			if (dep && dep != r.id && std::find(r.deps.begin(), r.deps.end(), dep) == r.deps.end()) r.deps.push_back(dep);
 		}
 	}
@@ -546,34 +552,45 @@ void GbFillDetails(GbMod &r, const Json &p)
 std::string GbFetchMod(uint64_t id, GbMod &out)
 {
 	Json j;
-	const std::string err = HttpGetJson(std::string(kGbApi) + "/Mod/" + std::to_string(id) + "/ProfilePage", {}, j);
+	const std::string err = HttpGetJson(std::string(GbApiBase()) + GbApiPath(id) + "/ProfilePage", {}, j);
 	if (!err.empty()) return err;
-	if (!j.Get("_idRow")) return j.GetString("_sErrorCode", Tr("empty response"));
+	if (!j.Get("_idRow")) return j.GetString("_sErrorCode", "empty response");
 	if (j.GetBool("_bIsTrashed", false) || j.GetBool("_bIsWithheld", false) || j.GetBool("_bIsPrivate", false)) {
 		return "the content is not available";
 	}
-	GbFillDetails(out, j);
+	GbFillDetails(out, j, GbIsSound(id));
+	return "";
+}
+
+std::string GbListSection(bool sound, std::vector<GbMod> &out)
+{
+	for (int page = 1; page <= 40; page++) {
+		Json j;
+		const std::string err = HttpGetJson(std::string(GbApiBase()) + (sound ? "/Sound" : "/Mod") + "/Index?_nPerpage=50&_nPage=" + std::to_string(page) +
+			"&_aFilters%5BGeneric_Game%5D=" + GbGame(), {}, j);
+		if (!err.empty()) return err;
+		const Json *recs = j.Get("_aRecords");
+		if (!recs) return j.GetString("_sErrorCode", "empty response");
+		for (const Json &m : recs->arr) {
+			GbMod r;
+			GbFillSummary(r, m, sound);
+			if (r.id) out.push_back(r);
+		}
+		const Json *meta = j.Get("_aMetadata");
+		if (recs->arr.empty() || (meta && meta->GetBool("_bIsComplete", false))) break;
+	}
 	return "";
 }
 
 std::string GbListAll(std::vector<GbMod> &out)
 {
 	out.clear();
-	for (int page = 1; page <= 40; page++) {
-		Json j;
-		const std::string err = HttpGetJson(std::string(kGbApi) + "/Mod/Index?_nPerpage=50&_nPage=" + std::to_string(page) +
-			"&_aFilters%5BGeneric_Game%5D=" + GbGame(), {}, j);
-		if (!err.empty()) return err;
-		const Json *recs = j.Get("_aRecords");
-		if (!recs) return j.GetString("_sErrorCode", Tr("empty response"));
-		for (const Json &m : recs->arr) {
-			GbMod r;
-			GbFillSummary(r, m);
-			if (r.id) out.push_back(r);
-		}
-		const Json *meta = j.Get("_aMetadata");
-		if (recs->arr.empty() || (meta && meta->GetBool("_bIsComplete", false))) break;
-	}
+	const std::string err = GbListSection(false, out);
+	if (!err.empty()) return err;
+	std::vector<GbMod> sounds;
+	const std::string soundErr = GbListSection(true, sounds);
+	if (!soundErr.empty()) LogW("download", "gamebanana: could not read the Sounds section (%s)", soundErr.c_str());
+	else out.insert(out.end(), sounds.begin(), sounds.end());
 	return "";
 }
 
@@ -585,7 +602,7 @@ void ReadGb(std::vector<CatalogEntry> &out, std::string &errors)
 		GbMod r;
 		const std::string err = GbFetchMod(m.gbId, r);
 		if (!err.empty()) {
-			errors += (errors.empty() ? "" : "; ") + std::string("GameBanana ") + std::to_string(m.gbId) + ": " + err;
+			errors += (errors.empty() ? "" : "; ") + std::string("GameBanana ") + GbKeyText(m.gbId) + ": " + err;
 			continue;
 		}
 		if (!r.hasFile) continue;
@@ -652,6 +669,44 @@ std::string FindModRoot(std::string dir)
 		dir += "\\" + only;
 	}
 	return dir;
+}
+
+int ReadMapKind(const std::string &file)
+{
+	FILE *fp = nullptr;
+	if (fopen_s(&fp, file.c_str(), "rb") != 0 || !fp) return kMapUnknown;
+	std::string head(kMapHeaderBytes, '\0');
+	head.resize(fread(&head[0], 1, head.size(), fp));
+	fclose(fp);
+	return BfhpMapKind(head);
+}
+
+void PlaceLooseFiles(const std::string &root, int category)
+{
+	std::vector<LooseFile> files;
+	bool gameFolders = false;
+	WIN32_FIND_DATAA fd;
+	HANDLE h = FindFirstFileA((root + "\\*").c_str(), &fd);
+	if (h == INVALID_HANDLE_VALUE) return;
+	do {
+		const std::string n = fd.cFileName;
+		if (n == "." || n == "..") continue;
+		const std::string low = Lower(n);
+		const bool map = low.size() > 5 && low.compare(low.size() - 5, 5, ".bfhp") == 0;
+		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) gameFolders = gameFolders || IsMarker(n);
+		else files.push_back({n, map ? ReadMapKind(root + "\\" + n) : kMapUnknown});
+	} while (FindNextFileA(h, &fd));
+	FindClose(h);
+	for (const LooseMove &m : PlanLooseFiles(files, gameFolders, category)) {
+		const std::string dir = root + "\\" + m.folder;
+		CreateDirectoryA(dir.c_str(), nullptr);
+		if (MoveFileA((root + "\\" + m.file).c_str(), (dir + "\\" + m.file).c_str())) {
+			LogI("download", "%s was loose at the root of the archive: placed in %s", m.file.c_str(), m.folder.c_str());
+		}
+		else {
+			LogW("download", "could not place %s in %s (error %lu)", m.file.c_str(), m.folder.c_str(), GetLastError());
+		}
+	}
 }
 
 void CheckFiles(const std::string &base, const std::string &rel, std::string &bad, unsigned &count)
@@ -779,8 +834,15 @@ std::string InspectArchive(const std::string &archive)
 	return "";
 }
 
-std::string Extract(const std::string &archive, const std::string &dest)
+std::string Extract(const std::string &archive, const std::string &dest, const ZipProgress &progress)
 {
+	if (IsZipFile(archive)) {
+		ZipLimits limits;
+		limits.maxEntries = kMaxArchiveEntries;
+		limits.maxBytes = kMaxArchiveBytes;
+		return ZipExtract(archive, dest, limits, progress);
+	}
+	if (GetFileAttributesA(TarPath().c_str()) == INVALID_FILE_ATTRIBUTES) return "this system can only install .zip files, and this archive is in another format";
 	const std::string bad = InspectArchive(archive);
 	if (!bad.empty()) return bad;
 	DWORD code = 1;
@@ -794,7 +856,11 @@ bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, con
 {
 	const std::string tmp = WorkDir() + "\\tmp-" + Timestamp();
 	MakeDirs(tmp);
-	msg = Extract(archive, tmp);
+	msg = Extract(archive, tmp, [](uint64_t done, uint64_t total) {
+		SetUnpack(true, done, total);
+		return !g_cancel.load();
+	});
+	SetUnpack(false, 0, 0);
 	if (!msg.empty()) {
 		DeleteTree(tmp);
 		return false;
@@ -813,6 +879,7 @@ bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, con
 		msg = Tr("not installed: it contains a disallowed file (") + bad + ")";
 		return false;
 	}
+	PlaceLooseFiles(root, CatalogCategoryFromName(info.tags.empty() ? std::string() : info.tags.front()));
 	Json manifest;
 	const std::string manifestPath = root + "\\mod.json";
 	const bool hasManifest = ReadJsonFile(manifestPath, manifest) && manifest.type == Json::Object;
@@ -832,10 +899,10 @@ bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, con
 	if (sources.type == Json::Object && !manifest.Get("sources")) {
 		manifest.Set("sources", sources);
 	}
-	else if (sources.type == Json::Object && sources.Get("gamebanana")) {
+	else if (sources.type == Json::Object && GbKeyFromJson(sources)) {
 		Json f = *manifest.Get("sources");
 		if (f.type != Json::Object) f = Json::MakeObject();
-		f.Set("gamebanana", *sources.Get("gamebanana"));
+		GbKeyToJson(f, GbKeyFromJson(sources));
 		if (sources.Get("tags")) f.Set("tags", *sources.Get("tags"));
 		if (!f.Get("page") && sources.Get("page")) f.Set("page", *sources.Get("page"));
 		manifest.Set("sources", f);
@@ -897,24 +964,35 @@ bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, con
 	ModsCancelUninstall(folder);
 	ModsScan();
 	const std::string label = name + (version.empty() || name.find(version) != std::string::npos ? "" : " " + version);
-	msg = pending ? label + Tr(" downloaded (applied on restart)") : label + Tr(" installed");
+	msg = pending ? TrFmt("%s downloaded (applied on restart)", {label}) : TrFmt("%s installed", {label});
 	return true;
 }
 
-std::string DownloadToTemp(const std::string &url, const std::string &nameHint, std::string &file)
+std::string DownloadToTemp(const std::string &url, uint64_t expectedBytes, const std::string &nameHint, bool allowOtherServers, std::string &file,
+	bool &usedOtherServers)
 {
+	usedOtherServers = false;
 	MakeDirs(WorkDir());
 	std::string ext = Lower(url.substr(0, url.find('?')));
 	ext = ext.size() > 4 && ext.find_last_of('.') != std::string::npos ? ext.substr(ext.find_last_of('.')) : ".zip";
 	if (ext.size() > 8 || ext.find('/') != std::string::npos) ext = ".zip";
 	file = WorkDir() + "\\" + SafeFolder(nameHint) + "-" + Timestamp() + ext;
-	return HttpGet(url, {}, nullptr, file, true);
+	DownloadHooks hooks;
+	hooks.progress = SetProgress;
+	hooks.cancelled = [] { return g_cancel.load(); };
+	return DownloadFile(url, expectedBytes, file, GameDir() + "\\mod\\_cache", allowOtherServers, hooks, usedOtherServers);
 }
 
 void RunInstall(const CatalogEntry &e, const Json &sources)
 {
 	std::string file;
-	std::string err = DownloadToTemp(e.url, e.name.empty() ? "mod" : e.name, file);
+	bool usedOtherServers = false;
+	std::string err = DownloadToTemp(e.url, e.bytes, e.name.empty() ? "mod" : e.name, true, file, usedOtherServers);
+	if (err.empty() && usedOtherServers && !e.md5.empty() && HashFile(file, BCRYPT_MD5_ALGORITHM) != e.md5) {
+		LogW("download", "gamebanana: the MD5 hash does not match after changing server; downloading again from the assigned server only");
+		DeleteFileA(file.c_str());
+		err = DownloadToTemp(e.url, e.bytes, e.name.empty() ? "mod" : e.name, false, file, usedOtherServers);
+	}
 	if (err.empty() && !e.sha256.empty() && HashFile(file, BCRYPT_SHA256_ALGORITHM) != e.sha256) {
 		err = "the SHA-256 hash does not match the catalog's (file tampered with or damaged)";
 	}
@@ -923,7 +1001,7 @@ void RunInstall(const CatalogEntry &e, const Json &sources)
 	}
 	if (!err.empty()) {
 		if (!file.empty()) DeleteFileA(file.c_str());
-		Finish(false, Tr("Could not download ") + (e.name.empty() ? e.url : e.name) + ": " + err);
+		Finish(false, TrFmt("Could not download %s: %s", {e.name.empty() ? e.url : e.name, Tr(err)}));
 		return;
 	}
 	std::string msg;
@@ -943,6 +1021,8 @@ void Worker()
 			g_jobs.pop_front();
 			g_status.active = true;
 			g_status.done = g_status.total = 0;
+			g_status.unpacking = false;
+			g_status.unpacked = g_status.unpackTotal = 0;
 			g_status.queued = static_cast<int>(g_jobs.size());
 			g_status.what = job.kind == Job::Entry
 				? job.entry.name + (job.entry.version.empty() || job.entry.name.find(job.entry.version) != std::string::npos ? "" : " " + job.entry.version)
@@ -953,7 +1033,7 @@ void Worker()
 		if (job.kind == Job::Entry) {
 			Json sources = Json::MakeObject();
 			if (!job.entry.page.empty()) sources.Set("page", Json::MakeString(job.entry.page));
-			if (job.entry.gbId) sources.Set("gamebanana", Json::MakeNumber(static_cast<double>(job.entry.gbId)));
+			GbKeyToJson(sources, job.entry.gbId);
 			if (!job.entry.tags.empty()) {
 				Json tags = Json::MakeArray();
 				for (const std::string &t : job.entry.tags) tags.arr.push_back(Json::MakeString(t));
@@ -1115,6 +1195,33 @@ void DlApplyPendingInstalls()
 	FindClose(h);
 }
 
+void DlCleanLeftovers()
+{
+	const std::string dir = WorkDir();
+	WIN32_FIND_DATAA fd;
+	HANDLE h = FindFirstFileA((dir + "\\*").c_str(), &fd);
+	if (h == INVALID_HANDLE_VALUE) return;
+	unsigned removed = 0;
+	uint64_t bytes = 0;
+	do {
+		const std::string n = fd.cFileName;
+		const bool folder = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+		if (!IsDownloadLeftover(n, folder)) continue;
+		const std::string path = dir + "\\" + n;
+		if (folder) {
+			DeleteTree(path);
+			if (!IsDir(path)) removed++;
+		}
+		else if (DeleteFileA(path.c_str())) {
+			removed++;
+			bytes += (static_cast<uint64_t>(fd.nFileSizeHigh) << 32) | fd.nFileSizeLow;
+		}
+		if (folder ? IsDir(path) : IsFile(path)) LogW("download", "could not remove the leftover %s (error %lu)", n.c_str(), GetLastError());
+	} while (FindNextFileA(h, &fd));
+	FindClose(h);
+	if (removed) LogI("download", "removed %u leftovers of interrupted downloads (%.1f MB)", removed, bytes / 1048576.0);
+}
+
 namespace {
 
 std::mutex g_ioLock;
@@ -1176,7 +1283,10 @@ void RunSearch(GbQuery q, uint64_t serial)
 			if (!search.empty()) {
 				std::string hay = Fold(m.name + " " + m.author);
 				for (const std::string &t : m.tags) hay += " " + Fold(t);
-				if (m.facts.category >= 0) hay += " " + Fold(Tr(CatalogCategoryLabel(m.facts.category)));
+				const uint32_t categories = CatalogCategoriesOf(m.facts);
+				for (int c = 0; c < kCatCount; c++) {
+					if ((categories >> c) & 1) hay += " " + Fold(Tr(CatalogCategoryLabel(c)));
+				}
 				if (hay.find(search) == std::string::npos) continue;
 			}
 			CatalogCount(m.facts, r.counts);
@@ -1269,7 +1379,7 @@ void ImageWorker()
 		std::string body;
 		std::shared_ptr<GbImage> img;
 		const bool big = url.compare(0, 2, "B|") == 0;
-		if (HttpGet(big ? url.substr(2) : url, {}, &body, "", false).empty()) img = DecodeImage(body, big ? 1600 : 320);
+		if (HttpGet(big ? url.substr(2) : url, {}, &body, "").empty()) img = DecodeImage(body, big ? 1600 : 320);
 		if (!img) {
 			static int logged = 0;
 			if (logged++ < 3) LogW("download", "gamebanana: could not show the image %s", url.c_str());
@@ -1303,7 +1413,7 @@ void InstallGbDependencies(const GbMod &m, int depth = 0)
 		GbMod dep;
 		const std::string err = GbFetchMod(depId, dep);
 		if (!err.empty() || !dep.hasFile) {
-			LogW("download", "gamebanana: %s needs the mod %llu, which could not be requested (%s)", m.name.c_str(), static_cast<unsigned long long>(depId),
+			LogW("download", "gamebanana: %s needs %s, which could not be requested (%s)", m.name.c_str(), GbKeyText(depId).c_str(),
 				err.empty() ? "no file" : err.c_str());
 			continue;
 		}
@@ -1318,7 +1428,7 @@ void RunGbInstall(GbMod m)
 	if (!m.details) {
 		const std::string err = GbFetchMod(m.id, m);
 		if (!err.empty() || !m.hasFile) {
-			Finish(false, TrFmt("Could not request %s from GameBanana", {m.name}) + (err.empty() ? "" : ": " + err));
+			Finish(false, TrFmt("Could not request %s from GameBanana", {m.name}) + (err.empty() ? "" : ": " + Tr(err)));
 			return;
 		}
 	}
@@ -1337,11 +1447,11 @@ void FetchGbFiles(uint64_t id)
 	auto r = std::make_shared<GbFiles>();
 	r->loading = false;
 	Json j;
-	std::string err = HttpGetJson(std::string(kGbApi) + "/Mod/" + std::to_string(id) + "/ProfilePage", {}, j);
-	if (err.empty() && !j.Get("_idRow")) err = j.GetString("_sErrorCode", Tr("empty response"));
+	std::string err = HttpGetJson(std::string(GbApiBase()) + GbApiPath(id) + "/ProfilePage", {}, j);
+	if (err.empty() && !j.Get("_idRow")) err = j.GetString("_sErrorCode", "empty response");
 	if (!err.empty()) {
 		r->error = err;
-		LogW("download", "gamebanana: could not read the versions of %llu (%s)", static_cast<unsigned long long>(id), err.c_str());
+		LogW("download", "gamebanana: could not read the versions of %s (%s)", GbKeyText(id).c_str(), err.c_str());
 	}
 	else {
 		const std::string modVersion = j.GetString("_sVersion");
@@ -1361,7 +1471,7 @@ void FetchGbFiles(uint64_t id)
 		}
 		std::sort(r->files.begin(), r->files.end(), [](const GbFile &a, const GbFile &b) { return a.date > b.date; });
 		Json u;
-		if (HttpGetJson(std::string(kGbApi) + "/Mod/" + std::to_string(id) + "/Updates?_nPage=1&_nPerpage=50", {}, u).empty()) {
+		if (HttpGetJson(std::string(GbApiBase()) + GbApiPath(id) + "/Updates?_nPage=1&_nPerpage=50", {}, u).empty()) {
 			if (const Json *recs = u.Get("_aRecords")) {
 				for (GbFile &f : r->files) {
 					for (const Json &up : recs->arr) {
@@ -1604,7 +1714,7 @@ void RoomModsThread(std::vector<RoomModRequest> reqs)
 			continue;
 		}
 		if (!r.gbId) {
-			RoomFail(r.id, Tr("not installed from GameBanana"));
+			RoomFail(r.id, "not installed from GameBanana");
 			continue;
 		}
 		const GbFiles files = [&] {
@@ -1620,7 +1730,7 @@ void RoomModsThread(std::vector<RoomModRequest> reqs)
 			}
 		}
 		if (!file) {
-			RoomFail(r.id, !files.error.empty() ? files.error : Tr("GameBanana does not have version ") + r.version);
+			RoomFail(r.id, !files.error.empty() ? files.error : "GameBanana does not have version " + r.version);
 			continue;
 		}
 		GbMod mod;
@@ -1653,6 +1763,9 @@ void RoomModsThread(std::vector<RoomModRequest> reqs)
 				std::lock_guard<std::mutex> lock2(g_roomLock);
 				g_room.got = doneBytes + g_status.done;
 				g_room.total = std::max(doneBytes + (g_status.total ? g_status.total : bytes), g_room.got);
+				g_room.unpacking = g_status.unpacking;
+				g_room.unpacked = g_status.unpacked;
+				g_room.unpackTotal = g_status.unpackTotal;
 			}
 			if (finished || g_roomCancel || GetTickCount() - t0 > 20 * 60 * 1000) break;
 		}
@@ -1663,7 +1776,7 @@ void RoomModsThread(std::vector<RoomModRequest> reqs)
 			g_room.installed[r.id] = folder;
 		}
 		else {
-			RoomFail(r.id, Tr("installation failed for version ") + r.version);
+			RoomFail(r.id, "installation failed for version " + r.version);
 		}
 	}
 	std::lock_guard<std::mutex> lock(g_roomLock);
@@ -1700,7 +1813,7 @@ void RoomModsCancel()
 
 std::string DlHttpGet(const std::string &url, std::string *toMemory, const std::string &toFile)
 {
-	return HttpGet(url, {}, toMemory, toFile, false);
+	return HttpGet(url, {}, toMemory, toFile);
 }
 
 std::string DlHttpGetJson(const std::string &url, Json &out)
@@ -1710,7 +1823,7 @@ std::string DlHttpGetJson(const std::string &url, Json &out)
 
 std::string DlExtract(const std::string &archive, const std::string &dest)
 {
-	return Extract(archive, dest);
+	return Extract(archive, dest, nullptr);
 }
 
 std::string DlFileSha256(const std::string &path)

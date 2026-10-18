@@ -87,6 +87,23 @@ std::vector<ModInfo> ModsList()
 	return g_mods;
 }
 
+std::vector<ModInfo> ModsSummaries()
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	std::vector<ModInfo> out;
+	out.reserve(g_mods.size());
+	for (ModInfo &m : g_mods) {
+		std::vector<std::string> paths = std::move(m.paths), loose = std::move(m.loosePaths), hidden = std::move(m.hidden);
+		std::vector<PatchedValue> values = std::move(m.patchValues);
+		out.push_back(m);
+		m.paths = std::move(paths);
+		m.loosePaths = std::move(loose);
+		m.hidden = std::move(hidden);
+		m.patchValues = std::move(values);
+	}
+	return out;
+}
+
 bool ModsFind(const std::string &folder, ModInfo &out)
 {
 	std::lock_guard<std::mutex> lock(g_lock);
@@ -150,6 +167,14 @@ bool ModsSaveProfile(const ModProfile &p)
 		mods.arr.push_back(Json::MakeString(m));
 	}
 	j.Set("mods", mods);
+	Json choices = Json::MakeArray();
+	for (const ModChoice &c : p.choices) {
+		Json o = Json::MakeObject();
+		o.Set("use", Json::MakeString(c.use));
+		o.Set("over", Json::MakeString(c.over));
+		choices.arr.push_back(o);
+	}
+	if (!choices.arr.empty()) j.Set("choices", choices);
 	CreateDirectoryA(ProfilesDir().c_str(), nullptr);
 	return WriteJsonFile(ProfilesDir() + "\\" + SafeFileName(p.name) + ".json", j);
 }

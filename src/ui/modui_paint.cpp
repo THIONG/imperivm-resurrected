@@ -42,8 +42,17 @@ void PaintDropList(Painter &p, const State &st)
 		if (st.drop == kDropMenu && i == 2) items[i].color = kBad;
 		if (st.drop == kDropProfile && (i == 1 || i + 1 == n)) items[i].color = kGold;
 	}
+	if (st.drop == kDropClashFiles) {
+		if (const ModIssues *is = SelectedIssues(st)) {
+			const int files = static_cast<int>(is->files.size());
+			for (int i = 0; i < n && i < files + static_cast<int>(is->values.size()); i++) {
+				const int kind = i < files ? is->files[i].kind : is->values[i - files].kind;
+				items[i].color = kind == kModRules ? kGold : kind == kModContent ? RGB(140, 196, 176) : kText;
+			}
+		}
+	}
 	const ui::DropLayout d = PaintDropMenu(p, g_drop.anchor, items, DropCurrent(st), st.dropScroll, kDesignW, kDesignH, kDropPick, kDropClose,
-		st.mouseX, st.mouseY, st.drop == kDropVersions ? 360 : 180);
+		st.mouseX, st.mouseY, st.drop == kDropClashFiles ? kDesignW - kDetailX - 16 : st.drop == kDropVersions ? 360 : 180);
 	g_drop.rows = d.rows;
 	g_drop.count = d.count;
 }
@@ -192,7 +201,7 @@ RECT PaintIoImageFit(Painter &p, int x, int y, int w, int h, const std::string &
 void PaintIoDetail(Painter &p, const State &st, const GbMod &m, int index)
 {
 	const int mx = st.mouseX, my = st.mouseY;
-	const int x = 16, y = 92, w = kDesignW - 32, h = 492;
+	const int x = 16, y = kContentY, w = kDesignW - 32, h = kFootY - 8 - kContentY;
 	p.Fill(x, y, w, h, pal::wellRaised);
 	p.Frame(x, y, w, h, pal::edge);
 	const int iw = 176, ih = 99;
@@ -315,20 +324,22 @@ void PaintFilterPanel(Painter &p, const State &st)
 		int arg, x, y, w;
 		std::string text;
 		bool on;
+		bool enabled;
 	};
 	struct Line {
 		const char *label;
 		int y;
 		const char *empty;
 	};
-	const int x = 16, y = 124, w = kDesignW - 32, labelW = 200, chipH = 28, rowStep = 34;
+	const int x = 16, y = kContentY + 32, w = kDesignW - 32, labelW = 200, chipH = 28, rowStep = 34;
 	const CatalogFilter &f = st.ioFilter;
 	const CatalogCounts &counts = st.io.counts;
 	std::vector<Chip> chips;
 	std::vector<Line> lines;
 	int cy = y + 16;
 	p.Font(0);
-	const auto addLine = [&](const char *label, int group, uint32_t mask, const std::vector<std::pair<int, std::string>> &items, const char *empty) {
+	const auto addLine = [&](const char *label, int group, uint32_t mask, const std::vector<std::pair<int, std::string>> &items, const char *empty,
+							 uint32_t disabled = 0) {
 		lines.push_back({label, cy, items.empty() ? empty : nullptr});
 		int cx = x + labelW;
 		for (const auto &it : items) {
@@ -337,27 +348,25 @@ void PaintFilterPanel(Painter &p, const State &st)
 				cx = x + labelW;
 				cy += rowStep;
 			}
-			chips.push_back({group * kIoFilterGroupStride + it.first, cx, cy, cw, it.second, ((mask >> it.first) & 1) != 0});
+			chips.push_back({group * kIoFilterGroupStride + it.first, cx, cy, cw, it.second, ((mask >> it.first) & 1) != 0, !((disabled >> it.first) & 1)});
 			cx += cw + 8;
 		}
 		cy += rowStep + 8;
 	};
 	static const char *const kGroupNames[] = {"Gameplay", "Maps and campaigns", "Cosmetic"};
-	bool anyType = false, players = false, language = false;
+	bool players = false, language = false;
 	for (int g = 0; g < 3; g++) {
 		std::vector<std::pair<int, std::string>> items;
+		uint32_t empty = 0;
 		for (int c = g * 3; c < g * 3 + 3; c++) {
 			const bool on = (f.types >> c) & 1;
-			if (!counts.types[c] && !on) continue;
+			if (!counts.types[c] && !on) empty |= 1u << c;
 			items.push_back({c, Tr(CatalogCategoryLabel(c)) + " (" + std::to_string(counts.types[c]) + ")"});
 			players = players || (on && CatalogHasPlayers(c));
 			language = language || (on && CatalogHasLanguage(c));
 		}
-		if (items.empty()) continue;
-		anyType = true;
-		addLine(kGroupNames[g], kIoFilterTypes, f.types, items, nullptr);
+		addLine(kGroupNames[g], kIoFilterTypes, f.types, items, nullptr, empty);
 	}
-	if (!anyType) addLine("Type", kIoFilterTypes, 0, {}, "Nothing has been published yet");
 	if (players) {
 		std::vector<std::pair<int, std::string>> items;
 		for (int n = kCatalogMinPlayers; n <= kCatalogMaxPlayers; n++) {
@@ -388,16 +397,14 @@ void PaintFilterPanel(Painter &p, const State &st)
 		}
 	}
 	for (const Chip &c : chips) {
-		const bool hov = p.Hover(c.x, c.y, c.w, chipH, mx, my);
+		const bool hov = c.enabled && p.Hover(c.x, c.y, c.w, chipH, mx, my);
 		p.Fill(c.x, c.y, c.w, chipH, c.on ? (hov ? RGB(150, 104, 40) : RGB(122, 82, 30)) : (hov ? pal::fieldHover : pal::field));
-		p.Frame(c.x, c.y, c.w, chipH, c.on ? pal::focus : hov ? pal::edgeHot : pal::edge);
+		p.Frame(c.x, c.y, c.w, chipH, c.on ? pal::focus : hov ? pal::edgeHot : c.enabled ? pal::edge : pal::divider);
 		p.Font(c.on ? 1 : 0);
-		p.Text(c.x, c.y, c.w, chipH, c.text, c.on ? RGB(255, 244, 210) : kText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-		p.AddHit(c.x, c.y, c.w, chipH, kIoFilterToggle, c.arg);
+		p.Text(c.x, c.y, c.w, chipH, c.text, c.on ? RGB(255, 244, 210) : c.enabled ? kText : kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		if (c.enabled) p.AddHit(c.x, c.y, c.w, chipH, kIoFilterToggle, c.arg);
 	}
 	const int n = CatalogFilterSize(f);
-	p.Font(3);
-	p.Text(x + 16, y + h - 38, w - 330, 28, n ? "Checked types add up; players and language narrow them down" : "Check the types you want to see", kDim);
 	p.Button(x + w - 296, y + h - 40, 140, 30, "Clear filters", kIoFilterClear, 0, mx, my, n > 0);
 	p.Button(x + w - 148, y + h - 40, 132, 30, "Close", kIoFilterClose, 0, mx, my, true, true);
 }
@@ -414,22 +421,22 @@ void PaintExplore(Painter &p, const State &st)
 		return;
 	}
 	const int nFilters = CatalogFilterSize(st.ioFilter);
-	PaintField(p, st, 16, 92, 300, 26, st.ioSearch, "Search...", st.focus == kIoSearchField, false, kIoFocusSearch, mx, my);
-	p.Button(322, 92, 190, 26, nFilters ? Tr("Filters (") + std::to_string(nFilters) + ")" : "Filters", kIoFilterOpen, 0, mx, my, true, nFilters > 0, 0);
-	Combo(p, st, 518, 92, 170, 26, kIoSortNames[st.ioSort], kDropIoSort);
+	PaintField(p, st, 16, kContentY, 300, 26, st.ioSearch, "Search...", st.focus == kIoSearchField, false, kIoFocusSearch, mx, my);
+	p.Button(322, kContentY, 190, 26, nFilters ? Tr("Filters (") + std::to_string(nFilters) + ")" : "Filters", kIoFilterOpen, 0, mx, my, true, nFilters > 0, 0);
+	Combo(p, st, 518, kContentY, 170, 26, kIoSortNames[st.ioSort], kDropIoSort);
 	const int pages = std::max(1, (io.total + kIoPerPage - 1) / kIoPerPage);
-	p.Button(kDesignW - 16 - 24, 92, 24, 26, ">", kIoNext, 0, mx, my, st.ioPage + 1 < pages && !io.loading, false, 0);
+	p.Button(kDesignW - 16 - 24, kContentY, 24, 26, ">", kIoNext, 0, mx, my, st.ioPage + 1 < pages && !io.loading, false, 0);
 	p.Font(3);
-	p.Text(kDesignW - 16 - 24 - 46, 92, 44, 26, std::to_string(st.ioPage + 1) + "/" + std::to_string(pages), kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-	p.Button(kDesignW - 16 - 24 - 46 - 28, 92, 24, 26, "<", kIoPrev, 0, mx, my, st.ioPage > 0 && !io.loading, false, 0);
+	p.Text(kDesignW - 16 - 24 - 46, kContentY, 44, 26, std::to_string(st.ioPage + 1) + "/" + std::to_string(pages), kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	p.Button(kDesignW - 16 - 24 - 46 - 28, kContentY, 24, 26, "<", kIoPrev, 0, mx, my, st.ioPage > 0 && !io.loading, false, 0);
 
-	const int gx = 16, gy = 126, cw = 237, ch = 222, gap = 4;
+	const int gx = 16, gy = kContentY + 34, cw = 237, ch = 222, gap = 4;
 	if (io.mods.empty()) {
-		p.Fill(gx, gy, kDesignW - 32, 456, pal::well);
-		p.Frame(gx, gy, kDesignW - 32, 456, pal::line);
+		p.Fill(gx, gy, kDesignW - 32, kFootY - 8 - gy, pal::well);
+		p.Frame(gx, gy, kDesignW - 32, kFootY - 8 - gy, pal::line);
 		p.Font(0);
 		std::string text = io.loading || !st.ioRequested ? "Searching GameBanana..."
-			: !io.error.empty()								? Tr("Could not connect to GameBanana: ") + io.error
+			: !io.error.empty()								? Tr("Could not connect to GameBanana: ") + Tr(io.error)
 			: !st.ioSearch.empty() || nFilters				? "No content matches the search."
 															: "There is no content published for Imperivm on GameBanana yet. Be the first to upload some!";
 		p.TextWrapped(gx + 20, gy + 20, kDesignW - 72, 60, text, io.error.empty() ? kDim : kBad);
@@ -510,7 +517,7 @@ void PaintPanel(Painter &p, const State &st)
 			{"Browse content", kTabExplore, 0, st.tab == 2, true}},
 		mx, my);
 	{
-		const std::vector<std::string> problems = ModsProblems(st.profile);
+		const std::vector<std::string> &problems = st.problems;
 		if (!problems.empty()) {
 			const std::string label = std::to_string(problems.size()) + " " + Tr(problems.size() == 1 ? "problem in the profile" : "problems in the profile");
 			p.Font(3);
@@ -519,6 +526,7 @@ void PaintPanel(Painter &p, const State &st)
 			p.Fill(kDesignW - 16 - bw, 60, bw, 26, hov ? RGB(86, 36, 26) : RGB(60, 26, 20));
 			p.Frame(kDesignW - 16 - bw, 60, bw, 26, hov ? RGB(255, 150, 130) : kBad);
 			PaintAlertIcon(p, kDesignW - 16 - bw + 8, 65, true);
+			p.Font(3);
 			p.Text(kDesignW - 16 - bw + 30, 60, bw - 38, 26, label, kBad, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 			p.AddHit(kDesignW - 16 - bw, 60, bw, 26, kShowProblems, 0);
 		}
@@ -539,8 +547,8 @@ void PaintPanel(Painter &p, const State &st)
 void PaintInstalled(Painter &p, const State &st)
 {
 	const int mx = st.mouseX, my = st.mouseY;
-	PaintField(p, st, kListX, 92, 300, 24, st.searchText, "Search your content...", st.focus == kSearchField, false, kFocusSearch, mx, my);
-	Combo(p, st, kListX + 306, 92, kListW - 306, 24, kFilterNames[st.filter], kDropFilter);
+	PaintField(p, st, kListX, kContentY, 300, 24, st.searchText, "Search your content...", st.focus == kSearchField, false, kFocusSearch, mx, my);
+	Combo(p, st, kListX + 306, kContentY, kListW - 306, 24, kFilterNames[st.filter], kDropFilter);
 
 	p.Fill(kListX, kListY, kListW, kInstalledListH, pal::well);
 	p.Frame(kListX, kListY, kListW, kInstalledListH, pal::line);
@@ -587,14 +595,14 @@ void PaintInstalled(Painter &p, const State &st)
 			DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 		p.Font(3);
 		if (m && !pending) {
-			const auto issues = st.issues.find(r.folder);
-			const bool bad = issues != st.issues.end() && !issues->second.problems.empty();
+			const auto issues = st.issues->find(r.folder);
+			const bool bad = issues != st.issues->end() && !issues->second.problems.empty();
 			CatalogEntry upd;
 			const bool hasUpd = !bad && FindUpdateFor(st, *m, upd);
 			p.Text(kListX + 350, y, 100, kRowH, bad ? "With errors" : hasUpd ? "\xE2\x86\x91 " + upd.version : m->gameplay ? "Gameplay" : m->kind == kModContent ? "Maps" : "Cosmetic",
 				bad ? kBad : hasUpd ? RGB(255, 226, 140) : m->gameplay ? kGold : m->kind == kModContent ? RGB(140, 196, 176) : kDim);
-			const auto isIt = st.issues.find(r.folder);
-			if (isIt != st.issues.end() && (!isIt->second.problems.empty() || isIt->second.overwrites > 0)) {
+			const auto isIt = st.issues->find(r.folder);
+			if (isIt != st.issues->end() && (!isIt->second.problems.empty() || isIt->second.overwrites > 0 || !isIt->second.notices.empty())) {
 				PaintAlertIcon(p, kListX + 456, y + 6, !isIt->second.problems.empty());
 			}
 		}
@@ -612,7 +620,7 @@ void PaintInstalled(Painter &p, const State &st)
 	}
 	if (!m) return;
 	const std::shared_ptr<const GbMod> io = m->gbId ? GbInfo(m->gbId) : nullptr;
-	int y = 92;
+	int y = kContentY;
 	p.Font(2);
 	p.Text(dx, y, dw, 28, m->name, kGold, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 	y += 30;
@@ -649,14 +657,48 @@ void PaintInstalled(Painter &p, const State &st)
 			DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 		y += 18;
 	}
-	const auto isIt = st.issues.find(m->folder);
-	if (isIt != st.issues.end()) {
+	const auto isIt = st.issues->find(m->folder);
+	if (isIt != st.issues->end()) {
 		const ModIssues &is = isIt->second;
 		for (size_t k = 0; k < is.problems.size() && k < 3; k++) {
 			PaintAlertIcon(p, dx, y + 2, true, 14);
-			y += p.TextWrapped(dx + 20, y, dw - 20, 36, is.problems[k], kBad);
+			y += p.TextWrapped(dx + 20, y, dw - 20, 54, is.problems[k], kBad);
 		}
-		if (is.overwrites > 0) y += 2 + p.TextWrapped(dx, y + 2, dw, 36, OverlapText(st, m->folder, is), kGold);
+		for (const std::string &notice : is.notices) {
+			if (y > kListY + kListH - 110) break;
+			p.Font(3);
+			y += 2 + p.TextWrapped(dx, y + 2, dw, 36, notice, kGold);
+		}
+		for (size_t k = 0; k < is.overlaps.size(); k++) {
+			const ModOverlap &ov = is.overlaps[k];
+			if (ov.problem) continue;
+			if (y > kListY + kListH - 110) break;
+			p.Font(3);
+			y += 2 + p.TextWrapped(dx, y + 2, dw, 36, OverlapText(ov), kGold);
+			if (!ov.choosable) continue;
+			if (ov.canUseMine || ov.canUseTheirs) {
+				const int bw = (dw - 6) / 2;
+				const int arg = static_cast<int>(k) * 2;
+				int bx = dx;
+				if (ov.canUseMine) {
+					p.Button(bx, y + 4, bw, 24, "Use this pack's files", kUseFiles, arg, mx, my, !st.busy, false, 0);
+					bx += bw + 6;
+				}
+				if (ov.canUseTheirs) p.Button(bx, y + 4, bw, 24, TrFmt("Use the files of %s", {ov.name}), kUseFiles, arg + 1, mx, my, !st.busy, false, 0);
+				y += 30;
+			}
+			else {
+				y += 2 + p.TextWrapped(dx, y + 2, dw, 36, "They are inside .pak files, so you can't choose which ones are used", kDim);
+			}
+		}
+		if (!is.files.empty() || !is.values.empty()) {
+			const std::string files = std::to_string(is.files.size()), values = std::to_string(is.values.size());
+			std::string label = TrFmt("Shared files (%s) and values (%s)", {files, values});
+			if (is.values.empty()) label = TrFmt("Shared files (%s)", {files});
+			else if (is.files.empty()) label = TrFmt("Shared values (%s)", {values});
+			Combo(p, st, dx, y + 4, dw, 24, label, kDropClashFiles);
+			y += 30;
+		}
 	}
 	const int btnY = kListY + kListH + 6;
 	CatalogEntry update;

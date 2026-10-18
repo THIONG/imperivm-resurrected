@@ -13,6 +13,7 @@
 #include <cstdint>
 #include "MinHook.h"
 #include "net/rejoin.h"
+#include "net/sharemsg.h"
 
 namespace rejoin_impl {
 
@@ -39,6 +40,10 @@ const unsigned kSlotIsPaused = 22;
 const unsigned kSlotSetPaused = 16;
 
 enum : uint8_t { kRjReq = 20, kRjAccept, kRjDeny, kRjState, kRjFile, kRjFileEnd, kRjReady, kRjGo, kRjCancel, kRjWait, kRjThreads, kRjDump, kRjObjects, kRjRawUnused, kRjReport, kRjQueries, kRjAi, kRjSquads, kRjModVars, kRjHandles };
+static_assert(kRejoinMessages.Has(kRjReq) && kRejoinMessages.Has(kRjHandles), "rejoin messages out of their range");
+
+enum : uint8_t { kRjReload = kReloadMessages.first, kRjReloadFile, kRjReloadEnd, kRjReloadAck, kRjReloadGo };
+static_assert(kReloadMessages.Has(kRjReloadGo), "reload messages out of their range");
 
 const char kMagicPrefix[] = "#RJ:";
 
@@ -268,6 +273,32 @@ void ApplySquads();
 std::string CollectQueries();
 void ApplyQueries();
 void LogDumpDiff(const std::string &host, const std::string &mine);
+std::string BuildState(const std::string &saveData);
+bool LoadSettings(const std::string &vfsPath, int slot);
+enum ReloadPhase { kRNone, kRWaitData, kRWaitSlot, kRWaitGo, kRWaitAcks, kRQuit, kRStart, kRLoading };
+struct ReloadState {
+	int phase = kRNone;
+	uint64_t from = 0;
+	std::string returning;
+	uint64_t returningId = 0;
+	std::vector<uint64_t> peers;
+	std::vector<uint64_t> waiting;
+	DWORD goneSince = 0;
+	std::string wireRaw;
+	WireState wire = {};
+	std::string save;
+	std::string cams;
+	bool mine = false;
+	bool quitAsked = false;
+	DWORD deadline = 0;
+};
+extern ReloadState g_reload;
+void ReloadBroadcast(const std::string &save, const std::string &cams, const std::string &returning, uint64_t returningId);
+void ReloadOnMessage(const Msg &m);
+bool ReloadOnCancel(const Msg &m);
+void ReloadTick();
+void ReloadCancel(const std::string &why, bool tellHost);
+void ReloadDrop();
 void HostCancel(const std::string &why);
 void HostOnRequest(uint64_t peer, int number);
 void HostTick();

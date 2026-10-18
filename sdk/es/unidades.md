@@ -76,6 +76,9 @@ archivos del juego, saca `data.pak` con [`extraer-datos.js`](herramientas/extrae
 - `unit_specials` son las [especialidades](especialidades.md), las del juego y las tuyas.
 - No copies el `altid` de la original. Es un alias que usan los scripts para encontrar «el soldado» de una civilización; dos clases con el
   mismo alias se confunden.
+- `edittree_pos` (por ejemplo `Units/Roman/Veteran`) es donde sale en el editor de mapas y en el menú de trucos: una clase con `entity`
+  cuya `edittree_pos` empieza por `Units/` sale allí, en el grupo de su civilización. La herramienta la copia de la base y le cambia el
+  último nombre.
 - Un archivo nuevo en `data\classes\` se carga solo. No hay que registrarlo.
 
 ## 2. La orden de reclutar

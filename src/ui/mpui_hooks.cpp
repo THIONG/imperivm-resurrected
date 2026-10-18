@@ -167,6 +167,33 @@ int __fastcall HookPumpMessages(void *winos)
 	return g_origPumpMessages(winos);
 }
 
+const int kIdReleaseLabel = 0x1022;
+const char kGameReleaseText[] = "Release 1.0";
+const unsigned kFlagVisible = 0x2;
+
+typedef int(__fastcall *MainMenuOnShow_t)(void *dlg);
+typedef void(__fastcall *GetTextA_t)(void *text, void *edx, char *buf, int size);
+typedef void(__fastcall *ModifyFlags_t)(void *wnd, void *edx, unsigned set, unsigned clear, int invalidate);
+MainMenuOnShow_t g_origMainMenuOnShow = nullptr;
+
+void HideGameReleaseLabel(void *dlg)
+{
+	void **vt = *reinterpret_cast<void ***>(dlg);
+	void *label = reinterpret_cast<GetChild_t>(vt[0x7c / 4])(dlg, nullptr, kIdReleaseLabel, *reinterpret_cast<const char **>(addr::kClassNameCUITextW));
+	if (!label) return;
+	char text[64] = {};
+	reinterpret_cast<GetTextA_t>(addr::kTextGetTextA)(label, nullptr, text, sizeof(text) - 1);
+	if (strcmp(text, kGameReleaseText) != 0) return;
+	reinterpret_cast<ModifyFlags_t>(addr::kModifyFlags)(label, nullptr, 0, kFlagVisible, 1);
+}
+
+int __fastcall HookMainMenuOnShow(void *dlg)
+{
+	const int r = g_origMainMenuOnShow(dlg);
+	HideGameReleaseLabel(dlg);
+	return r;
+}
+
 typedef void(__fastcall *MainMenuDtor_t)(void *dlg);
 MainMenuDtor_t g_origMainMenuDtor = nullptr;
 
@@ -201,6 +228,10 @@ void InstallMpUi(bool knownExe)
 	void *join = reinterpret_cast<void *>(addr::kJoinGameByIP);
 	if (HookCreate(join, reinterpret_cast<void *>(&HookJoinGameByIP), reinterpret_cast<void **>(&g_origJoinByIP)) == MH_OK) {
 		HookEnable(join);
+	}
+	void *mmShow = reinterpret_cast<void *>(addr::kMainMenuOnShow);
+	if (HookCreate(mmShow, reinterpret_cast<void *>(&HookMainMenuOnShow), reinterpret_cast<void **>(&g_origMainMenuOnShow)) == MH_OK) {
+		HookEnable(mmShow);
 	}
 	void *mmDtor = reinterpret_cast<void *>(addr::kMainMenuDtor);
 	if (HookCreate(mmDtor, reinterpret_cast<void *>(&HookMainMenuDtor), reinterpret_cast<void **>(&g_origMainMenuDtor)) == MH_OK) {

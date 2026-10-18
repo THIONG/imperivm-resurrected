@@ -8,5 +8,6 @@ void InstallAutosave(bool knownExe);
 void AutosaveTick();
 bool AutosaveOnExit();
 void AutosaveQuitIfReady();
+void AutosaveQuitWithoutSaving();
 std::string AutosaveRequestNamed(const std::string &name);
 bool AutosavePending();

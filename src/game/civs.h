@@ -9,6 +9,7 @@
 
 struct Civ {
 	std::string id;
+	std::string constant;
 	int index = 0;
 	int base = 0;
 	std::string internalName;
@@ -18,6 +19,8 @@ struct Civ {
 	bool random = true;
 	bool ai = false;
 	bool ownAi = false;
+	bool variant = false;
+	bool replacesBase = false;
 	std::map<std::string, std::string> aliasClasses, aliasOrders;
 	bool AiAlias() const { return ai && !ownAi; }
 	std::string folder;
@@ -33,18 +36,32 @@ std::string CivDisplayName(const Civ &c);
 
 const char *GameCivName(int index);
 int GameCivByName(const std::string &name);
+int CivsPlayerCiv(int player);
+
+void *CivsLocalPlayer();
+struct CivRaceAsBase {
+	explicit CivRaceAsBase(void *player);
+	~CivRaceAsBase();
+	CivRaceAsBase(const CivRaceAsBase &) = delete;
+	CivRaceAsBase &operator=(const CivRaceAsBase &) = delete;
+	int *slot = nullptr;
+	int real = 0;
+};
 
 std::vector<std::string> CivsErrorsFor(const std::string &folder);
 void CivsRegisterConstants(void *engine);
 
 void CivsOnRoomShown(void *dlg);
 const char *CivsRoomSeparator();
+std::vector<int> CivsRoomOrder(int items);
+int CivsRoomReplacement(int item, int items);
 void CivsBuildBegin();
 void CivsBuildEnd(void *settings);
 
 const char *CivsCityClassName(void *registry, const char *name, std::string &buf);
 
 void InstallCivs(bool knownExe);
+void InstallCivUi(bool knownExe);
 
 void InstallCivAi(bool knownExe);
 void CivAiRebuild();

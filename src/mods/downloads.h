@@ -34,6 +34,8 @@ struct DownloadStatus {
 	std::string what;
 	uint64_t done = 0;
 	uint64_t total = 0;
+	bool unpacking = false;
+	uint64_t unpacked = 0, unpackTotal = 0;
 	std::string message;
 	bool lastOk = true;
 	int queued = 0;
@@ -54,6 +56,7 @@ DownloadStatus DlStatus();
 void DlCancel();
 
 void DlApplyPendingInstalls();
+void DlCleanLeftovers();
 
 struct GbShot {
 	std::string thumb;
@@ -128,6 +131,8 @@ struct RoomModStatus {
 	int index = 0, count = 0;
 	std::string what;
 	uint64_t got = 0, total = 0;
+	bool unpacking = false;
+	uint64_t unpacked = 0, unpackTotal = 0;
 	std::map<std::string, std::string> installed;
 	std::vector<std::string> failed;
 	std::string note;

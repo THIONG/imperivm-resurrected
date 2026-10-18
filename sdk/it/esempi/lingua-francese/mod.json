@@ -7,7 +7,7 @@
   },
   "version": "0.1",
   "category": "Translations",
-  "tags": ["French"],
+  "tags": ["Language: French"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: añade el francés como idioma. Solo traduce el menú principal y las opciones; el resto de textos sale en inglés. La ayuda, los consejos y las imágenes del menú se toman del español.",

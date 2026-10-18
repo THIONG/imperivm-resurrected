@@ -88,6 +88,8 @@ void LoadConfig()
 	g_config.modOverrides = GetPrivateProfileIntA("Mods", "Override", 1, path) != 0;
 	g_config.logFiles = GetPrivateProfileIntA("Debug", "LogFiles", 0, path) != 0;
 	g_config.rejoinTrace = GetPrivateProfileIntA("Debug", "RejoinTrace", IsBetaVersion(ModVersionText()) ? 1 : 0, path) != 0;
+	GetPrivateProfileStringA("Online", "RejoinMode", "reload", buf, sizeof(buf), path);
+	g_config.rejoinReload = _stricmp(buf, "hot") != 0;
 	char dump[1024] = {};
 	GetPrivateProfileStringA("Debug", "Dump", "", dump, sizeof(dump), path);
 	g_config.dumpFiles = dump;
@@ -96,11 +98,11 @@ void LoadConfig()
 	g_config.dumpAtStartup = dumpStart;
 
 	LogI("boot", "config: Render(Enabled=%d VSync=%d Scaling=%d Brightness=%d FakeModeChange=%d) Display(Mode=%s "
-		"%dx%d TrapMouse=%d AllResolutions=%d) Game(ScrollSpeed=%.2f Autosave=%d every %d min, %d slots)",
+		"%dx%d TrapMouse=%d AllResolutions=%d) Game(ScrollSpeed=%.2f Autosave=%d every %d min, %d slots) Online(RejoinMode=%s)",
 		g_config.renderEnabled, g_config.vsync, g_config.scaleMode, g_config.brightness, g_config.fakeModeChange,
 		g_config.windowed ? "windowed" : "fullscreen", g_config.windowW, g_config.windowH, g_config.trapMouse,
 		g_config.allResolutions, g_config.scrollSpeed, g_config.autosave, g_config.autosaveMinutes,
-		g_config.autosaveSlots);
+		g_config.autosaveSlots, g_config.rejoinReload ? "reload" : "hot");
 }
 
 Config &MutableConfig()

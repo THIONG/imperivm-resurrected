@@ -25,7 +25,7 @@ void DoAction(int action, int arg)
 	switch (action) {
 	case kQuick: {
 		for (const OnlineLobby &g : g_s.lobbies) {
-			if (g.players < g.maxPlayers && !g.playing && !g.password && !g.kickedMe && SameGameplay(g_s, g) && !ScenarioModMissing(g)) {
+			if (g.players < g.maxPlayers && !g.playing && !g.password && !g.kickedMe && SteamRoomContent(g, g_s.ownKey) == RoomContent::kSame) {
 				TryJoin(g, "");
 				return;
 			}
@@ -104,7 +104,7 @@ void DoAction(int action, int arg)
 			break;
 		}
 		g_s.passPrompt = false;
-		TryJoin(g_s.passLobby, g_s.joinPassInput);
+		TryJoin(g_s.passLobby, g_s.joinPassInput, g_s.passWatch);
 		g_s.joinPassInput.clear();
 		break;
 	case kPassCancel:
@@ -423,7 +423,7 @@ void DoAction(int action, int arg)
 			}
 			if (hostId) SteamSendSwap(hostId, "intent " + std::to_string(id));
 		}
-		ModUiToast(Tr("You sent a swap request to ") + snap.slots[arg].name + ". They must accept it.");
+		ModUiToast(Tr("You sent a swap request to ") + snap.slots[arg].name + Tr(". They must accept it."));
 		break;
 	}
 	case kSwapAccept: {

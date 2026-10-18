@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 THIONG
+// Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
+#include "check.h"
+
+#include "net/roomcontent.h"
+
+namespace {
+
+RoomContentFacts Facts(const std::string &room, const std::string &own, const std::string &mapMod = "", bool haveMap = false)
+{
+	RoomContentFacts f;
+	f.roomKey = room;
+	f.ownKey = own;
+	f.mapModId = mapMod;
+	f.haveMapMod = haveMap;
+	return f;
+}
+
+void SameKeysAndNoMapModAreTheSame()
+{
+	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "685eb718eafca4a3")) == RoomContent::kSame);
+}
+
+void DifferentKeysAreOtherGameplay()
+{
+	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "1f00aa0000000000")) == RoomContent::kOtherGameplay);
+	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "1f00aa0000000000", "numida", false)) == RoomContent::kOtherGameplay);
+}
+
+void AMissingKeyIsNeverTheSame()
+{
+	CHECK(CompareRoomContent(Facts("", "685eb718eafca4a3")) == RoomContent::kChecking);
+	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "")) == RoomContent::kChecking);
+	CHECK(CompareRoomContent(Facts("", "")) == RoomContent::kChecking);
+}
+
+void TheMapModMustBeLoaded()
+{
+	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "685eb718eafca4a3", "numida", false)) == RoomContent::kOtherMap);
+	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "685eb718eafca4a3", "numida", true)) == RoomContent::kSame);
+}
+
+void AMissingMapModIsKnownBeforeTheKeys()
+{
+	CHECK(CompareRoomContent(Facts("", "", "numida", false)) == RoomContent::kOtherMap);
+	CHECK(CompareRoomContent(Facts("", "685eb718eafca4a3", "numida", true)) == RoomContent::kChecking);
+}
+
+void OnlyTheTwoDifferencesDiffer()
+{
+	CHECK(RoomContentDiffers(RoomContent::kOtherGameplay));
+	CHECK(RoomContentDiffers(RoomContent::kOtherMap));
+	CHECK(!RoomContentDiffers(RoomContent::kSame));
+	CHECK(!RoomContentDiffers(RoomContent::kChecking));
+}
+
+}
+
+int main()
+{
+	SameKeysAndNoMapModAreTheSame();
+	DifferentKeysAreOtherGameplay();
+	AMissingKeyIsNeverTheSame();
+	TheMapModMustBeLoaded();
+	AMissingMapModIsKnownBeforeTheKeys();
+	OnlyTheTwoDifferencesDiffer();
+	return test::Summary("roomcontent");
+}

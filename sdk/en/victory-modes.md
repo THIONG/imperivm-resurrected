@@ -14,7 +14,7 @@ data\GameScripts\6 Dominio.vs
 
 - **The file name is the mode's id**, number included. The lobby lists modes by full file name. Two mods clash only if they use exactly the same name (`6 Dominio.vs` in both). The game's own modes are 1 to 5.
 - The lobby shows it without the leading number, and runs it through translation: if the text "Dominio" has an entry in your `loc`, it shows up translated ([Languages](languages.md)).
-- The first line is the signature: `//void, int player, str param`. `player` is the player (1 to 8). `param` is the limit value chosen in the lobby (see below).
+- The signature is `//void, int player, str param`. The game always loads the script with it, so the first line is optional, but it is best to write it. `player` is the player (1 to 8). `param` is the limit value chosen in the lobby (see below).
 - The game launches 8 copies of the script, one per player, each in its own thread, even with fewer players. Write it from a single player's point of view, looking at the others. It has to cope with empty slots: the example treats them as eliminated because they have no settlements and no troops.
 
 ## Functions you'll use

@@ -13,10 +13,12 @@
 
 #include "MinHook.h"
 #include "hooks/hookcount.h"
+#include "game/civs.h"
 #include "game/controls.h"
 #include "net/spectator.h"
 #include "core/log.h"
 #include "mods/savelib.h"
+#include "net/sharemsg.h"
 #include "net/steamnet.h"
 #include "i18n/tr.h"
 #include "addr/engine.h"
@@ -252,6 +254,7 @@ enum : uint8_t {
 	kSpBye = 48,
 	kSpWait = 49,
 };
+static_assert(kSpectatorMessages.Has(kSpHello) && kSpectatorMessages.Has(kSpWait), "spectator messages out of their range");
 const size_t kChunk = 48 * 1024;
 const size_t kCaptureChunk = 128;
 const size_t kTicksMsgMax = 192 * 1024;
@@ -379,15 +382,22 @@ void HostFinish()
 	for (auto &kv : g_h.clients) kv.second.state = 0;
 }
 
-void HostHello(uint64_t peer, const std::string &version, bool open, int delaySec)
+void HostHello(uint64_t peer, const std::string &hello, bool open, int delaySec)
 {
 	if (!open) {
 		Send(peer, kSpNo, "The host no longer allows spectators.");
 		return;
 	}
-	const std::string mismatch = SteamVersionMismatch(version);
+	const size_t tab = hello.find('\t');
+	const std::string mismatch = SteamVersionMismatch(hello.substr(0, tab));
 	if (!mismatch.empty()) {
 		Send(peer, kSpNo, mismatch);
+		return;
+	}
+	const std::string key = tab == std::string::npos ? "" : hello.substr(tab + 1), own = SteamOwnGameplayKey();
+	if (key.empty() || key != own) {
+		Send(peer, kSpNo, "This game uses different content. Join it from the game list to download it.");
+		LogI("spectator", "%llu has different content (%s, the game's %s); not accepted", peer, key.empty() ? "unknown" : key.c_str(), own.c_str());
 		return;
 	}
 	if (g_h.clients.size() >= 16 && !g_h.clients.count(peer)) {
@@ -552,6 +562,7 @@ struct Viewer {
 	DWORD lastRoom = 0;
 	uint8_t *game = nullptr;
 	bool timeshift = false;
+	int contentWait = 0;
 };
 Viewer g_v;
 std::mutex g_viewMx;
@@ -844,6 +855,41 @@ void ViewerReattach(uint8_t *game)
 	}
 }
 
+std::string HelloText()
+{
+	return std::string(ModVersionText()) + "\t" + SteamOwnGameplayKey();
+}
+
+bool ViewerContentReady(const OnlineRoom &room)
+{
+	const RoomContent content = SteamRoomContent(room.info, SteamOwnGameplayKey());
+	if (content == RoomContent::kSame) {
+		g_v.contentWait = 0;
+		return true;
+	}
+	if (content == RoomContent::kChecking) {
+		if (g_v.contentWait != 1) {
+			g_v.contentWait = 1;
+			SetStatus("Checking your content...");
+			LogI("spectator", "waiting until the content of this computer is checked");
+		}
+		return false;
+	}
+	if (room.contentSync) {
+		if (g_v.contentWait != 2) {
+			g_v.contentWait = 2;
+			LogI("spectator", "the content for this game is being prepared; the broadcast waits for the restart");
+		}
+		return false;
+	}
+	if (g_v.contentWait != 3) {
+		g_v.contentWait = 3;
+		LogW("spectator", "the content of this computer differs from the game's; leaving the spectator room");
+		SteamLeaveForContent();
+	}
+	return false;
+}
+
 void ViewerTick(std::deque<Msg> &msgs)
 {
 	const DWORD now = GetTickCount();
@@ -857,7 +903,7 @@ void ViewerTick(std::deque<Msg> &msgs)
 		const OnlineRoom room = SteamCurrentRoom();
 		const bool inSpec = room.id && room.info.spectate && (!room.owner || g_v.phase != kIdle);
 		if (g_v.phase == kIdle || g_v.phase == kFailed) {
-			if (inSpec && g_v.phase == kIdle) {
+			if (inSpec && g_v.phase == kIdle && ViewerContentReady(room)) {
 				g_v = Viewer();
 				for (const OnlineMember &m : room.members) {
 					if (m.owner) {
@@ -875,6 +921,10 @@ void ViewerTick(std::deque<Msg> &msgs)
 			}
 			else if (!inSpec && g_v.phase == kFailed) {
 				ViewerReset();
+			}
+			else if (!inSpec && g_v.contentWait) {
+				g_v.contentWait = 0;
+				SetStatus("");
 			}
 		}
 		else if (!inSpec && !game) {
@@ -902,14 +952,14 @@ void ViewerTick(std::deque<Msg> &msgs)
 			if (g_v.helloTries > 0) SteamResetStaleSession(g_v.host);
 			g_v.helloTries++;
 			g_v.helloAt = now;
-			Send(g_v.host, kSpHello, ModVersionText());
+			Send(g_v.host, kSpHello, HelloText());
 		}
 		break;
 	case kWaitStart:
 		if (static_cast<int>(now - g_v.lastHostMsg) > 8000 && static_cast<int>(now - g_v.helloAt) > 8000) {
 			SteamResetStaleSession(g_v.host);
 			g_v.helloAt = now;
-			Send(g_v.host, kSpHello, ModVersionText());
+			Send(g_v.host, kSpHello, HelloText());
 		}
 		break;
 	case kRecvSnap:
@@ -921,7 +971,7 @@ void ViewerTick(std::deque<Msg> &msgs)
 			SteamResetStaleSession(g_v.host);
 			g_v.helloTries++;
 			g_v.helloAt = now;
-			Send(g_v.host, kSpHello, ModVersionText());
+			Send(g_v.host, kSpHello, HelloText());
 		}
 		break;
 	case kLoading:
@@ -1083,7 +1133,11 @@ void __fastcall HookReplaySerialize(void *self, void *edx, void *stream)
 
 unsigned __fastcall HookEndMenuShow(void *dlg)
 {
-	const unsigned r = g_origEndShow(dlg);
+	unsigned r = 0;
+	{
+		CivRaceAsBase local(CivsLocalPlayer());
+		r = g_origEndShow(dlg);
+	}
 	if (IsDemo()) EnableReplayMenu(dlg);
 	return r;
 }

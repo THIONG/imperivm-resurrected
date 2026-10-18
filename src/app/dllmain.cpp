@@ -40,6 +40,9 @@
 #include "game/gameroom.h"
 #include "net/discord.h"
 #include "net/netdrop.h"
+#include "net/lobbygates.h"
+#include "hooks/selectionguard.h"
+#include "hooks/curseguard.h"
 #include "hooks/builtinfixes.h"
 #include "net/nettune.h"
 #include "net/rejoin.h"
@@ -178,6 +181,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 			InstallModVars(knownExe);
 			InstallSpecials(knownExe);
 		InstallCivs(knownExe);
+		InstallCivUi(knownExe);
 		InstallCivAi(knownExe);
 		InstallDiag(knownExe);
 		BuiltinFixesInstall(knownExe);
@@ -190,6 +194,9 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 		InstallMpSave(knownExe);
 		InstallOnlineSaves(knownExe);
 		InstallNetDrop(knownExe);
+		InstallLobbyGates(knownExe);
+		InstallSelectionGuard(knownExe);
+		InstallCurseGuard(knownExe);
 		InstallRejoin(knownExe);
 		InstallNetTune(knownExe);
 		InstallSpectator(knownExe);

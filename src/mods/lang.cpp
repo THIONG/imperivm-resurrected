@@ -9,6 +9,7 @@
 #include "i18n/tr.h"
 #include "core/log.h"
 #include "mods/mods.h"
+#include "mods/features.h"
 
 #include <algorithm>
 #include <map>
@@ -603,4 +604,18 @@ bool LangMergeLoc(const std::string &base, const std::vector<std::string> &patch
 	out = head + "\r\n" + added + tail;
 	LogI("language", "%u mod texts added to game.loc.xml (%u variants with context)", total, variants);
 	return true;
+}
+
+namespace {
+
+void ForgetLooseFiles()
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	g_looseReady = false;
+	g_looseBases.clear();
+	g_looseCache.clear();
+}
+
+const bool g_featureRegistered = (ModsRegisterFeature({5, &ForgetLooseFiles, nullptr}), true);
+
 }

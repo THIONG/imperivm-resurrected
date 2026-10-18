@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include "MinHook.h"
@@ -42,6 +43,9 @@ HWND g_gameWnd = nullptr;
 WNDPROC g_gameWndProc = nullptr;
 LONG g_originalStyle = WS_POPUP | WS_VISIBLE;
 DisplayWindowHandler g_windowHandler = nullptr;
+std::string g_lastGeometry;
+int g_clicksLogged = 0;
+const int kClicksLogged = 5;
 
 const LONG kWindowedStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
 
@@ -88,6 +92,45 @@ void PhysToLog(int &x, int &y)
 	y = ly < 0 ? 0 : (ly >= g_logH ? g_logH - 1 : ly);
 }
 
+void LogGeometry(const char *why)
+{
+	if (!g_gameWnd) return;
+	RECT wr = {};
+	GetWindowRect(g_gameWnd, &wr);
+	const RECT cr = PhysClient();
+	POINT origin = {0, 0};
+	ClientToScreen(g_gameWnd, &origin);
+	MONITORINFO mi = {};
+	mi.cbSize = sizeof(mi);
+	GetMonitorInfoA(MonitorFromWindow(g_gameWnd, MONITOR_DEFAULTTONEAREST), &mi);
+	typedef UINT(WINAPI * GetDpiForWindow_t)(HWND);
+	static const GetDpiForWindow_t dpiFor = reinterpret_cast<GetDpiForWindow_t>(GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow"));
+	float s = 1, ox = 0, oy = 0;
+	if (Scaling()) Mapping(s, ox, oy);
+	char text[400];
+	sprintf_s(text, "game %dx%d, window %ldx%ld at %ld,%ld, client %ldx%ld at %ld,%ld, monitor %ldx%ld at %ld,%ld, window DPI %u, scale %.3f, margins %.0f,%.0f",
+		g_logW, g_logH, wr.right - wr.left, wr.bottom - wr.top, wr.left, wr.top, cr.right - cr.left, cr.bottom - cr.top, origin.x, origin.y,
+		mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top, mi.rcMonitor.left, mi.rcMonitor.top, dpiFor ? dpiFor(g_gameWnd) : 0u,
+		s, ox, oy);
+	if (g_lastGeometry == text) return;
+	g_lastGeometry = text;
+	LogI("display", "geometry (%s): %s", why, text);
+}
+
+void LogClick(LPARAM lp)
+{
+	if (g_clicksLogged >= kClicksLogged) return;
+	g_clicksLogged++;
+	const int rx = static_cast<short>(LOWORD(lp)), ry = static_cast<short>(HIWORD(lp));
+	int gx = rx, gy = ry;
+	if (Scaling()) PhysToLog(gx, gy);
+	POINT cursor = {};
+	if (g_origGetCursorPos ? g_origGetCursorPos(&cursor) : GetCursorPos(&cursor)) ScreenToClient(g_gameWnd, &cursor);
+	const RECT cr = PhysClient();
+	LogI("display", "click %d: message at %d,%d of a %ldx%ld client, cursor at %ld,%ld -> game %d,%d of %dx%d", g_clicksLogged, rx, ry,
+		cr.right - cr.left, cr.bottom - cr.top, cursor.x, cursor.y, gx, gy, g_logW, g_logH);
+}
+
 void PlaceWindow()
 {
 	if (!g_gameWnd || !g_faking) {
@@ -104,6 +147,7 @@ void PlaceWindow()
 	else {
 		g_origSetWindowPos(g_gameWnd, nullptr, 0, 0, DesktopW(), DesktopH(), SWP_NOZORDER | SWP_NOACTIVATE);
 	}
+	LogGeometry(Windowed() ? "windowed" : "full screen");
 }
 
 bool FakeMode(int w, int h, DWORD bpp, bool testOnly)
@@ -268,6 +312,8 @@ BOOL WINAPI HookClipCursor(const RECT *rc)
 
 LRESULT CALLBACK GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+	if (msg == WM_LBUTTONDOWN) LogClick(lp);
+	if (msg == WM_SIZE || msg == WM_DISPLAYCHANGE || msg == WM_DPICHANGED) LogGeometry("window changed");
 	if (Scaling() && msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) {
 		int x = static_cast<short>(LOWORD(lp)), y = static_cast<short>(HIWORD(lp));
 		PhysToLog(x, y);
@@ -338,6 +384,7 @@ void DisplayAttachWindow(HWND hwnd)
 	}
 	g_gameWnd = hwnd;
 	g_originalStyle = GetWindowLongA(hwnd, GWL_STYLE);
+	LogGeometry("game window");
 	AudioSetBackgroundMute(false);
 	if (Enabled()) {
 		g_gameWndProc = reinterpret_cast<WNDPROC>(

@@ -17,12 +17,16 @@ std::string IoTagsText(const GbMod &m)
 	std::vector<std::string> parts;
 	if (m.facts.category >= 0) parts.push_back(Tr(CatalogCategoryLabel(m.facts.category)));
 	else if (!m.category.empty()) parts.push_back(m.category);
+	const uint32_t extra = CatalogCategoriesOf(m.facts) & ~(m.facts.category >= 0 ? 1u << m.facts.category : 0u);
+	for (int c = 0; c < kCatCount; c++) {
+		if ((extra >> c) & 1) parts.push_back(Tr(CatalogCategoryLabel(c)));
+	}
 	if (m.facts.players) parts.push_back(CatalogPlayersText(m.facts.players) + Tr(" players"));
 	for (int l = 0; l < kLangCount; l++) {
 		if ((m.facts.languages >> l) & 1) parts.push_back(Tr(CatalogLanguageLabel(l)));
 	}
 	for (const std::string &t : m.tags) {
-		if (t == m.category || CatalogCategoryFromName(t) >= 0 || CatalogPlayersFromTag(t) || CatalogLanguagesFromTag(t)) continue;
+		if (t == m.category || CatalogTagIsFacet(t)) continue;
 		parts.push_back(Tr(t));
 	}
 	std::string out;
@@ -53,6 +57,15 @@ std::string LowerAscii(std::string s)
 	for (char &c : s) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
 	return s;
 }
+
+std::string ShortPath(const std::string &path)
+{
+	const size_t kMax = 48;
+	if (path.size() <= kMax) return path;
+	size_t cut = path.size() - (kMax - 3);
+	while (cut < path.size() && (static_cast<unsigned char>(path[cut]) & 0xC0) == 0x80) cut++;
+	return "..." + path.substr(cut);
+}
 }
 }
 
@@ -67,22 +80,20 @@ const ModInfo *FindModIn(const std::vector<ModInfo> &mods, const std::string &fo
 
 const ModInfo *FindMod(const std::string &folder) { return FindModIn(g_s.mods, folder); }
 
-std::string OverlapText(const State &st, const std::string &folder, const ModIssues &is)
+std::string OverlapText(const ModOverlap &ov)
 {
-	std::vector<std::string> group = is.overlapFolders;
-	group.push_back(folder);
-	std::string used = folder;
-	for (const std::string &f : ModsLoadOrder(st.profile.mods)) {
-		if (std::find(group.begin(), group.end(), f) != group.end()) {
-			used = f;
-			break;
-		}
-	}
-	const ModInfo *m = FindModIn(st.mods, folder);
-	const ModInfo *u = FindModIn(st.mods, used);
-	std::string with;
-	for (const std::string &o : is.overlapWith) with += (with.empty() ? "" : ", ") + o;
-	return TrFmt("%s changes the same files as %s; the files of %s are used", {m ? m->name : folder, with, u ? u->name : used});
+	const std::string files = std::to_string(ov.files);
+	const std::string choice = ov.chosen > 0 ? Tr(" (your choice)") : "";
+	if (ov.mine == ov.files) return TrFmt("Same files as %s (%s): the ones from this pack are used", {ov.name, files}) + choice;
+	if (ov.theirs == ov.files) return TrFmt("Same files as %s (%s): the ones from %s are used", {ov.name, files, ov.name}) + choice;
+	return TrFmt("Same files as %s (%s): %s from this pack and %s from the other are used", {ov.name, files, std::to_string(ov.mine), std::to_string(ov.theirs)}) + choice;
+}
+
+const ModIssues *SelectedIssues(const State &st)
+{
+	if (st.selected < 0 || st.selected >= static_cast<int>(st.rows.size())) return nullptr;
+	const auto it = st.issues->find(st.rows[st.selected].folder);
+	return it == st.issues->end() ? nullptr : &it->second;
 }
 
 bool Pending(const State &st, const std::string &folder)
@@ -101,8 +112,8 @@ std::vector<int> VisibleRows(const State &st)
 			const std::string hay = LowerAscii((m ? m->name : "") + " " + r.folder);
 			if (hay.find(q) == std::string::npos) continue;
 		}
-		const auto issues = st.issues.find(r.folder);
-		const bool bad = !m || (issues != st.issues.end() && !issues->second.problems.empty());
+		const auto issues = st.issues->find(r.folder);
+		const bool bad = !m || (issues != st.issues->end() && !issues->second.problems.empty());
 		switch (st.filter) {
 		case 1: if (!r.active) continue; break;
 		case 2: if (r.active) continue; break;
@@ -159,13 +170,13 @@ void BuildUsage()
 		g_s.usedBy[m.folder] = ModsProfilesUsing(m.folder);
 		if (ModsUninstallPending(m.folder)) g_s.pendingUninstall.push_back(m.folder);
 	}
-	g_s.issues.clear();
-	for (const ModInfo &m : g_s.mods) g_s.issues[m.folder] = ModsIssuesFor(g_s.profile, m.folder);
+	g_s.issues = std::make_shared<const std::map<std::string, ModIssues>>(ModsIssuesForAll(g_s.profile));
+	g_s.problems = ModsProblemsFrom(g_s.profile, *g_s.issues);
 }
 
 void Reload()
 {
-	g_s.mods = ModsList();
+	g_s.mods = ModsSummaries();
 	g_s.profileNames = ModsProfileNames();
 	g_s.profile = ModsLoadProfile(ModsActiveProfileName());
 	BuildRows();
@@ -297,7 +308,10 @@ void FinishName()
 	}
 	ModProfile p;
 	p.name = name;
-	if (mode == kNameSaveAs) p.mods = g_s.profile.mods;
+	if (mode == kNameSaveAs) {
+		p.mods = g_s.profile.mods;
+		p.choices = g_s.profile.choices;
+	}
 	ModsSaveProfile(p);
 	SwitchProfile(name);
 	SetStatus(mode == kNameNew ? Tr("Profile \"") + name + Tr("\" created (empty): enable its content in the list")
@@ -360,6 +374,13 @@ std::vector<std::string> DropItems(const State &st)
 			if (&v == latest) s += "  ·  latest";
 			if (InstalledVersionOf(st, st.verMod, v.version)) s += "  ·  installed";
 			items.push_back(s);
+		}
+		return items;
+	}
+	if (st.drop == kDropClashFiles) {
+		if (const ModIssues *is = SelectedIssues(st)) {
+			for (const ModOverlapFile &f : is->files) items.push_back(ShortPath(f.path) + "  \xE2\x86\x92  " + f.usedName + (f.chosen ? Tr(" (your choice)") : ""));
+			for (const ModOverlapValue &v : is->values) items.push_back(v.file + "  " + ShortPath(v.label) + "  \xE2\x86\x92  " + v.usedName);
 		}
 		return items;
 	}
@@ -499,6 +520,7 @@ void ModUiDrawHoverCard(uint32_t *buf, int w, int h, const std::string &text, CO
 
 void ModUiOpen()
 {
+	ModsReadPatchedFiles();
 	std::lock_guard<std::mutex> lock(g_lock);
 	Reload();
 	g_s.open = true;

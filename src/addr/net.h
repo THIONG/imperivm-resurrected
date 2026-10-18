@@ -32,6 +32,7 @@ inline constexpr uintptr_t kReplaySerialize = 0x0058d8c0;
 inline constexpr uintptr_t kSendPlayerInfo = 0x0064c8c0;
 inline constexpr uintptr_t kBroadcastGameDesc = 0x0064c990;
 inline constexpr uintptr_t kAddFoundGame = 0x0064d090;
+inline constexpr uintptr_t kShellDtor = 0x0064d660;
 inline constexpr uintptr_t kShellRemovePlayer = 0x0064d780;
 inline constexpr uintptr_t kCTCPAddrGetIP = 0x0064fdd0;
 inline constexpr uintptr_t kNetComputeGameVersionHash = 0x006d98d0;
@@ -50,5 +51,7 @@ inline constexpr uintptr_t kNetProtocol = 0x00830214;
 inline constexpr uintptr_t kTransport = 0x008379dc;
 inline constexpr uintptr_t kSyncState = 0x009a704c;
 inline constexpr uintptr_t kGameEndTick = 0x009a707c;
+inline constexpr uintptr_t kTcpGateListBegin = 0x00a084c8;
+inline constexpr uintptr_t kTcpGateListEnd = 0x00a084cc;
 
 }

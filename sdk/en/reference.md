@@ -28,12 +28,15 @@ A mod is a folder in `mods\`. Folders starting with `.` or `_` are ignored. With
 | `loc\<language>.loc.xml`, `loc\<language>\*.loc.xml` | Texts added to the game's ([Languages](languages.md)) | No |
 | `local\<language>\<path>` | File the game sees as `currentlang\<path>`, only with that language | No |
 | `local\<language>.pak` | Language pack (also `<language>_something.pak`). Only the one for the game's language is mounted | Depends on its contents |
+| `hidden.txt` | Game files the mod hides, one path per line; the ones after `[language]` are only hidden with that language. For old mods that removed files by replacing the game's packs; `shrink-mod.js` writes it | Yes, if it hides gameplay files |
+| `rle.mmp.tail` | The mod's graphics: what it changes in or adds to the game's `rle.mmp`, which goes after it, with the fingerprint of the game's `rle.mmp` it was made for. `shrink-mod.js` writes it. Only one active pack can have it | No |
+| `movies\…` | Cutscenes (`PlayMovie`): they are looked up in the active packs first, in load order | No |
 | `gameres\…` | Loose interface images ([Images](images.md)) | No |
 | Any other path | Loose file with the same path as in the game | No |
 
 - Forbidden extensions: `.exe .dll .asi .bat .cmd .com .scr .ps1 .vbs .js .msi .sys .cpl .lnk .reg .jar .hta .wsf .pif`. With one of them, the mod doesn't load.
 - An extension that isn't a known one, and isn't forbidden, is allowed and never executed.
-- If two mods ship the same file, the one that comes first in the **load order** wins. The game works that order out, nobody picks it: first what the mods ask for (a mod goes above the ones it needs in `requires` and the ones in its `loadAfter`, and below the ones in its `loadBefore`); then cosmetic mods go above content (maps, battles, conquest), and content above mods that change gameplay; on a tie, by `id`. The same mods give the same order on every computer. The content manager warns when two active mods change the same files and says whose files are used.
+- If two mods ship the same file, a loose file beats one inside a `.pak`; between two loose files, or two inside `.pak` files, the one that comes first in the **load order** wins. The game works that order out, nobody picks it: first what the mods ask for (a mod goes above the ones it needs in `requires` and the ones in its `loadAfter`, and below the ones in its `loadBefore`); then cosmetic mods go above content (maps, battles, conquest), and content above mods that change gameplay; on a tie, by `id`. The same mods give the same order on every computer. On each mod's card, the content manager lists the files it shares with other active mods and whose copy of each one is used. If two active mods replace the same gameplay files and neither names the other in `requires`, `loadAfter` or `loadBefore`, it is shown as a problem: use only one, or a compatibility patch (a mod that ships the merged files and has both in its `loadAfter`). When every file they share is cosmetic (textures, sounds, interface), the player can choose whose files are used; the choice is saved in the profile, only applies to loose files and changes neither the load order nor what counts online. To change a few values of a file that another mod may also change, a patch is better (section 6): patches add up instead of replacing the file.
 
 Test folder `<game>\mod\` (no mod needed; it beats all mods):
 
@@ -59,8 +62,8 @@ Test folder `<game>\mod\` (no mod needed; it beats all mods):
 | `loadAfter` | list of ids | empty | Your mod goes above those: its files, patches and texts win |
 | `loadBefore` | list of ids | empty | Your mod goes below those |
 | `category` | text | empty | GameBanana category ([Publishing](publishing.md)) |
-| `tags` | list of texts | empty | GameBanana tags: players (maps) and language (campaigns, translations, audio) |
-| `sources` | object | none | `url` (or `page`), `gamebanana` (number) and `tags` (list, added to the ones above) |
+| `tags` | list of texts | empty | GameBanana tags, `Title: value`: more categories (`Type`), players (`Players`) and language (`Language`). See [Publishing](publishing.md#tags) |
+| `sources` | object | none | `url` (or `page`), `gamebanana` or `gamebananaSound` (number, from the Mods or Sounds section) and `tags` (list, added to the ones above) |
 | `language` | object, list of objects or text | none | `code`, `name` and `base` (`english` by default). Plain text = just the code. See [Languages](languages.md) |
 | `commands` | object | none | `{"<orders file without extension>": {"name": text or object per language}}`. See [Keys](keys.md) |
 
@@ -74,7 +77,7 @@ Guide: [Civilizations](civilizations.md).
 
 | Field | Type | Default | Required | What it does |
 |---|---|---|---|---|
-| `id` | text | file name | No | Letters, numbers and `_`; starts with a letter; up to 24. Stored in lowercase. In scripts it's the constant with a capital first letter (`Dacia`) |
+| `id` | text | file name | No | Letters, numbers and `_`; starts with a letter; up to 24. Stored in lowercase. In scripts it's the constant as you write it, with a capital first letter (`Dacia`, `RomeImperial`) |
 | `index` | integer 10-99 | — | Yes | The civilization's number |
 | `base` | text | `Gaul` | No | Game civilization it inherits from: `Gaul`, `RepublicanRome`, `Carthage`, `Iberia`, `ImperialRome`, `Britain`, `Egypt`, `Germany` (also `Rome`, `Roman`, `Briton`) |
 | `name` | text, or object per language | the `id`, capitalized | No | Name in the lobby |
@@ -87,6 +90,8 @@ Guide: [Civilizations](civilizations.md).
 | `ai` | boolean | `false` | No | The AI plays with your classes and orders (otherwise with the base's). In the draw, an AI only gets civilizations that have it |
 | `ownAi` | boolean | `false` | No | With `ai`: the mod ships all the AI scripts |
 | `alias` | object | none | No | `classes` and `commands`: name in the base → name in your civilization (each value a text) |
+| `variant` | boolean | `false` | No | Variant of the base: uses its classes, `GetPlayerRace` returns the base and `Mod_PlayerCiv` the chosen one. With it, `ai` is `true` unless set |
+| `replacesBase` | boolean | `false` | No | The base doesn't show in the lobby: this civilization takes its place and its share of the random draw |
 
 - `race="<id>"` in a class's `<properties>` uses the civilization by its `id` or its `internalName`.
 - Repeated `id` or `index`: the one from the mod that comes first wins; the others are ignored with a warning.

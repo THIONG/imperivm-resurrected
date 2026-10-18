@@ -3,6 +3,7 @@
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #include "check.h"
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -423,6 +424,236 @@ static void ScriptLegacyAndErrors()
 	CHECK(Contains(data, "// ok"));
 }
 
+static void RemovedByAnotherPatch()
+{
+	std::vector<std::string> errors;
+	std::set<std::string> removed;
+	std::string data = kIni;
+	CHECK(PatchIniText(data, "[GamePlay]\n-TeachingLevel2\n", errors, &removed));
+	CHECK(errors.empty());
+	CHECK(!PatchIniText(data, "[gameplay]\n-teachinglevel2\n", errors, &removed));
+	CHECK(errors.empty());
+	CHECK(Lacks(data, "TeachingLevel2"));
+	CHECK(!PatchIniText(data, "[GamePlay]\n-TeachingLevel3\n", errors, &removed));
+	CHECK_EQ(errors.size(), size_t(1));
+	errors.clear();
+	CHECK(!PatchIniText(data, "[GamePlay]\n-TeachingLevel2\n", errors));
+	CHECK_EQ(errors.size(), size_t(1));
+	errors.clear();
+	CHECK(PatchIniText(data, "[GamePlay]\nTeachingLevel2 = 7\n", errors, &removed));
+	CHECK(PatchIniText(data, "[GamePlay]\n-TeachingLevel2\n", errors, &removed));
+	CHECK(errors.empty());
+	CHECK(Lacks(data, "TeachingLevel2"));
+
+}
+
+static void XmlRemovedByAnotherPatch()
+{
+	std::vector<std::string> errors;
+	XmlPatchRun run(kCommands);
+	CHECK(run.Ok());
+	CHECK(run.Apply("<patch><remove select=\"//cmd[@name='other']\"/></patch>", errors));
+	CHECK(errors.empty());
+	CHECK(!run.Apply("<patch><remove select='//CMD[@name=\"other\"]'/></patch>", errors));
+	CHECK(!run.Apply("<patch><remove select=\"/commands/cmd[3]\"/></patch>", errors));
+	CHECK(!run.Apply("<patch><remove select=\"/commands/cmd[@costgold='1']\"/></patch>", errors));
+	CHECK(errors.empty());
+	CHECK(Lacks(run.Text(), "\"other\""));
+	CHECK(!run.Apply("<patch><remove select=\"//cmd[@name='nothere']\"/></patch>", errors));
+	CHECK_EQ(errors.size(), size_t(1));
+	errors.clear();
+	CHECK(!run.Apply("<patch><set select=\"/commands/cmd[@name='other']\" costgold=\"2\"/></patch>", errors));
+	CHECK_EQ(errors.size(), size_t(1));
+	errors.clear();
+
+	XmlPatchRun nested(kCommands);
+	CHECK(nested.Apply("<patch><remove select=\"//cmd[@name='trainRHastatus']\"/></patch>", errors));
+	CHECK(!nested.Apply("<patch><remove select=\"//src[@obj='RBarracks']\"/></patch>", errors));
+	CHECK(errors.empty());
+
+	XmlPatchRun replaced(kCommands);
+	CHECK(replaced.Apply("<patch><replace select=\"//cmd[@name='other']\"><cmd name=\"renamed\"/></replace></patch>", errors));
+	CHECK(!replaced.Apply("<patch><remove select=\"//cmd[@name='other']\"/></patch>", errors));
+	CHECK_EQ(errors.size(), size_t(1));
+	errors.clear();
+
+	XmlPatchRun renamed(kCommands);
+	CHECK(renamed.Apply("<patch><set select=\"//cmd[@name='other']\" name=\"moved\"/></patch>", errors));
+	CHECK(!renamed.Apply("<patch><remove select=\"//cmd[@name='other']\"/></patch>", errors));
+	CHECK_EQ(errors.size(), size_t(1));
+	errors.clear();
+
+	std::string data = kCommands;
+	CHECK(PatchXmlText(data, "<patch><remove select=\"//cmd[@name='other']\"/></patch>", errors));
+	CHECK(!PatchXmlText(data, "<patch><remove select=\"//cmd[@name='other']\"/></patch>", errors));
+	CHECK_EQ(errors.size(), size_t(1));
+
+	XmlPatchRun broken("<commands>");
+	CHECK(!broken.Ok());
+	errors.clear();
+	CHECK(!broken.Apply("<patch><remove select=\"//cmd\"/></patch>", errors));
+	CHECK_EQ(errors.size(), size_t(1));
+}
+
+static void XmlRunMatchesOneByOne()
+{
+	const std::vector<std::string> patches = {
+		"<patch><set select=\"//cmd[@name='other']\" costgold=\"2\" unset=\"key\"/></patch>",
+		"<patch><add select=\"/commands\" position=\"start\"><cmd name=\"first\"/></add></patch>",
+		"<patch><add select=\"//cmd[@name='trainRArcher']\" position=\"after\"><cmd name=\"afterArcher\"/><cmd name=\"two\"/></add></patch>",
+		"<patch><add select=\"//cmd[@name='trainRHastatus']\"><src obj=\"Extra\"/></add></patch>",
+		"<patch><replace select=\"//cmd[@name='two']\"><cmd name=\"three\"/></replace></patch>",
+		"<patch><remove select=\"//src[@obj='RBarracks']\"/><add select=\"/commands\" position=\"end\"><cmd name=\"last\"/></add></patch>",
+		"<patch><set select=\"//nothing\" a=\"1\"/></patch>"};
+	std::string one = kCommands;
+	std::vector<std::string> errors;
+	XmlPatchRun run(kCommands);
+	std::vector<std::string> runErrors;
+	for (const std::string &p : patches) {
+		const bool a = PatchXmlText(one, p, errors);
+		const bool b = run.Apply(p, runErrors);
+		CHECK_EQ(a, b);
+	}
+	CHECK_EQ(run.Text(), one);
+	CHECK_EQ(runErrors, errors);
+
+	const std::string mixed = "<a>x<b/> <c/>\n<d/></a>\n";
+	const std::vector<std::string> steps = {"<patch><remove select=\"/a/b\"/></patch>", "<patch><remove select=\"/a/c\"/></patch>",
+		"<patch><add select=\"/a/d\"><e/></add></patch>", "<patch><remove select=\"/a/d/e\"/></patch>"};
+	std::string mixedOne = mixed;
+	XmlPatchRun mixedRun(mixed);
+	for (const std::string &p : steps) {
+		CHECK(PatchXmlText(mixedOne, p, errors));
+		CHECK(mixedRun.Apply(p, runErrors));
+	}
+	CHECK_EQ(mixedRun.Text(), mixedOne);
+	std::string bom = "\xEF\xBB\xBF" + std::string(kCommands);
+	XmlPatchRun withBom(bom);
+	CHECK(withBom.Apply(patches[0], errors));
+	CHECK_EQ(withBom.Text().compare(0, 3, "\xEF\xBB\xBF"), 0);
+}
+
+static std::string NodeOf(const PatchedValue &v)
+{
+	return v.key.substr(0, v.key.rfind("/@"));
+}
+
+static void XmlResolve()
+{
+	const std::vector<std::vector<PatchedValue>> r = PatchXmlResolve("Data/Commands.xml", kCommands, {},
+		{"<patch><set select=\"//cmd[@name='other']\" costgold=\"5\"/></patch>",
+			"<patch><set select=\"/commands/cmd[3]\" CostGold=\"6\" unset=\"key\"/></patch>",
+			"<patch><set select=\"//cmd\" execdelay=\"1\"/></patch>",
+			"<patch><set select=\"//cmd[@name='nothere']\" costgold=\"1\" optional=\"yes\"/></patch>"});
+	CHECK_EQ(r.size(), size_t(4));
+	if (r.size() != 4) return;
+	CHECK_EQ(r[0].size(), size_t(1));
+	CHECK_EQ(r[1].size(), size_t(2));
+	CHECK_EQ(r[2].size(), size_t(3));
+	CHECK(r[3].empty());
+	if (r[0].size() != 1 || r[1].size() != 2 || r[2].size() != 3) return;
+	CHECK_EQ(r[0][0].key, r[1][0].key);
+	CHECK_EQ(r[0][0].file, std::string("data/commands.xml"));
+	CHECK_EQ(r[0][0].label, std::string("//cmd[@name='other']/@costgold"));
+	CHECK_EQ(r[0][0].value, std::string("5"));
+	CHECK_EQ(r[1][0].label, std::string("/commands/cmd[3]/@CostGold"));
+	CHECK(r[1][1].removed);
+	CHECK_EQ(NodeOf(r[2][2]), NodeOf(r[0][0]));
+	CHECK(NodeOf(r[2][0]) != NodeOf(r[0][0]));
+
+	const std::vector<std::vector<PatchedValue>> added = PatchXmlResolve("x.xml", kCommands, {},
+		{"<patch><add select=\"/commands\"><cmd name=\"new\"/></add></patch>", "<patch><set select=\"//cmd[@name='new']\" costgold=\"1\"/></patch>",
+			"<patch><set select=\"/commands/cmd[4]\" costgold=\"2\"/></patch>"});
+	CHECK(added.size() == 3 && added[0].empty() && added[1].size() == 1 && added[2].size() == 1);
+	if (added.size() == 3 && added[1].size() == 1 && added[2].size() == 1) CHECK_EQ(added[1][0].key, added[2][0].key);
+
+	const std::vector<std::vector<PatchedValue>> shifted = PatchXmlResolve("x.xml", kCommands, {"<patch><remove select=\"//cmd[@name='trainRArcher']\"/></patch>"},
+		{"<patch><set select=\"/commands/cmd[2]\" costgold=\"1\"/></patch>", "<patch><set select=\"//cmd[@name='other']\" costgold=\"2\"/></patch>"});
+	CHECK(shifted.size() == 2 && shifted[0].size() == 1 && shifted[1].size() == 1);
+	if (shifted.size() == 2 && shifted[0].size() == 1 && shifted[1].size() == 1) CHECK_EQ(shifted[0][0].key, shifted[1][0].key);
+
+	CHECK(PatchXmlResolve("x.xml", "<commands>", {}, {"<patch/>"}).empty());
+}
+
+static const PatchedValue *Value(const std::vector<PatchedValue> &values, const std::string &key)
+{
+	for (const PatchedValue &v : values) {
+		if (v.key == key) return &v;
+	}
+	std::printf("missing value %s\n", test::Show(key).c_str());
+	return nullptr;
+}
+
+static void XmlValues()
+{
+	const std::vector<PatchedValue> v = PatchValues("Data/Units.XML",
+		"<patch>\n"
+		"\t<set select=\"//Unit[@Name='Legionary'][@civ='Rome']\" HP=\"120\" optional=\"yes\" unset=\"armor, speed\"/>\n"
+		"\t<add select=\"/units\"><unit name=\"new\"/></add>\n"
+		"\t<remove select=\"//unit[@name='old']\"/>\n"
+		"\t<replace select=\"//unit[@name='x']\"><unit name=\"x\"/></replace>\n"
+		"\t<set select=\"//unit[2]\" hp=\"1\"/>\n"
+		"\t<set select=\"//unit[\" hp=\"1\"/>\n"
+		"</patch>\n");
+	CHECK_EQ(v.size(), size_t(4));
+	const PatchedValue *hp = Value(v, "//unit[@civ='rome'][@name='legionary']/@hp");
+	CHECK(hp != nullptr);
+	if (hp) {
+		CHECK_EQ(hp->file, std::string("data/units.xml"));
+		CHECK_EQ(hp->label, std::string("//Unit[@Name='Legionary'][@civ='Rome']/@HP"));
+		CHECK_EQ(hp->value, std::string("120"));
+		CHECK(!hp->removed);
+	}
+	const PatchedValue *armor = Value(v, "//unit[@civ='rome'][@name='legionary']/@armor");
+	CHECK(armor != nullptr && armor->removed);
+	CHECK(Value(v, "//unit[@civ='rome'][@name='legionary']/@speed") != nullptr);
+	CHECK(Value(v, "//unit[2]/@hp") != nullptr);
+
+	const std::vector<PatchedValue> a = PatchValues("data/units.xml", "<patch><set select=\"unit[@name='x']\" hp=\"1\"/></patch>");
+	const std::vector<PatchedValue> b = PatchValues("data/units.xml", "<patch><set select=' /UNIT[ @name = \"X\" ] ' HP=\"2\"/></patch>");
+	const std::vector<PatchedValue> deep = PatchValues("data/units.xml", "<patch><set select=\"//unit[@name='x']\" hp=\"1\"/></patch>");
+	CHECK_EQ(a.size(), size_t(1));
+	CHECK_EQ(b.size(), size_t(1));
+	CHECK_EQ(deep.size(), size_t(1));
+	if (a.size() == 1 && b.size() == 1 && deep.size() == 1) {
+		CHECK_EQ(a[0].key, b[0].key);
+		CHECK(a[0].key != deep[0].key);
+	}
+
+	CHECK(PatchValues("data/units.xml", "<patch><set select=\"//unit\" hp=\"1\"></patch>").empty());
+	CHECK(PatchValues("data/units.xml", "").empty());
+	CHECK(PatchValues("scripts/ai.vs", "@top\nint a;\n").empty());
+}
+
+static void IniValues()
+{
+	const std::vector<PatchedValue> v = PatchValues("Options/Game.ini",
+		"Before = 1\n"
+		"[Game]\n"
+		"; comment\n"
+		"Speed = 3 \n"
+		"-Fog\n"
+		"+Extra line\n"
+		"NoEquals\n"
+		"[OTHER]\n"
+		"SPEED=4\n");
+	CHECK_EQ(v.size(), size_t(3));
+	const PatchedValue *speed = Value(v, "[game]speed");
+	CHECK(speed != nullptr);
+	if (speed) {
+		CHECK_EQ(speed->file, std::string("options/game.ini"));
+		CHECK_EQ(speed->label, std::string("[Game] Speed"));
+		CHECK_EQ(speed->value, std::string("3"));
+		CHECK(!speed->removed);
+	}
+	const PatchedValue *fog = Value(v, "[game]fog");
+	CHECK(fog != nullptr && fog->removed);
+	const PatchedValue *other = Value(v, "[other]speed");
+	CHECK(other != nullptr && other->value == "4");
+	const std::vector<PatchedValue> upper = PatchValues("options/game.ini", "[GAME]\nSPEED = 5\n");
+	CHECK(upper.size() == 1 && upper[0].key == "[game]speed");
+}
+
 int main()
 {
 	XmlSet();
@@ -437,5 +668,11 @@ int main()
 	IniErrorsAndFormat();
 	ScriptDirectives();
 	ScriptLegacyAndErrors();
+	RemovedByAnotherPatch();
+	XmlRemovedByAnotherPatch();
+	XmlRunMatchesOneByOne();
+	XmlResolve();
+	XmlValues();
+	IniValues();
 	return test::Summary("patchxml");
 }

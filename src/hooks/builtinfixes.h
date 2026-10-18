@@ -4,11 +4,16 @@
 #pragma once
 
 #include <string>
-#include <utility>
 #include <vector>
+
+struct BuiltinPatch {
+	std::string path;
+	std::string text;
+	std::string gameFileSha256;
+};
 
 void BuiltinFixesInstall(bool knownExe);
 
 bool BuiltinFilePath(const std::string &rel, std::string &diskRel);
 
-std::vector<std::pair<std::string, std::string>> BuiltinPatches();
+std::vector<BuiltinPatch> BuiltinPatches();

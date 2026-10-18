@@ -8,6 +8,7 @@
 #include <string>
 
 #include "hooks/builtinfixes.h"
+#include "hooks/builtin_data.h"
 #include "core/log.h"
 
 namespace {
@@ -45,6 +46,7 @@ const char kHeroClassPatch[] =
 	"</patch>\n";
 
 bool g_enabled = false;
+bool g_texts = false;
 
 std::string GameDir()
 {
@@ -95,6 +97,7 @@ bool WriteIfDifferent(const std::string &file, const char *text)
 void BuiltinFixesInstall(bool knownExe)
 {
 	if (!knownExe) return;
+	g_texts = true;
 	const std::string target = GameDir() + "\\" + kCacheDir + kHeroAttackIndependentPath;
 	g_enabled = WriteIfDifferent(target, kHeroAttackIndependent);
 	LogI("game", "fixes: hero attack on an independent stronghold with its army: %s", g_enabled ? "ready" : "Could NOT prepare the script");
@@ -107,9 +110,14 @@ bool BuiltinFilePath(const std::string &rel, std::string &diskRel)
 	return true;
 }
 
-std::vector<std::pair<std::string, std::string>> BuiltinPatches()
+std::vector<BuiltinPatch> BuiltinPatches()
 {
-	std::vector<std::pair<std::string, std::string>> out;
-	if (g_enabled) out.push_back({kHeroClassPath, kHeroClassPatch});
+	std::vector<BuiltinPatch> out;
+	if (g_enabled) out.push_back({kHeroClassPath, kHeroClassPatch, ""});
+	if (g_texts) {
+		int count = 0;
+		const BuiltinText *texts = BuiltinPatchTexts(count);
+		for (int i = 0; i < count; i++) out.push_back({texts[i].path, texts[i].text, texts[i].gameFileSha256 ? texts[i].gameFileSha256 : ""});
+	}
 	return out;
 }

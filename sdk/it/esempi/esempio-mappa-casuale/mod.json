@@ -6,8 +6,8 @@
     "italian": "Esempio: tipo di mappa casuale"
   },
   "version": "1.0",
-  "category": "Maps",
-  "tags": ["2-8 players"],
+  "category": "Scenarios",
+  "tags": ["Players: 2-8"],
   "authors": ["Imperivm Resurrected"],
   "description": {
     "spanish": "Ejemplo del SDK: un tipo de mapa aleatorio nuevo, Anillo (un anillo de tierra con un mar en el centro y montañas entre medias), que sale en el desplegable Tipo de mapa de la sala. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",

@@ -210,15 +210,17 @@ void MpUiDraw(uint32_t *buf, int w, int h)
 				for (const OnlineLobby &l : g_s.lobbies) {
 					if (l.id == check.id) fresh = &l;
 				}
-				if (fresh) TryJoinNow(*fresh, check.password);
+				if (fresh) TryJoinNow(*fresh, check.password, check.watch);
 				else ModUiToast("That room is no longer open.");
 			}
 		}
 		if (const uint64_t resync = SteamTakeResync()) {
 			for (const OnlineLobby &l : g_s.lobbies) {
-				if (l.id == resync) TryJoinNow(l, g_s.joinPassInput);
+				const bool watch = l.specLobby == resync && (l.id != resync || l.specOnly);
+				if (l.id == resync || watch) TryJoinNow(l, g_s.joinPassInput, watch);
 			}
 		}
+		if (g_s.ownKey.empty()) g_s.ownKey = SteamOwnGameplayKey();
 		if (g_s.view == kViewList && g_s.ready && !g_s.room.id && !g_s.joinCheck.id && GetTickCount() - g_s.selectedPoll > 2500) {
 			const std::vector<int> vis = Visible(g_s);
 			if (g_s.selected >= 0 && g_s.selected < static_cast<int>(vis.size())) {
@@ -278,6 +280,7 @@ void MpUiDraw(uint32_t *buf, int w, int h)
 		ApplyPredicted(g_s.game, g_s.predicted);
 		ApplySeatDisplay(g_s.game);
 		ApplySaveLook(g_s.game);
+		RedirectReplacedRaces(g_s.game);
 		if (!g_s.game.active && g_s.dropKind <= kDropPreset) g_s.dropOpen = false;
 		if (g_s.dropOpen && g_s.dropKind == kDropSlot && (g_flow.arrivingIds[g_s.dropIndex & 7] || g_s.game.slots[g_s.dropIndex & 7].joining)) {
 			g_s.dropOpen = false;

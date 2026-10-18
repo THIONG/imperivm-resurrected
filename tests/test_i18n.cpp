@@ -66,6 +66,12 @@ int main(int argc, char **argv)
 	g_language = "spanish";
 	Check(Tr("Waiting for Ana (scenario)...") == "Esperando a Ana (escenario)...", "pattern es");
 	Check(TrFmt("%s: not valid JSON (%s)", {"a.json", "boom"}) == "a.json: no es un JSON válido (boom)", "TrFmt es");
+	Check(TrFmt("Could not download %s: %s", {"Greek Mod", Tr("GameBanana sent 0 B instead of the 908.4 MB file. If it was uploaded a moment ago, try "
+															 "again in a few minutes.")}) ==
+			"No se pudo descargar Greek Mod: GameBanana ha enviado 0 B en lugar del archivo de 908.4 MB. Si se acaba de subir, prueba de nuevo dentro "
+			"de unos minutos.",
+		"download reason es");
+	Check(Tr("the server responded 503") == "el servidor respondió 503" && Tr("network error 12002") == "error de red 12002", "reason patterns es");
 	g_language = "italian";
 	Check(TrFmt("%s: not valid JSON (%s)", {"a.json", "boom"}) == "a.json: JSON non valido (boom)", "TrFmt it");
 	g_language = "english";
@@ -75,6 +81,10 @@ int main(int argc, char **argv)
 	Check(TrSource("a.json: no es un JSON válido (boom)") == "a.json: not valid JSON (boom)", "TrSource es pattern");
 	Check(TrSource("a.json: JSON non valido (boom)") == "a.json: not valid JSON (boom)", "TrSource it pattern");
 	Check(TrSource("Esperando a Ana (escenario)...") == "Waiting for Ana (scenario)...", "TrSource es waiting");
+	Check(TrSource("No se pudo descargar Caesar Mod: conexión interrumpida") == "Could not download Caesar Mod: connection interrupted",
+		"TrSource es nested reason");
+	Check(TrSource("Impossibile scaricare Caesar Mod: il server ha risposto 404") == "Could not download Caesar Mod: the server responded 404",
+		"TrSource it nested pattern");
 	const std::vector<std::string> all = TrAllLanguages("Autosave %02dh%02d");
 	Check(all.size() == 3 && all[1] == "Autoguardado %02dh%02d", "TrAllLanguages");
 	Check(std::string(LegacyJsonKey("name")) == "nombre" && LegacyJsonKey("zzz") == nullptr, "LegacyJsonKey");

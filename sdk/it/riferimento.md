@@ -28,12 +28,15 @@ Una mod è una cartella di `mods\`. Le cartelle che iniziano con `.` o `_` vengo
 | `loc\<idioma>.loc.xml`, `loc\<idioma>\*.loc.xml` | Testi che si aggiungono a quelli del gioco ([Lingue](lingue.md)) | No |
 | `local\<idioma>\<percorso>` | File che il gioco vede come `currentlang\<percorso>`, solo con quella lingua | No |
 | `local\<idioma>.pak` | Pacchetto di lingua (anche `<idioma>_algo.pak`). Si monta solo quello della lingua del gioco | Dipende da cosa contiene |
+| `hidden.txt` | File del gioco che la mod nasconde, un percorso per riga; quelli dopo `[lingua]` si nascondono solo con quella lingua. Per le mod vecchie che toglievano file sostituendo i pacchetti del gioco; lo scrive `riduci-mod.js` | Sì, se nasconde file di gameplay |
+| `rle.mmp.tail` | La grafica della mod: ciò che cambia o aggiunge all'`rle.mmp` del gioco, che va dopo di esso, con l'impronta dell'`rle.mmp` del gioco per cui è stata fatta. Lo scrive `riduci-mod.js`. Può esserci un solo pacchetto attivo che ce l'ha | No |
+| `movies\…` | Filmati (`PlayMovie`): si cercano prima nei pacchetti attivi, in ordine di caricamento | No |
 | `gameres\…` | Immagini dell'interfaccia singole ([Immagini](immagini.md)) | No |
 | Qualsiasi altro percorso | File singolo con lo stesso percorso che nel gioco | No |
 
 - Estensioni vietate: `.exe .dll .asi .bat .cmd .com .scr .ps1 .vbs .js .msi .sys .cpl .lnk .reg .jar .hta .wsf .pif`. Con una di queste, la mod non si carica.
 - Un'estensione che non è tra quelle note e non è vietata viene accettata e non viene mai eseguita.
-- Se due mod hanno lo stesso file, vince quella che viene prima nell'**ordine di caricamento**. Quell'ordine lo calcola il gioco, non si sceglie: prima conta ciò che chiedono le mod (una mod sta sopra a quelle di cui ha bisogno in `requires` e a quelle del suo `loadAfter`, e sotto a quelle del suo `loadBefore`); poi le estetiche stanno sopra ai contenuti (mappe, battaglie, conquista) e questi sopra alle mod che cambiano il gameplay; a parità, per `id`. Con le stesse mod esce lo stesso ordine su tutti i computer. Il gestore avvisa quando due mod attive cambiano gli stessi file e dice quali file si usano.
+- Se due mod hanno lo stesso file, un file sciolto vince su uno dentro un `.pak`; tra due file sciolti, o tra due dentro `.pak`, vince quella che viene prima nell'**ordine di caricamento**. Quell'ordine lo calcola il gioco, non si sceglie: prima conta ciò che chiedono le mod (una mod sta sopra a quelle di cui ha bisogno in `requires` e a quelle del suo `loadAfter`, e sotto a quelle del suo `loadBefore`); poi le estetiche stanno sopra ai contenuti (mappe, battaglie, conquista) e questi sopra alle mod che cambiano il gameplay; a parità, per `id`. Con le stesse mod esce lo stesso ordine su tutti i computer. Nella scheda di ogni mod, il gestore mostra i file che condivide con altre mod attive e di quale mod si usa ciascuno. Se due mod attive sostituiscono gli stessi file di gameplay e nessuna nomina l'altra in `requires`, `loadAfter` o `loadBefore`, appare come problema: bisogna usarne solo una, o una patch di compatibilità (una mod che porta i file uniti e ha entrambe nel suo `loadAfter`). Se tutti i file che condividono sono estetici (texture, suoni, interfaccia), il giocatore può scegliere di quale mod usarli; la scelta si salva nel profilo, vale solo per i file sciolti e non cambia né l'ordine di caricamento né ciò che conta online. Per cambiare pochi valori di un file che anche un'altra mod può toccare, è meglio una patch (sezione 6): le patch si sommano invece di sostituire il file.
 
 Cartella di prova `<gioco>\mod\` (senza creare una mod; vince su tutte le mod):
 
@@ -59,8 +62,8 @@ Cartella di prova `<gioco>\mod\` (senza creare una mod; vince su tutte le mod):
 | `loadAfter` | elenco di id | vuoto | La tua mod sta sopra a quelle: vincono i suoi file, patch e testi |
 | `loadBefore` | elenco di id | vuoto | La tua mod sta sotto a quelle |
 | `category` | testo | vuoto | Categoria di GameBanana ([Pubblicare](pubblicare.md)) |
-| `tags` | elenco di testi | vuoto | Tag di GameBanana: giocatori (mappe) e lingua (campagne, traduzioni, audio) |
-| `sources` | oggetto | nessuno | `url` (o `page`), `gamebanana` (numero) ed `tags` (elenco, si sommano a quelle sopra) |
+| `tags` | elenco di testi | vuoto | Tag di GameBanana, `Titolo: valore`: altre categorie (`Type`), giocatori (`Players`) e lingua (`Language`). Vedi [Pubblicare](pubblicare.md#tag) |
+| `sources` | oggetto | nessuno | `url` (o `page`), `gamebanana` o `gamebananaSound` (numero, della sezione Mods o Sounds) e `tags` (elenco, si sommano a quelle sopra) |
 | `language` | oggetto, elenco di oggetti o testo | nessuno | `code`, `name` e `base` (di default `english`). Solo testo = solo il codice. Vedi [Lingue](lingue.md) |
 | `commands` | oggetto | nessuno | `{"<file degli ordini senza estensione>": {"name": testo o oggetto per lingua}}`. Vedi [Tasti](tasti.md) |
 
@@ -74,7 +77,7 @@ Guida: [Civiltà](civilta.md).
 
 | Campo | Tipo | Default | Obbligatorio | Cosa fa |
 |---|---|---|---|---|
-| `id` | testo | nome del file | No | Lettere, numeri e `_`; inizia con una lettera; fino a 24. Si salva in minuscolo. Negli script è la costante con la prima maiuscola (`Dacia`) |
+| `id` | testo | nome del file | No | Lettere, numeri e `_`; inizia con una lettera; fino a 24. Si salva in minuscolo. Negli script è la costante così come la scrivi, con la prima maiuscola (`Dacia`, `RomeImperial`) |
 | `index` | intero 10-99 | — | Sì | Numero della civiltà |
 | `base` | testo | `Gaul` | No | Civiltà del gioco da cui eredita: `Gaul`, `RepublicanRome`, `Carthage`, `Iberia`, `ImperialRome`, `Britain`, `Egypt`, `Germany` (anche `Rome`, `Roman`, `Briton`) |
 | `name` | testo o oggetto per lingua | l'`id` con la maiuscola iniziale | No | Nome nella lobby |
@@ -87,6 +90,8 @@ Guida: [Civiltà](civilta.md).
 | `ai` | booleano | `false` | No | L'IA gioca con le tue classi e i tuoi ordini (altrimenti, con quelli della base). Nel sorteggio, a un'IA toccano solo quelle che ce l'hanno |
 | `ownAi` | booleano | `false` | No | Con `ai`: la mod porta tutti gli script di IA |
 | `alias` | oggetto | nessuno | No | `classes` e `commands`: nome nella base → nome nella tua civiltà (ogni valore, un testo) |
+| `variant` | booleano | `false` | No | Variante della base: usa le sue classi, `GetPlayerRace` dà la base e `Mod_PlayerCiv` quella scelta. Con essa, `ai` vale `true` se non indicato |
+| `replacesBase` | booleano | `false` | No | La base non compare nella lobby: questa civiltà prende il suo posto e la sua quota del sorteggio casuale |
 
 - `race="<id>"` in `<properties>` di una classe usa la civiltà tramite il suo `id` o il suo `internalName`.
 - `id` o `index` ripetuti: vale quello della mod che viene prima; gli altri vengono ignorati con un avviso.

@@ -21,8 +21,9 @@ An error is something the game would reject or that will fail. A warning is a su
 
 ## What it checks
 
-- **`mod.json`**: broken JSON, a category that isn't GameBanana's, wrongly typed texts (errors). Missing `id`, `name`, `version` or `category`, an old category name, tags the game doesn't use, a map without a players tag and a campaign, translation or audio pack without a language tag (warnings).
+- **`mod.json`**: broken JSON, a category that isn't GameBanana's, wrongly typed texts (errors). Missing `id`, `name`, `version` or `category`, an old category name, tags that are badly written, in the old form or not used by the game, a map without a players tag and a campaign, translation or audio pack without a language tag (warnings).
 - **Files**: executable and system script extensions (error: the mod wouldn't load) and paths with `..`. An odd but harmless extension (`.psd`, `.gif`, `.zip`…) only gives a warning: the mod loads, the file just takes up space.
+- **Maps (`.bfhp`)**: the kind the map itself states (scenario, adventure or conquest) against the folder it is in. An adventure or a conquest in `scenarios\` doesn't show up in the Scenarios list; a loose map at the root is placed when installing (warnings).
 - **`civs\*.json`**: an invalid `id`, `index` outside 10–99 or duplicated, a `base` that doesn't exist, a `letter` longer than one letter, an unknown `biome`, a misspelled `template` or one without its file. With `"ai": true` and no `alias` table it warns, and it checks that the `alias` points to classes and commands the mod has.
 - **`specials\*.json`**: an invalid `id` or one that's a game unit special, a `bit` outside 36–63 or duplicated.
 - **`options\*.json`**: the bit allocation (8 fit across all mods).
@@ -31,12 +32,12 @@ An error is something the game would reject or that will fail. A warning is a su
 - **INI patches**: lines it can't understand, and a new section in `UNIT_SPECIALS.INI` (the game may crash). It doesn't warn about trailing comments on a patch line, which the engine doesn't support (see [Patches](patches.md)).
 - **Classes (`data\classes`)**: malformed XML, an unknown `race`, misspelled or unknown `unit_specials` (the game is case-sensitive: `Parry`, not `parry`), and a class without `entity` (warning: the game doesn't inherit it from the parent and the unit disappears).
 - **Encoding**: a Latin-1 class XML with accented characters. The game doesn't load the class and doesn't warn; save it as UTF-8.
-- **Commands (`data\commands`)**: malformed XML and duplicate commands in a file.
+- **Commands (`data\commands`)**: malformed XML, and a warning when two commands with the same name are for the same building (it would have two buttons with that name). With the same name for different buildings they work: the game binds each one to the buildings of its `<src>`.
 - **Entities (`.ent.xml`)**: error if the image doesn't exist (the game hangs when loading the class; checked against the mod folder if it ships its `.rle` files, and always with `--game`), duplicate `idx` or one outside 1–32, layers and animations that point to something that isn't there, engine limits (32 images, 32 layers, 8 states, animations 1–28, 64 frames), and `columns`, `rows` or a `<frame>` count that don't add up. An animation that reads more rows than its image has is only a warning.
 - **Graphics (`.rle`, `.pass`)**: a truncated or corrupt `.rle`, a renamed `.rle.mmp` (no pixels, doesn't load from a mod), an empty palette, a malformed or empty `.pass`, a `pass_file` that doesn't exist, and an `.rle` with the same name as one of the game's (the game's wins; with `--game`).
 - **`placeobjects.xml`** (random maps): a named class that doesn't exist (with `--data`). Map generation hangs without a message.
 - **Texts (`loc`)**: malformed XML, entries without `text` or without `result`.
-- **Scripts (`.vs`)**: missing signature on the first line, an unknown event or one with the wrong signature, `Sleep` in an event that can't wait, `Mod_*` functions that don't exist, `Mod_HasSpecial` with an `Obj` instead of a `Unit`.
+- **Scripts (`.vs`)**: missing signature on the first line (except in a class's behaviors, victory modes and item scripts, which the game always loads with their own), an unknown event or one with the wrong signature, `Sleep` in an event that can't wait, `Mod_*` functions that don't exist, `Mod_HasSpecial` with an `Obj` instead of a `Unit`.
 
 ## Example output
 

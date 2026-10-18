@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "mods/patchxml.h"
+
 void PatchRebuild();
 
 bool PatchHas(const std::string &rel);
@@ -15,3 +17,7 @@ bool PatchApply(const std::string &rel, std::string &data);
 void PatchMissingTarget(const std::string &rel);
 
 std::vector<std::string> PatchErrorsFor(const std::string &folder);
+
+std::vector<std::vector<PatchedValue>> PatchResolve(const std::string &rel, const std::vector<std::string> &patches);
+
+void PatchReadBases(const std::vector<std::string> &rels);

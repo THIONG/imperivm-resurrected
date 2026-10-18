@@ -45,13 +45,13 @@ Don't include executables or system scripts (`.exe .dll .asi .bat .cmd .com .scr
 | Field | What it's for |
 |---|---|
 | `id`, `name`, `version`, `authors`, `description` | The mod's card in the content manager. `name` and `description` take either a single text or an object with one text per language (the game language is shown; if missing, English; if missing, the first). |
-| `category`, `tags` | The GameBanana category and, for maps, campaigns, translations and audio, the players or language tags. See [Publishing](publishing.md). |
+| `category`, `tags` | The main GameBanana category and the tags: more categories (`Type`), players (`Players`) and language (`Language`). See [Publishing](publishing.md). |
 | `redistributable` | With `true`, the lobby host can send the mod to players who don't have it. Defaults to `false`. |
 | `license` | Free text with the license. |
 | `requires` | Mods it needs: a list of ids, or of objects `{"id": "...", "version": "..."}`. |
 | `incompatibleWith` | List of mod ids it can't be enabled with. |
-| `loadAfter`, `loadBefore` | What you ask of the [load order](reference.md#1-mod-structure), by id; the game works out the rest. With `loadAfter`, your mod goes on top of that one: its files, patches and texts win. |
-| `sources` | `{"url": "...", "gamebanana": 123456}`. The game writes it when you install from Browse content; it's used to flag new versions. |
+| `loadAfter`, `loadBefore` | What you ask of the [load order](reference.md#1-mod-structure), by id; the game works out the rest. With `loadAfter`, your mod goes on top of that one: its files, patches and texts win (except a file the other one ships loose and yours inside a `.pak`: the loose one wins). |
+| `sources` | `{"url": "...", "gamebanana": 123456}`. The game writes it when you install from Browse content; it's used to flag new versions. If it comes from the Sounds section, the number is in `gamebananaSound`. |
 | `language` | Declares a new language. See [Languages](languages.md). |
 | `commands` | Name of each command file on the Controls screen. See [Mod keys](keys.md). |
 
@@ -67,7 +67,7 @@ Don't include executables or system scripts (`.exe .dll .asi .bat .cmd .com .scr
 - [City and village templates](city-templates.md): a mod civilization's own starting city and village (`create-template.js`).
 - [New units](units.md): class, recruit command, images and texts, reusing another unit's model.
 - [Unit stats](stats.md): which attribute does what, which ones do nothing and which ones crash the game.
-- [Unit specials](specials.md): new unit specials (bits 36 to 63) and their effect through scripts.
+- [Unit specials](specials.md): new unit specials and their effect through scripts.
 - [Troop abilities](abilities.md): new abilities for units or heroes (a command with button and key, plus a script method).
 - [New items](items.md): hero amulets, herbs and gems.
 - [New formations](formations.md): hero formations with their bonuses and button.

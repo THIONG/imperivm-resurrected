@@ -12,6 +12,8 @@
 #include <cmath>
 #include <cstring>
 #include <mutex>
+#include <set>
+#include <string>
 
 #include "MinHook.h"
 #include "hooks/hookcount.h"
@@ -26,10 +28,16 @@
 namespace {
 typedef HRESULT(WINAPI *CoCreateInstance_t)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID *);
 typedef HRESULT(STDMETHODCALLTYPE *Run_t)(IMediaControl *self);
+typedef HRESULT(STDMETHODCALLTYPE *OpenFile_t)(void *self, LPCWSTR file, DWORD flags);
 
 CoCreateInstance_t g_origCoCreate = nullptr;
 Run_t g_origRun = nullptr;
 bool g_runHooked = false;
+OpenFile_t g_origOpenFile = nullptr;
+bool g_openHooked = false;
+std::mutex g_dirsLock;
+std::vector<std::wstring> g_modDirs;
+std::set<std::wstring> g_reportedMovies;
 std::atomic<HWND> g_movieGame{nullptr};
 std::atomic<DWORD> g_movieSince{0};
 
@@ -257,6 +265,67 @@ HRESULT STDMETHODCALLTYPE HookRun(IMediaControl *self)
 }
 
 const CLSID kClsidAMMultiMediaStream = {0x49c47ce5, 0x9ba4, 0x11d0, {0x82, 0x12, 0x00, 0xc0, 0x4f, 0xc3, 0x2c, 0x45}};
+const IID kIidAMMultiMediaStream = {0xbebe595c, 0x9a6f, 0x11d0, {0x8f, 0xde, 0x00, 0xc0, 0x4f, 0xd9, 0x18, 0x9d}};
+const unsigned kOpenFileSlot = 16;
+
+std::string Narrow(const std::wstring &w)
+{
+	if (w.empty()) return "";
+	const int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+	std::string out(n > 0 ? n : 0, '\0');
+	if (n > 0) WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), &out[0], n, nullptr, nullptr);
+	return out;
+}
+
+bool IsRelative(const wchar_t *p)
+{
+	return p[0] && p[0] != L'\\' && p[0] != L'/' && !(p[1] == L':');
+}
+
+HRESULT STDMETHODCALLTYPE HookOpenFile(void *self, LPCWSTR file, DWORD flags)
+{
+	if (file && IsRelative(file)) {
+		std::wstring rel = file;
+		std::replace(rel.begin(), rel.end(), L'/', L'\\');
+		std::vector<std::wstring> dirs;
+		{
+			std::lock_guard<std::mutex> lock(g_dirsLock);
+			dirs = g_modDirs;
+		}
+		for (const std::wstring &dir : dirs) {
+			const std::wstring full = dir + L"\\" + rel;
+			const DWORD a = GetFileAttributesW(full.c_str());
+			if (a == INVALID_FILE_ATTRIBUTES || (a & FILE_ATTRIBUTE_DIRECTORY)) continue;
+			bool first = false;
+			{
+				std::lock_guard<std::mutex> lock(g_dirsLock);
+				first = g_reportedMovies.insert(rel).second;
+			}
+			if (first) LogI("video", "%s from %s", Narrow(rel).c_str(), Narrow(dir).c_str());
+			return g_origOpenFile(self, full.c_str(), flags);
+		}
+	}
+	return g_origOpenFile(self, file, flags);
+}
+
+void HookOpenFileOf(IUnknown *created)
+{
+	if (g_openHooked || !created) return;
+	g_openHooked = true;
+	void *stream = nullptr;
+	if (FAILED(created->QueryInterface(kIidAMMultiMediaStream, &stream)) || !stream) {
+		LogW("video", "the cutscene player has no IAMMultiMediaStream: cutscenes of content packs are not found");
+		return;
+	}
+	void *open = (*reinterpret_cast<void ***>(stream))[kOpenFileSlot];
+	if (HookCreate(open, reinterpret_cast<void *>(&HookOpenFile), reinterpret_cast<void **>(&g_origOpenFile)) == MH_OK && HookEnable(open) == MH_OK) {
+		LogD("video", "cutscenes are looked up in the active content packs first");
+	}
+	else {
+		LogW("video", "could not hook the cutscene player: cutscenes of content packs are not found");
+	}
+	static_cast<IUnknown *>(stream)->Release();
+}
 
 void HookGraphRun()
 {
@@ -283,7 +352,9 @@ HRESULT WINAPI HookCoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, 
 	if (!g_runHooked && (IsEqualCLSID(clsid, kClsidAMMultiMediaStream) || IsEqualCLSID(clsid, CLSID_FilterGraph))) {
 		HookGraphRun();
 	}
-	return g_origCoCreate(clsid, outer, ctx, iid, out);
+	const HRESULT hr = g_origCoCreate(clsid, outer, ctx, iid, out);
+	if (SUCCEEDED(hr) && out && *out && !outer && IsEqualCLSID(clsid, kClsidAMMultiMediaStream)) HookOpenFileOf(static_cast<IUnknown *>(*out));
+	return hr;
 }
 
 const unsigned kIsPausedSlot = 22;
@@ -312,6 +383,20 @@ void MediaInstall(bool knownExe)
 		LogE("video", "could not intercept CoCreateInstance (no videos or modern audio)");
 	}
 	(void)knownExe;
+}
+
+void MediaSetModDirs(const std::vector<std::string> &dirs)
+{
+	std::vector<std::wstring> wide;
+	for (const std::string &d : dirs) {
+		const int n = MultiByteToWideChar(CP_ACP, 0, d.c_str(), -1, nullptr, 0);
+		if (n <= 1) continue;
+		std::wstring w(n - 1, L'\0');
+		MultiByteToWideChar(CP_ACP, 0, d.c_str(), -1, &w[0], n);
+		wide.push_back(w);
+	}
+	std::lock_guard<std::mutex> lock(g_dirsLock);
+	g_modDirs = wide;
 }
 
 void MediaFrameTick()

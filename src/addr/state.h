@@ -6,7 +6,12 @@
 
 namespace addr {
 
+inline constexpr uintptr_t kCmdContextInts = 0x0081b2d0;
+inline constexpr uintptr_t kCmdContextParam = 0x008210c8;
+inline constexpr uintptr_t kCmdContextText2 = 0x008210e4;
+inline constexpr uintptr_t kCmdContextText3 = 0x00821100;
 inline constexpr uintptr_t kSaveName = 0x00830254;
+inline constexpr uintptr_t kCmdRegistry = 0x009969dc;
 inline constexpr uintptr_t kMapView = 0x00996ff0;
 inline constexpr uintptr_t kGame = 0x00996ff4;
 inline constexpr uintptr_t kPausedMenu = 0x0099700c;

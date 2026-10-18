@@ -6,6 +6,7 @@
 #include "hooks/audio.h"
 #include "i18n/tr.h"
 #include "core/log.h"
+#include "mods/gbref.h"
 #include "mods/modoptions.h"
 #include "mods/modvars.h"
 
@@ -94,6 +95,7 @@ void ModsRestartGame(int largeAddress, const std::string &args)
 		LogW("content", "could not prepare the restart (error %lu); the game must be opened by hand", GetLastError());
 	}
 	AudioSetBackgroundMute(false);
+	LogShutdown();
 	TerminateProcess(GetCurrentProcess(), 0);
 }
 
@@ -129,7 +131,7 @@ void ModsOnSaveWritten(const std::string &gamePath, bool online)
 			if (!m.gameplayHash.empty()) e.Set("fingerprint", Json::MakeString(m.gameplayHash));
 			e.Set("gameplay", Json::MakeBool(m.gameplay));
 			e.Set("kind", Json::MakeString(ModsKindId(m.kind)));
-			if (m.gbId) e.Set("gamebanana", Json::MakeNumber(static_cast<double>(m.gbId)));
+			GbKeyToJson(e, m.gbId);
 		}
 		mods.arr.push_back(e);
 	}
@@ -178,7 +180,7 @@ void ModsOnMapWritten(const std::string &gamePath)
 			if (!m.gameplayHash.empty()) e.Set("fingerprint", Json::MakeString(m.gameplayHash));
 			e.Set("gameplay", Json::MakeBool(m.gameplay));
 			e.Set("kind", Json::MakeString(ModsKindId(m.kind)));
-			if (m.gbId) e.Set("gamebanana", Json::MakeNumber(static_cast<double>(m.gbId)));
+			GbKeyToJson(e, m.gbId);
 		}
 		mods.arr.push_back(e);
 	}

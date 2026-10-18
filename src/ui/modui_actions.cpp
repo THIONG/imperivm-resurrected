@@ -73,16 +73,35 @@ void DoAction(int action, int arg)
 		CommitProfile();
 		SelectFolder(r.folder);
 		if (!r.active) {
-			const ModIssues &is = g_s.issues[r.folder];
+			static const ModIssues kNoIssues;
+			const auto found = g_s.issues->find(r.folder);
+			const ModIssues &is = found == g_s.issues->end() ? kNoIssues : found->second;
 			const ModInfo *m = FindMod(r.folder);
 			const std::string name = m ? m->name : r.folder;
 			if (!is.problems.empty()) {
 				SetStatus(name + ": " + is.problems[0]);
 			}
-			else if (is.overwrites > 0 && !is.overlapFolders.empty()) {
-				SetStatus(OverlapText(g_s, r.folder, is));
+			else if (!is.overlaps.empty()) {
+				SetStatus(name + ": " + OverlapText(is.overlaps[0]));
+			}
+			else if (!is.notices.empty()) {
+				SetStatus(name + ": " + is.notices[0]);
 			}
 		}
+		break;
+	}
+	case kUseFiles: {
+		const ModIssues *is = SelectedIssues(g_s);
+		const size_t k = static_cast<size_t>(arg / 2);
+		if (!is || arg < 0 || k >= is->overlaps.size()) break;
+		const std::string self = g_s.rows[g_s.selected].folder;
+		const std::string other = is->overlaps[k].folder;
+		const std::string use = arg % 2 == 0 ? self : other;
+		ModsChooseFiles(g_s.profile, use, arg % 2 == 0 ? other : self);
+		CommitProfile();
+		const ModInfo *u = FindMod(use);
+		const std::string name = u ? u->name : use;
+		SetStatus(ModsRestartNeeded() ? TrFmt("The files of %s will be used after restarting", {name}) : TrFmt("The files of %s are used", {name}));
 		break;
 	}
 	case kUninstall:
@@ -240,7 +259,7 @@ void DoAction(int action, int arg)
 		break;
 	}
 	case kShowProblems: {
-		const std::vector<std::string> problems = ModsProblems(g_s.profile);
+		const std::vector<std::string> &problems = g_s.problems;
 		std::string text;
 		for (size_t i = 0; i < problems.size() && i < 5; i++) text += (i ? "\n" : "") + problems[i];
 		if (problems.size() > 5) text += "\n(" + Tr("and ") + std::to_string(problems.size() - 5) + Tr(" more)");

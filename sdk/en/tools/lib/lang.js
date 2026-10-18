@@ -36,7 +36,7 @@ const OPCIONES = {
 	'defensa-pierce': ['pierce-defense', 'difesa-pierce'], 'defensa-slash': ['slash-defense', 'difesa-slash'], descripcion: ['description', 'descrizione'],
 	'descripcion-en': ['description-en', 'descrizione-en'], 'descripcion-it': ['description-it', 'descrizione-it'], distorsion: ['distortion', 'distorsione'],
 	etiquetas: ['tags', 'tag'], experiencia: ['experience', 'esperienza'], 'flanco-x': ['wing-x', 'ala-x'], 'flanco-y': ['wing-y', 'ala-y'], fondo: ['background', 'sfondo'],
-	fotogramas: ['frames', 'fotogrammi'], frente: ['front', 'fronte'], huella: ['footprint', 'impronta'], 'huella-png': ['footprint-png', 'impronta-png'],
+	fotogramas: ['frames', 'fotogrammi'], fuera: ['exclude', 'escludi'], ocultar: ['hide', 'nascondi'], frente: ['front', 'fronte'], huella: ['footprint', 'impronta'], 'huella-png': ['footprint-png', 'impronta-png'],
 	icono: ['icon', 'icona'], juego: ['game', 'gioco'], jugador: ['player', 'giocatore'], jugadores: ['players', 'giocatori'], lado: ['side', 'lato'],
 	lienzo: ['canvas', 'tela'], nivel: ['level', 'livello'], nombre: ['name', 'nome'], 'nombre-en': ['name-en', 'nome-en'], 'nombre-it': ['name-it', 'nome-it'],
 	'paleta-por-animacion': ['palette-per-animation', 'tavolozza-per-animazione'], pequeno: ['small', 'piccolo'],

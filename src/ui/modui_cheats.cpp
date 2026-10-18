@@ -466,7 +466,6 @@ void DrawCheatsPanel(uint32_t *frame, int frameW, int H, float s)
 		{2, "Capture settlement", 14, 0},
 		{2, "Spawn troops...", -50, 0},
 	};
-	static const char *const kCivNames[8] = {"Gauls", "Romans", "Carthaginians", "Iberians", "Britons", "Germans", "Egyptians", "Heroes"};
 	std::vector<Item> items;
 	if (!spawn) {
 		items.assign(mainItems, mainItems + sizeof(mainItems) / sizeof(mainItems[0]));
@@ -480,16 +479,16 @@ void DrawCheatsPanel(uint32_t *frame, int frameW, int H, float s)
 			return t;
 		};
 		const std::string q = lower(search);
-		int lastCiv = -1;
+		int lastGroup = -1;
 		for (int i = 0; i < CheatsUnitCount(); i++) {
-			if (!q.empty() && lower(CheatsUnitName(i)).find(q) == std::string::npos) continue;
-			if (CheatsUnitCiv(i) != lastCiv) {
-				lastCiv = CheatsUnitCiv(i);
-				items.push_back({0, kCivNames[lastCiv], 0, 0, false});
+			if (!q.empty() && lower(CheatsUnitName(i)).find(q) == std::string::npos && lower(CheatsGroupName(CheatsUnitGroup(i))).find(q) == std::string::npos) continue;
+			if (CheatsUnitGroup(i) != lastGroup) {
+				lastGroup = CheatsUnitGroup(i);
+				items.push_back({0, CheatsGroupName(lastGroup), 0, 0, false});
 			}
 			items.push_back({3, CheatsUnitName(i), -100 - i, 0, CheatsUnitIsHero(i)});
 		}
-		if (lastCiv < 0) items.push_back({0, "No results", 0, 0, false});
+		if (lastGroup < 0) items.push_back({0, CheatsUnitCount() ? "No results" : "The game has not loaded its troops yet", 0, 0, false});
 	}
 	const int nItems = static_cast<int>(items.size());
 	const float panelW = 300 * s, pad = 12 * s, rowH = 30 * s, unitH = 24 * s, secH = 26 * s, headH = 36 * s;

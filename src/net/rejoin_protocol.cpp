@@ -6,6 +6,7 @@
 #include <set>
 #include "MinHook.h"
 #include "game/autosave.h"
+#include "core/config.h"
 #include "core/log.h"
 #include "mods/modvars.h"
 #include "net/mpsave.h"
@@ -84,7 +85,7 @@ void HostOnRequest(uint64_t peer, int number)
 		ResetRole();
 	}
 	if (g_session.role == kBack) return HostDeny(peer, std::string(kDenyOut) + "is not in the game either");
-	if (g_session.role != kNoRole) return HostDeny(peer, std::string(kDenyBusy) + "another player is already rejoining");
+	if (g_session.role != kNoRole || g_reload.phase != kRNone) return HostDeny(peer, std::string(kDenyBusy) + "another player is already rejoining");
 	if (!InOnlineGame()) return HostDeny(peer, std::string(kDenyOut) + "the host is no longer in that game");
 	const OnlineRoom room = SteamCurrentRoom();
 	if (!room.owner) {
@@ -167,6 +168,7 @@ bool QueueFreezeCommand(int slot)
 	reinterpret_cast<ThisPtr_t>(addr::kQueueCommand)(game, nullptr, cmd);
 	return true;
 }
+}
 
 std::string BuildState(const std::string &saveData)
 {
@@ -213,7 +215,6 @@ std::string BuildState(const std::string &saveData)
 	return std::string(reinterpret_cast<const char *>(&ws), sizeof(ws)) + blobs + settings;
 }
 }
-}
 
 namespace rejoin_impl {
 void HostTick()
@@ -240,6 +241,7 @@ void HostTick()
 		for (const OnlineMember &m : SteamCurrentRoom().members) {
 			if (m.id != g_session.peer || !m.number) continue;
 			g_session.ignoreFreezeUntil = 0;
+			g_session.peerName = m.name;
 			if (!QueueFreezeCommand(g_session.slot)) return HostCancel("could not pause the game");
 			g_session.phase = kHWaitFreeze;
 			g_session.deadline = GetTickCount() + 30000;
@@ -260,6 +262,13 @@ void HostTick()
 		if (AutosavePending() || GetTickCount() - g_session.saveAskedAt < 300) return;
 		std::string save;
 		if (!ReadFileAll(DiskPath(g_session.savePath), save) || save.size() < 1024) return HostCancel("the save was not found");
+		if (GetConfig().rejoinReload) {
+			std::string cams;
+			ReadFileAll(DiskPath(g_session.savePath) + ".cameras", cams);
+			ReloadBroadcast(save, cams, g_session.peerName, g_session.peer);
+			ResetRole();
+			return;
+		}
 		const std::string state = BuildState(save);
 		SteamRejoinSend(g_session.peer, kRjState, state);
 		const std::string threads = CollectThreads();
@@ -316,12 +325,11 @@ void BackFail(const std::string &why)
 	Unfreeze();
 	if (g_session.phase >= kBWaitData && g_session.phase != kBFailed) SteamLeaveLobby();
 	g_session.phase = kBFailed;
-	SetStatus(Tr("Couldn't rejoin the game: ") + why, true);
+	SetStatus(Tr("Couldn't rejoin the game: ") + Tr(why), true);
 }
 }
 
 namespace rejoin_impl {
-namespace {
 bool LoadSettings(const std::string &vfsPath, int slot)
 {
 	void *settings = nullptr;
@@ -355,7 +363,6 @@ bool LoadSettings(const std::string &vfsPath, int slot)
 	__except (EXCEPTION_EXECUTE_HANDLER) {
 		return false;
 	}
-}
 }
 }
 

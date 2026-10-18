@@ -6,7 +6,7 @@ Example to copy: [`examples/scripts-example`](examples/scripts-example). Heads u
 
 ## What a script looks like
 
-A `.vs` text file. The first line is a comment with the signature: what it returns and the parameters it receives. Every place a script is used expects a specific signature.
+A `.vs` text file. The first line is a comment with the signature: what it returns and the parameters it receives. Every place a script is used expects a specific signature. There are three exceptions, which the game always loads with their signature, with the line or without it: a class's behaviors (`<behavior script="...">`), as `void, Obj This`; victory modes (`data/GameScripts`), as `void, int player, str param`; and item scripts (see [Items](items.md)), with the signature of their attribute.
 
 ```
 // void, Obj This
@@ -69,7 +69,7 @@ There's no event for this (objects are created in dozens of places, including wh
 
 ## `Mod_` functions
 
-The current API version is 6. `Mod_ApiVersion()` returns it, and a mod can require a minimum.
+The current API version is 7. `Mod_ApiVersion()` returns it, and a mod can require a minimum.
 
 | Function | What it does |
 |---|---|
@@ -88,6 +88,8 @@ The current API version is 6. `Mod_ApiVersion()` returns it, and a mod can requi
 | `Mod_TrueRace(Obj objeto)` : `int` | An object's real civilization (10 or higher if it's from a mod), even though for the AI its race is its base's (API 5). See [Civilizations](civilizations.md). |
 | `Mod_GetOption(str id)` : `bool` | Is option `id` (the one in `options\<id>.json`) checked in the lobby? Same on all PCs (API 6). See [Game options](options.md). |
 | `Mod_GetOptionValue(str id)` : `int` | The chosen value of option `id`: 0 or 1 for a switch, and the number of the chosen entry (from 0) for a list (API 6). |
+| `Mod_PlayerCiv(int jugador)` : `int` | The civilization the player chose in the lobby (10 or higher if it's from a mod), even if it's a variant and `GetPlayerRace` returns its base. -1 if there's no such player (API 7). See [Civilizations](civilizations.md). |
+| `Mod_CanExecCmd(Obj objeto, str orden)` : `bool` | Could the player press that command's button on that object now? It's the game's own check: the object has it, it isn't disabled (`CmdDisable`) and its verifier (`groupverifier` or the player one) accepts it. It doesn't look at the cost (API 7). |
 
 New functions are added at the end and existing ones don't change. If your mod uses one, it needs a version of Imperivm Resurrected that has it. The API version is part of the multiplayer check when there are gameplay mods: everyone must have the same one.
 

@@ -7,6 +7,7 @@
 #include <set>
 #include <cctype>
 #include <cstring>
+#include <map>
 #include <memory>
 
 #include "core/legacy.h"
@@ -27,6 +28,8 @@ struct Node {
 	std::vector<std::unique_ptr<Node>> kids;
 	Node *parent = nullptr;
 	bool selfClose = false;
+	bool removed = false;
+	std::string key;
 };
 
 typedef std::unique_ptr<Node> NodePtr;
@@ -273,7 +276,7 @@ void Write(const Node &n, std::string &out)
 	}
 }
 
-NodePtr Clone(const Node &n, Node *parent)
+NodePtr Clone(const Node &n, Node *parent, const std::string &key, std::map<const Node *, Node *> *twins = nullptr)
 {
 	auto c = std::make_unique<Node>();
 	c->kind = n.kind;
@@ -282,7 +285,9 @@ NodePtr Clone(const Node &n, Node *parent)
 	c->text = n.text;
 	c->selfClose = n.selfClose;
 	c->parent = parent;
-	for (const auto &k : n.kids) c->kids.push_back(Clone(*k, c.get()));
+	c->key = key;
+	if (twins && n.kind == Node::kElement) (*twins)[&n] = c.get();
+	for (size_t i = 0; i < n.kids.size(); i++) c->kids.push_back(Clone(*n.kids[i], c.get(), key + "/" + std::to_string(i), twins));
 	return c;
 }
 
@@ -432,6 +437,35 @@ bool Truthy(const std::string &v)
 	return l == "1" || l == "yes" || LegacyIsYes(l) || l == "true";
 }
 
+std::vector<std::string> NameList(const std::string &list)
+{
+	std::vector<std::string> out;
+	size_t p = 0;
+	while (p < list.size()) {
+		while (p < list.size() && (isspace(static_cast<unsigned char>(list[p])) || list[p] == ',')) p++;
+		size_t q = p;
+		while (q < list.size() && !isspace(static_cast<unsigned char>(list[q])) && list[q] != ',') q++;
+		if (q > p) out.push_back(list.substr(p, q - p));
+		p = q;
+	}
+	return out;
+}
+
+std::string CanonicalSelector(const std::vector<Step> &steps)
+{
+	std::string out;
+	for (const Step &st : steps) {
+		std::vector<std::string> preds;
+		for (const Pred &p : st.preds) preds.push_back("[@" + Lower(p.attr) + (p.hasValue ? "='" + Lower(p.value) + "'" : "") + "]");
+		std::sort(preds.begin(), preds.end());
+		preds.erase(std::unique(preds.begin(), preds.end()), preds.end());
+		out += (st.deep ? "//" : "/") + Lower(st.name);
+		for (const std::string &p : preds) out += p;
+		if (st.index) out += "[" + std::to_string(st.index) + "]";
+	}
+	return out;
+}
+
 size_t IndexIn(Node *n)
 {
 	Node *p = n->parent;
@@ -463,7 +497,7 @@ std::string IndentOf(Node *n)
 	return "\n";
 }
 
-void InsertNodes(Node *parent, size_t at, const std::vector<const Node *> &payload, const std::string &lineStart, bool spaceAfter = false)
+void InsertNodes(Node *parent, size_t at, const std::vector<const Node *> &payload, const std::string &lineStart, int &added, bool spaceAfter = false)
 {
 	for (const Node *src : payload) {
 		auto ws = std::make_unique<Node>();
@@ -471,21 +505,84 @@ void InsertNodes(Node *parent, size_t at, const std::vector<const Node *> &paylo
 		ws->text = lineStart;
 		ws->parent = parent;
 		if (!spaceAfter) parent->kids.insert(parent->kids.begin() + static_cast<std::ptrdiff_t>(at++), std::move(ws));
-		parent->kids.insert(parent->kids.begin() + static_cast<std::ptrdiff_t>(at++), Clone(*src, parent));
+		parent->kids.insert(parent->kids.begin() + static_cast<std::ptrdiff_t>(at++), Clone(*src, parent, "+" + std::to_string(++added)));
 		if (spaceAfter) parent->kids.insert(parent->kids.begin() + static_cast<std::ptrdiff_t>(at++), std::move(ws));
 	}
 }
 
+void Normalize(Node &n)
+{
+	if (!n.kids.empty()) n.selfClose = false;
+	for (size_t i = 0; i < n.kids.size();) {
+		if (i > 0 && n.kids[i]->kind == Node::kText && n.kids[i - 1]->kind == Node::kText) {
+			n.kids[i - 1]->text += n.kids[i]->text;
+			n.kids.erase(n.kids.begin() + static_cast<std::ptrdiff_t>(i));
+			continue;
+		}
+		Normalize(*n.kids[i]);
+		i++;
+	}
 }
 
-bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::string> &errors)
+}
+
+struct XmlPatchRun::State {
+	NodePtr original;
+	NodePtr live;
+	std::map<const Node *, Node *> twins;
+	std::vector<NodePtr> graveyard;
+	std::string error;
+	bool bom = false;
+	int added = 0;
+
+	bool RemovedBefore(const std::vector<Step> &steps)
+	{
+		const std::vector<Node *> was = Select(original.get(), steps);
+		if (was.empty()) return false;
+		for (const Node *o : was) {
+			const auto it = twins.find(o);
+			if (it == twins.end()) return false;
+			bool gone = false;
+			for (const Node *n = it->second; n && !gone; n = n->parent) gone = n->removed;
+			if (!gone) return false;
+		}
+		return true;
+	}
+};
+
+XmlPatchRun::XmlPatchRun(const std::string &base) : state(std::make_unique<State>())
 {
-	std::string err;
-	NodePtr doc = Parser(data).Parse(err);
-	if (!doc) {
-		errors.push_back(TrFmt("the game file cannot be read as XML (%s)", {err}));
+	state->original = Parser(base).Parse(state->error);
+	if (!state->original) return;
+	state->live = Clone(*state->original, nullptr, "", &state->twins);
+	state->bom = base.compare(0, 3, "\xEF\xBB\xBF") == 0;
+}
+
+XmlPatchRun::~XmlPatchRun() = default;
+
+bool XmlPatchRun::Ok() const
+{
+	return state->live != nullptr;
+}
+
+std::string XmlPatchRun::Text() const
+{
+	std::string out;
+	if (state->bom) out += "\xEF\xBB\xBF";
+	if (state->live) {
+		for (const auto &k : state->live->kids) Write(*k, out);
+	}
+	return out;
+}
+
+bool XmlPatchRun::Apply(const std::string &patch, std::vector<std::string> &errors, std::vector<PatchedValue> *values)
+{
+	if (!state->live) {
+		errors.push_back(TrFmt("the game file cannot be read as XML (%s)", {state->error}));
 		return false;
 	}
+	Node *doc = state->live.get();
+	std::string err;
 	NodePtr pdoc = Parser(patch).Parse(err);
 	if (!pdoc) {
 		errors.push_back(TrFmt("the patch is not well-formed XML (%s)", {err}));
@@ -515,9 +612,10 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 			fail(selError.empty() ? Tr("missing select") : selError);
 			continue;
 		}
-		std::vector<Node *> targets = Select(doc.get(), steps);
+		std::vector<Node *> targets = Select(doc, steps);
 		if (targets.empty()) {
-			if (!Truthy(Attribute(op, "optional"))) fail(Tr("cannot find that element in the game file"));
+			const bool removedBefore = kind == "remove" && state->RemovedBefore(steps);
+			if (!removedBefore && !Truthy(Attribute(op, "optional"))) fail(Tr("cannot find that element in the game file"));
 			continue;
 		}
 		if (kind == "remove" || kind == "replace") {
@@ -532,8 +630,10 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 				targets.end());
 		}
 		if (kind == "set") {
+			const std::string shown = Trim(Attribute(op, "select"));
+			const std::vector<std::string> unset = NameList(Attribute(op, "unset"));
 			for (Node *t : targets) {
-				if (t == doc.get()) continue;
+				if (t == doc) continue;
 				for (const Attr &pa : op.attrs) {
 					const std::string n = Lower(pa.name);
 					if (n == "select" || n == "optional" || n == "unset") continue;
@@ -546,16 +646,11 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 						}
 					}
 					if (!found) t->attrs.push_back(pa);
+					if (values) values->push_back({"", t->key + "/@" + n, shown + "/@" + pa.name, pa.value, false});
 				}
-				const std::string unset = Attribute(op, "unset");
-				size_t p = 0;
-				while (p < unset.size()) {
-					while (p < unset.size() && (isspace(static_cast<unsigned char>(unset[p])) || unset[p] == ',')) p++;
-					size_t q = p;
-					while (q < unset.size() && !isspace(static_cast<unsigned char>(unset[q])) && unset[q] != ',') q++;
-					const std::string name = unset.substr(p, q - p);
+				for (const std::string &name : unset) {
 					t->attrs.erase(std::remove_if(t->attrs.begin(), t->attrs.end(), [&](const Attr &a) { return IEq(a.name, name); }), t->attrs.end());
-					p = q;
+					if (values) values->push_back({"", t->key + "/@" + Lower(name), shown + "/@" + name, "", true});
 				}
 			}
 			applied++;
@@ -565,6 +660,8 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 				Node *p = t->parent;
 				if (!p) continue;
 				size_t at = IndexIn(t);
+				t->removed = true;
+				state->graveyard.push_back(std::move(p->kids[at]));
 				p->kids.erase(p->kids.begin() + static_cast<std::ptrdiff_t>(at));
 				if (at > 0 && p->kids[at - 1]->kind == Node::kText && BlankText(p->kids[at - 1]->text) &&
 					(at >= p->kids.size() || (p->kids[at]->kind == Node::kText))) {
@@ -590,6 +687,7 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 					if (!p) continue;
 					const size_t at = IndexIn(t);
 					const std::string ind = IndentOf(t);
+					state->graveyard.push_back(std::move(p->kids[at]));
 					p->kids.erase(p->kids.begin() + static_cast<std::ptrdiff_t>(at));
 					bool first = true;
 					size_t pos = at;
@@ -601,7 +699,7 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 							ws->parent = p;
 							p->kids.insert(p->kids.begin() + static_cast<std::ptrdiff_t>(pos++), std::move(ws));
 						}
-						p->kids.insert(p->kids.begin() + static_cast<std::ptrdiff_t>(pos++), Clone(*src, p));
+						p->kids.insert(p->kids.begin() + static_cast<std::ptrdiff_t>(pos++), Clone(*src, p, "+" + std::to_string(++state->added)));
 						first = false;
 					}
 				}
@@ -609,11 +707,11 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 					Node *p = t->parent;
 					if (!p) continue;
 					const size_t at = IndexIn(t);
-					InsertNodes(p, position == "before" ? at : at + 1, payload, IndentOf(t), position == "before");
+					InsertNodes(p, position == "before" ? at : at + 1, payload, IndentOf(t), state->added, position == "before");
 				}
 				else if (position == "start") {
 					const std::string ind = t->kids.empty() ? "\n" : IndentOf(t->kids.front().get());
-					InsertNodes(t, 0, payload, ind == "\n" ? "\n\t" : ind);
+					InsertNodes(t, 0, payload, ind == "\n" ? "\n\t" : ind, state->added);
 				}
 				else {
 					size_t at = t->kids.size();
@@ -625,7 +723,7 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 							break;
 						}
 					}
-					InsertNodes(t, at, payload, ind);
+					InsertNodes(t, at, payload, ind, state->added);
 					if (at == t->kids.size() - payload.size() * 2) {
 						auto ws = std::make_unique<Node>();
 						ws->kind = Node::kText;
@@ -639,10 +737,15 @@ bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::
 		}
 	}
 	if (!applied) return false;
-	std::string out;
-	if (data.compare(0, 3, "\xEF\xBB\xBF") == 0) out += "\xEF\xBB\xBF";
-	for (const auto &k : doc->kids) Write(*k, out);
-	data = out;
+	Normalize(*doc);
+	return true;
+}
+
+bool PatchXmlText(std::string &data, const std::string &patch, std::vector<std::string> &errors)
+{
+	XmlPatchRun run(data);
+	if (!run.Apply(patch, errors)) return false;
+	data = run.Text();
 	return true;
 }
 
@@ -717,6 +820,11 @@ std::string KeyOf(const std::string &line)
 	return Trim(eq == std::string::npos ? t : t.substr(0, eq));
 }
 
+std::string IniValueKey(const std::string &section, const std::string &key)
+{
+	return "[" + Lower(section) + "]" + Lower(key);
+}
+
 size_t AppendPoint(const IniLines &r, size_t from, size_t to)
 {
 	size_t at = to;
@@ -726,7 +834,7 @@ size_t AppendPoint(const IniLines &r, size_t from, size_t to)
 
 }
 
-bool PatchIniText(std::string &data, const std::string &patch, std::vector<std::string> &errors)
+bool PatchIniText(std::string &data, const std::string &patch, std::vector<std::string> &errors, std::set<std::string> *removed)
 {
 	IniLines ini = SplitLines(data);
 	if (data.compare(0, 3, "\xEF\xBB\xBF") == 0 && !ini.lines.empty()) ini.lines[0].erase(0, 3);
@@ -754,21 +862,26 @@ bool PatchIniText(std::string &data, const std::string &patch, std::vector<std::
 		const char op = t[0] == '-' || t[0] == '+' ? t[0] : '=';
 		if (op == '-') {
 			const std::string key = Trim(t.substr(1));
-			bool removed = false;
+			bool gone = false;
 			if (exists) {
 				for (size_t i = from; i < to;) {
 					if (IEq(KeyOf(ini.lines[i]), key) || IEq(Trim(ini.lines[i]), key)) {
 						ini.lines.erase(ini.lines.begin() + static_cast<std::ptrdiff_t>(i));
 						to--;
-						removed = true;
+						gone = true;
 					}
 					else {
 						i++;
 					}
 				}
 			}
-			if (!removed) errors.push_back(where + TrFmt("there is no \"%s\" in [%s]", {key, section}));
-			else applied++;
+			if (gone) {
+				if (removed) removed->insert(IniValueKey(section, key));
+				applied++;
+			}
+			else if (!removed || !removed->count(IniValueKey(section, key))) {
+				errors.push_back(where + TrFmt("there is no \"%s\" in [%s]", {key, section}));
+			}
 		}
 		else if (op == '+') {
 			const std::string line = Trim(t.substr(1));
@@ -933,4 +1046,83 @@ bool PatchScriptText(std::string &data, const std::string &patch, std::vector<st
 	}
 	data = out;
 	return true;
+}
+
+namespace {
+
+void XmlValues(const std::string &file, const std::string &patch, std::vector<PatchedValue> &out)
+{
+	std::string err;
+	NodePtr pdoc = Parser(patch).Parse(err);
+	if (!pdoc) return;
+	const Node *root = nullptr;
+	for (const auto &k : pdoc->kids) {
+		if (k->kind == Node::kElement) root = k.get();
+	}
+	if (!root) return;
+	for (const auto &op : root->kids) {
+		if (op->kind != Node::kElement || Lower(op->name) != "set") continue;
+		const std::string select = Attribute(*op, "select");
+		std::vector<Step> steps;
+		std::string selError;
+		if (!ParseSelector(select, steps, selError)) continue;
+		const std::string node = CanonicalSelector(steps), shown = Trim(select);
+		for (const Attr &a : op->attrs) {
+			const std::string name = Lower(a.name);
+			if (name == "select" || name == "optional" || name == "unset") continue;
+			out.push_back({file, node + "/@" + name, shown + "/@" + a.name, a.value, false});
+		}
+		for (const std::string &name : NameList(Attribute(*op, "unset"))) out.push_back({file, node + "/@" + Lower(name), shown + "/@" + name, "", true});
+	}
+}
+
+void IniValues(const std::string &file, const std::string &patch, std::vector<PatchedValue> &out)
+{
+	const IniLines pl = SplitLines(patch);
+	std::string section;
+	bool haveSection = false;
+	for (size_t n = 0; n < pl.lines.size(); n++) {
+		std::string raw = pl.lines[n];
+		if (n == 0 && raw.compare(0, 3, "\xEF\xBB\xBF") == 0) raw.erase(0, 3);
+		const std::string t = Trim(raw);
+		if (IsComment(t)) continue;
+		if (IsSectionLine(t, &section)) {
+			haveSection = true;
+			continue;
+		}
+		if (!haveSection || t[0] == '+') continue;
+		const bool removed = t[0] == '-';
+		const size_t eq = t.find('=');
+		if (!removed && eq == std::string::npos) continue;
+		const std::string key = Trim(removed ? t.substr(1) : t.substr(0, eq));
+		out.push_back({file, IniValueKey(section, key), "[" + section + "] " + key, removed ? "" : Trim(t.substr(eq + 1)), removed});
+	}
+}
+
+}
+
+std::vector<PatchedValue> PatchValues(const std::string &file, const std::string &patch)
+{
+	std::vector<PatchedValue> out;
+	const std::string name = Lower(file);
+	const auto endsWith = [&](const std::string &ext) { return name.size() > ext.size() && name.compare(name.size() - ext.size(), ext.size(), ext) == 0; };
+	if (endsWith(".xml")) XmlValues(name, patch, out);
+	else if (endsWith(".ini")) IniValues(name, patch, out);
+	return out;
+}
+
+std::vector<std::vector<PatchedValue>> PatchXmlResolve(const std::string &file, const std::string &base, const std::vector<std::string> &before,
+	const std::vector<std::string> &patches)
+{
+	XmlPatchRun run(base);
+	if (!run.Ok()) return {};
+	std::vector<std::string> errors;
+	for (const std::string &b : before) run.Apply(b, errors);
+	std::vector<std::vector<PatchedValue>> out(patches.size());
+	const std::string name = Lower(file);
+	for (size_t i = 0; i < patches.size(); i++) {
+		run.Apply(patches[i], errors, &out[i]);
+		for (PatchedValue &v : out[i]) v.file = name;
+	}
+	return out;
 }

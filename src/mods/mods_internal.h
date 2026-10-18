@@ -12,6 +12,7 @@
 #include "MinHook.h"
 #include "core/sha256.h"
 #include "core/versioncmp.h"
+#include "mods/modclash.h"
 #include "mods/modrules.h"
 #include "mods/mods.h"
 #include "mods/savelib.h"
@@ -42,6 +43,7 @@ struct MountedState {
 	bool known = false;
 	std::vector<std::string> localDirs;
 	std::vector<std::string> dirs;
+	std::map<std::string, std::string> chosen;
 };
 extern MountedState g_mount;
 extern std::atomic<bool> g_hashing;
@@ -56,6 +58,7 @@ struct ScanFile {
 	uint64_t mtime = 0;
 	bool gameplay = false;
 	bool content = false;
+	std::string text;
 };
 
 extern std::map<std::string, std::vector<ScanFile>> g_scanFiles;
@@ -63,8 +66,16 @@ void Walk(const std::string &base, const std::string &rel, std::vector<ScanFile>
 std::string LanguageLower();
 std::string LocalizedText(const Json &j, const char *key, const std::string &def);
 ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files);
+bool PatchTextOf(const std::string &folder, const std::string &target, std::string &out);
 void StartHashing();
 ModProfile ReadProfileFile(const std::string &path);
+ClashReport ClashesOf(const ModProfile &p, const std::vector<ModInfo> &all);
+void PrepareRleMmp(const ModProfile &p, const std::vector<ModInfo> &all);
+std::string RleProblemOf(const std::string &folder);
+uint64_t GameRleSize();
+void InstallRleHook();
+std::string ClashProblemText(const std::string &other);
+std::map<std::string, std::string> ChosenFolders(const ModProfile &p, const std::vector<ModInfo> &all);
 const char kReadOnlyError[] = "MODREADONLY";
 
 struct ReadOnlyLayerState {

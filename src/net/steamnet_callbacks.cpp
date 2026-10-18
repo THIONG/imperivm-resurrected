@@ -230,24 +230,12 @@ void OnCallback(int id, const void *data)
 			return;
 		}
 		if (lobby != g_pendingJoin.syncLobby) {
-			const std::string theirs = Data(lobby, "key"), own = OwnKey();
-			if (!theirs.empty() && !own.empty() && theirs != own) {
-				StoreLobbyEntry(lobby);
+			const OnlineLobby info = ReadLobby(lobby);
+			const RoomContent content = SteamRoomContent(info, OwnKey());
+			if (RoomContentDiffers(content)) {
+				if (!info.spectate) StoreLobbyEntry(lobby);
 				S.SteamAPI_ISteamMatchmaking_LeaveLobby(g_steam.mm, lobby);
-				LogW("steam", "not entering room %llu: its gameplay content does not match yours", lobby);
-				if (!UiMultiplayerOpen()) Notice("This room uses different content: join from the game list to synchronize it");
-				g_resync.at = GetTickCount();
-				g_resync.lobby = lobby;
-				return;
-			}
-			const std::vector<std::string> scen = SplitTabs(Data(lobby, "scen"));
-			if (scen.size() >= 6 && !scen[3].empty() && !ModsMountedHasExact(scen[3], scen[4])) {
-				StoreLobbyEntry(lobby);
-				S.SteamAPI_ISteamMatchmaking_LeaveLobby(g_steam.mm, lobby);
-				LogW("steam", "not entering room %llu: its map comes from \"%s\", which you do not have loaded", lobby, scen[5].c_str());
-				if (!UiMultiplayerOpen()) Notice(TrFmt("This room uses the map from \"%s\": join from the game list to download it", {scen[5]}));
-				g_resync.at = GetTickCount();
-				g_resync.lobby = lobby;
+				RefuseForContent(lobby, info, content);
 				return;
 			}
 		}
@@ -393,5 +381,25 @@ void DispatchCallbacks()
 		}
 		S.SteamAPI_ManualDispatch_FreeLastCallback(g_steam.pipe);
 	}
+}
+}
+
+namespace steamnet_impl {
+void RefuseForContent(uint64 lobby, const OnlineLobby &info, RoomContent content)
+{
+	if (content == RoomContent::kOtherMap) {
+		LogW("steam", "room %llu: its map comes from \"%s\", which you do not have loaded; not staying in it", lobby, info.scenModName.c_str());
+		if (!UiMultiplayerOpen()) Notice(TrFmt("This room uses the map from \"%s\": join from the game list to download it", {info.scenModName}));
+	}
+	else if (info.spectate) {
+		LogW("steam", "spectator room %llu: its gameplay content does not match yours; not staying in it", lobby);
+		Notice("This game uses different content. Join it from the game list to download it.");
+	}
+	else {
+		LogW("steam", "room %llu: its gameplay content does not match yours; not staying in it", lobby);
+		if (!UiMultiplayerOpen()) Notice("This room uses different content: join from the game list to synchronize it");
+	}
+	g_resync.at = GetTickCount();
+	g_resync.lobby = lobby;
 }
 }

@@ -47,13 +47,13 @@ Non inserire eseguibili né script di sistema (`.exe .dll .asi .bat .cmd .com .s
 | Campo | A cosa serve |
 |---|---|
 | `id`, `name`, `version`, `authors`, `description` | La scheda della mod nel gestore. `name` e `description` valgono come testo singolo o come oggetto con un testo per lingua (si vede quello della lingua del gioco; se manca, l'inglese; se manca, il primo). |
-| `category`, `tags` | La categoria di GameBanana e, per mappe, campagne, traduzioni e audio, i tag dei giocatori o della lingua. Vedi [Pubblicare](pubblicare.md). |
+| `category`, `tags` | La categoria principale di GameBanana e i tag: altre categorie (`Type`), giocatori (`Players`) e lingua (`Language`). Vedi [Pubblicare](pubblicare.md). |
 | `redistributable` | Con `true`, l'host di una stanza può inviare la mod a chi non ce l'ha. Di default è `false`. |
 | `license` | Testo libero con la licenza. |
 | `requires` | Le mod che servono: un elenco di id, o di oggetti `{"id": "...", "version": "..."}`. |
 | `incompatibleWith` | Elenco di id di mod con cui non si può attivare. |
-| `loadAfter`, `loadBefore` | Ciò che chiedi all'[ordine di caricamento](riferimento.md#1-struttura-di-una-mod), per id; il resto lo calcola il gioco. Con `loadAfter` la tua mod sta sopra quella: vincono i suoi file, patch e testi. |
-| `sources` | `{"url": "...", "gamebanana": 123456}`. Lo scrive il gioco quando installi da Sfoglia contenuti; serve per avvisare delle versioni nuove. |
+| `loadAfter`, `loadBefore` | Ciò che chiedi all'[ordine di caricamento](riferimento.md#1-struttura-di-una-mod), per id; il resto lo calcola il gioco. Con `loadAfter` la tua mod sta sopra quella: vincono i suoi file, patch e testi (tranne un file che l'altra porta sciolto e la tua dentro un `.pak`: vince quello sciolto). |
+| `sources` | `{"url": "...", "gamebanana": 123456}`. Lo scrive il gioco quando installi da Sfoglia contenuti; serve per avvisare delle versioni nuove. Se viene dalla sezione Sounds, il numero è in `gamebananaSound`. |
 | `language` | Dichiara una lingua nuova. Vedi [Lingue](lingue.md). |
 | `commands` | Nome di ogni file di comandi nella schermata Controlli. Vedi [Tasti](tasti.md). |
 
@@ -69,7 +69,7 @@ Non inserire eseguibili né script di sistema (`.exe .dll .asi .bat .cmd .com .s
 - [Modelli di città e villaggio](modelli-citta.md): città e villaggio iniziali propri per una civiltà di mod (`crea-modello.js`).
 - [Unità nuove](unita.md): classe, comando per reclutarla, immagini e testi, riusando il modello di un'altra unità.
 - [Statistiche delle unità](statistiche.md): cosa tocca ogni attributo, quali non fanno nulla e quali bloccano il gioco.
-- [Specialità delle unità](specialita.md): specialità nuove (bit da 36 a 63) e il loro effetto con gli script.
+- [Specialità delle unità](specialita.md): specialità nuove e il loro effetto con gli script.
 - [Abilità delle truppe](abilita.md): abilità nuove per unità o eroi (comando con pulsante e tasto, più un metodo con script).
 - [Oggetti nuovi](oggetti.md): amuleti, erbe e gemme degli eroi.
 - [Formazioni nuove](formazioni.md): formazioni da eroe con i loro bonus e il loro pulsante.

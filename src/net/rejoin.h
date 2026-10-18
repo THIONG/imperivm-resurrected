@@ -21,6 +21,7 @@ std::string RejoinClientStatus();
 bool RejoinClientFailed();
 void RejoinClientDismiss();
 bool RejoinBusy();
+bool RejoinReloading();
 
 bool RejoinPendingLoad();
 void RejoinAfterLoad(void *game, bool loaded);

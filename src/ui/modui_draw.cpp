@@ -38,7 +38,7 @@ void ModUiDraw(uint32_t *buf, int w, int h)
 		std::lock_guard<std::mutex> lock(g_lock);
 		if (g_s.open && GetTickCount() - g_s.lastRefresh > 1000) {
 			const size_t before = g_s.mods.size();
-			g_s.mods = ModsList();
+			g_s.mods = ModsSummaries();
 			if (g_s.mods.size() != before) {
 				BuildRows();
 				BuildUsage();
@@ -49,7 +49,7 @@ void ModUiDraw(uint32_t *buf, int w, int h)
 			g_s.dl = DlStatus();
 			if (g_s.dl.finished != g_s.dlFinished) {
 				g_s.dlFinished = g_s.dl.finished;
-				g_s.mods = ModsList();
+				g_s.mods = ModsSummaries();
 				BuildRows();
 				BuildUsage();
 				g_s.restartNeeded = ModsRestartNeeded();
@@ -114,16 +114,20 @@ void ModUiDraw(uint32_t *buf, int w, int h)
 	const DownloadStatus dl = DlStatus();
 	RECT closeBox = {};
 	bool cardShown = false;
-	if (dl.active) {
+	if (!dl.active) g_card.rate.Reset();
+	else {
+		g_card.rate.Sample(dl.done, GetTickCount());
 		Card card;
-		const bool installing = dl.total && dl.done >= dl.total;
+		const bool installing = dl.unpacking || (dl.total && dl.done >= dl.total);
+		const bool unpackShown = dl.unpacking && dl.unpackTotal;
 		card.text = std::string(installing ? Tr("Installing ") : Tr("Downloading ")) + (dl.what.empty() ? std::string("mod") : dl.what);
-		card.progress = dl.total ? static_cast<float>(dl.done) / static_cast<float>(dl.total) : 0.0f;
-		card.sub = HumanBytes(dl.done) + (dl.total ? Tr(" of ") + HumanBytes(dl.total) : "") +
+		card.progress = unpackShown ? static_cast<float>(static_cast<double>(dl.unpacked) / dl.unpackTotal)
+					   : dl.total ? static_cast<float>(dl.done) / static_cast<float>(dl.total) : 0.0f;
+		card.sub = (unpackShown ? TransferText(dl.unpacked, dl.unpackTotal, 0) : TransferText(dl.done, dl.total, installing ? 0 : g_card.rate.perSecond)) +
 			(dl.queued ? "  ·  +" + std::to_string(dl.queued) + Tr(" queued") : "");
 		card.close = true;
 		card.corner = true;
-		card.fixedW = 340;
+		card.fixedW = 400;
 		const RECT r = DrawCard(g_card.canvas, buf, w, h, card, s, 240);
 		closeBox = {r.right - static_cast<LONG>(30 * s), r.top, r.right, r.top + static_cast<LONG>(30 * s)};
 		cardShown = r.right > r.left;

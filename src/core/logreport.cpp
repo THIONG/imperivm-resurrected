@@ -10,18 +10,20 @@
 
 #include "core/log.h"
 #include "core/logredact.h"
+#include "core/zipfile.h"
 
 namespace {
 
 const size_t kLogCap = 24u << 20;
 const size_t kSideFileCap = 2u << 20;
+const size_t kTraceCap = 64u << 20;
+const size_t kDesyncCap = 16u << 20;
 const size_t kCompilerOutputCap = 128u << 10;
 const size_t kSettingsCap = 256u << 10;
 const unsigned long long kDay = 86400ull * 10000000ull;
 const unsigned long long kCrashMaxAge = 7 * kDay;
 const unsigned long long kDesyncMaxAge = 7 * kDay;
 const size_t kRejoinFiles = 4;
-const DWORD kZipTimeoutMs = 120 * 1000;
 const char kReportPrefix[] = "imperivm-report-";
 const char kPrivacyNote[] =
 	"\r\nPrivacy\r\n"
@@ -181,30 +183,9 @@ Found NewestUnderLogs(const std::string &logsDir, const char *file, unsigned lon
 
 bool ZipFolder(const std::string &folder, const std::string &zip)
 {
-	char system[MAX_PATH] = {};
-	GetSystemDirectoryA(system, MAX_PATH);
-	std::string command = "\"" + std::string(system) + "\\tar.exe\" -a -c -f \"" + zip + "\" -C \"" + folder + "\" .";
-	std::vector<char> line(command.begin(), command.end());
-	line.push_back(0);
-	STARTUPINFOA si = {sizeof(si)};
-	PROCESS_INFORMATION pi = {};
-	DeleteFileA(zip.c_str());
-	if (!CreateProcessA(nullptr, line.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) return false;
-	DWORD code = 1;
-	if (WaitForSingleObject(pi.hProcess, kZipTimeoutMs) == WAIT_TIMEOUT) {
-		TerminateProcess(pi.hProcess, 1);
-		WaitForSingleObject(pi.hProcess, 5000);
-	}
-	else {
-		GetExitCodeProcess(pi.hProcess, &code);
-	}
-	CloseHandle(pi.hThread);
-	CloseHandle(pi.hProcess);
-	if (code != 0) {
-		DeleteFileA(zip.c_str());
-		return false;
-	}
-	return GetFileAttributesA(zip.c_str()) != INVALID_FILE_ATTRIBUTES;
+	std::vector<std::string> names;
+	for (const Entry &e : ListFolder(folder)) names.push_back(e.name);
+	return !names.empty() && ZipCreate(zip, folder, names);
 }
 
 void PruneReports(const std::string &reports, size_t keep)
@@ -311,12 +292,12 @@ ReportResult ReportCreate(const LogPaths &paths, const ReportInput &input)
 	}
 	std::sort(traces.begin(), traces.end(), [](const Entry &a, const Entry &b) { return a.time > b.time; });
 	if (traces.size() > kRejoinFiles) traces.resize(kRejoinFiles);
-	for (const Entry &e : traces) out.AddFile("rejoin\\" + e.name, paths.modDir + "\\rejoin\\" + e.name, kSideFileCap, true, "modified " + LocalTime(e.time));
+	for (const Entry &e : traces) out.AddFile("rejoin\\" + e.name, paths.modDir + "\\rejoin\\" + e.name, kTraceCap, true, "modified " + LocalTime(e.time));
 
 	const Found crash = NewestUnderLogs(paths.logsDir, "vx.log", kCrashMaxAge);
 	if (!crash.path.empty()) out.AddFile("game\\vx.log", crash.path, kSideFileCap, false, "the game's own crash report, " + LocalTime(crash.time));
 	const Found desync = NewestUnderLogs(paths.logsDir, "desync.txt", kDesyncMaxAge);
-	if (!desync.path.empty()) out.AddFile("game\\desync.txt", desync.path, kSideFileCap, false, "the game's desync dump, " + LocalTime(desync.time));
+	if (!desync.path.empty()) out.AddFile("game\\desync.txt", desync.path, kDesyncCap, false, "the game's desync dump, " + LocalTime(desync.time));
 	out.AddFile("game\\comp_out.txt", paths.logsDir + "\\comp_out.txt", kCompilerOutputCap, true);
 
 	std::string info = "Imperivm Resurrected - problem report\r\n";

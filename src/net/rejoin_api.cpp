@@ -4,6 +4,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include "MinHook.h"
+#include "core/config.h"
 #include "core/log.h"
 #include "mods/modvars.h"
 #include "net/steamnet.h"
@@ -74,6 +75,13 @@ void RejoinGameThreadTickInner()
 	}
 	for (Msg &m : msgs) {
 		switch (m.type) {
+		case kRjReload:
+		case kRjReloadFile:
+		case kRjReloadEnd:
+		case kRjReloadAck:
+		case kRjReloadGo:
+			ReloadOnMessage(m);
+			break;
 		case kRjReq:
 			HostOnRequest(m.peer, atoi(m.data.c_str()));
 			break;
@@ -97,6 +105,7 @@ void RejoinGameThreadTickInner()
 			break;
 		case kRjDeny:
 		case kRjCancel:
+			if (m.type == kRjCancel && ReloadOnCancel(m)) break;
 			if (m.type == kRjDeny && g_session.role == kBack && g_session.phase == kBWaitAccept && m.peer == g_session.peer &&
 				m.data.compare(0, strlen(kOwnerRedirect), kOwnerRedirect) == 0) {
 				const std::string rest = m.data.substr(strlen(kOwnerRedirect));
@@ -223,6 +232,7 @@ void RejoinGameThreadTickInner()
 	}
 	HostTick();
 	BackTick();
+	ReloadTick();
 	if (g_session.role == kOther && g_session.deadline && static_cast<int>(GetTickCount() - g_session.deadline) > 0) {
 		LogI("rejoin", "the host said nothing; continuing");
 		Unfreeze();
@@ -232,12 +242,12 @@ void RejoinGameThreadTickInner()
 
 bool RejoinWantsWake()
 {
-	return g_session.role == kBack && !Game();
+	return (g_session.role == kBack || g_reload.phase != kRNone) && !Game();
 }
 
 void RejoinMenuTick()
 {
-	if (g_session.role == kBack && !Game()) RejoinGameThreadTick();
+	if ((g_session.role == kBack || g_reload.phase != kRNone) && !Game()) RejoinGameThreadTick();
 }
 
 void RejoinRequest(uint64_t hostId, const std::string &hostName, const std::vector<std::pair<uint64_t, std::string>> &others)
@@ -265,6 +275,7 @@ void RejoinCancel()
 		if (g_session.peer) SteamRejoinSend(g_session.peer, kRjCancel, "canceled it");
 	}
 	if (g_session.role == kBack && g_session.phase < kBWaitLoad) {
+		ReloadDrop();
 		ResetRole();
 		SetStatus("");
 	}
@@ -296,7 +307,12 @@ void RejoinClientDismiss()
 
 bool RejoinBusy()
 {
-	return g_session.role == kBack && g_session.phase != kBFailed;
+	return (g_session.role == kBack && g_session.phase != kBFailed) || g_reload.phase != kRNone;
+}
+
+bool RejoinReloading()
+{
+	return g_reload.phase != kRNone;
 }
 
 bool RejoinPendingLoad()

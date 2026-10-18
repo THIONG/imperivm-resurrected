@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: Mod version
-      description: Bottom right of the main menu, for example 0.32.2.
+      description: Bottom right of the main menu, for example 0.32.22.
     validations:
       required: true
   - type: textarea

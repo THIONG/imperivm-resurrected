@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <deque>
 #include <set>
@@ -22,6 +23,10 @@
 #include "core/legacy.h"
 #include "core/log.h"
 #include "game/cheats.h"
+#include "game/civs.h"
+#include "game/cmdcheck.h"
+#include "game/techplan.h"
+#include "game/unitcatalog.h"
 #include "addr/engine.h"
 #include "addr/state.h"
 #include "addr/net.h"
@@ -43,6 +48,7 @@ typedef void *(__cdecl *Create_t)();
 typedef void(__fastcall *Assign_t)(void *self, void *edx, const char *text, unsigned len);
 typedef void(__fastcall *ThisPtr_t)(void *self, void *edx, void *arg);
 typedef void(__fastcall *RunScript_t)(void *game, void *edx, const char *text);
+typedef void *(__fastcall *FindClass_t)(void *registry, void *edx, const char *name);
 
 ChatSend_t g_origChatSend = nullptr;
 
@@ -73,280 +79,60 @@ std::string Radius(const std::string &arg)
 	return std::to_string(std::max(100, std::min(6000, atoi(arg.c_str()))));
 }
 
-struct Tech {
-	const char *name;
-	unsigned races;
-};
-const Tech kTechs[] = {
-	{"Fights", 0x1},
-	{"Britain Fights", 0x20},
-	{"MGladiator Shows", 0x10},
-	{"RGladiator Shows", 0x2},
-	{"People's Assembly", 0x4},
-	{"Tournaments", 0x8},
-	{"Gaul Training 1", 0x1},
-	{"Rome Training 1", 0x2},
-	{"Gaul Training 2", 0x1},
-	{"Rome Training 2", 0x2},
-	{"Veteran Offence", 0x2},
-	{"Veteran Defence", 0x2},
-	{"Veteran Health", 0x2},
-	{"Gaul Training 3", 0x1},
-	{"Shared Strength", 0x4},
-	{"Shared Triumph", 0x4},
-	{"Heroes' Wisdom", 0x8},
-	{"Warriors' Wisdom", 0x8},
-	{"Trident Warrior Exp1", 0x1},
-	{"Trident Warrior Exp2", 0x1},
-	{"Trident Warrior Exp3", 0x1},
-	{"Warrior Tales", 0x1},
-	{"Shrine of Thor", 0x20},
-	{"Mountain Clan", 0x8},
-	{"Spoils of war", 0x4},
-	{"Liberati guild", 0x10},
-	{"Military Academy", 0x10},
-	{"Mountain Clan Legacy", 0x8},
-	{"Battle tactics", 0x1},
-	{"Nobility", 0x8},
-	{"BNobility", 0x20},
-	{"RNobility", 0x2},
-	{"Noble Offence", 0x20},
-	{"Noble Defence", 0x20},
-	{"Standartization I", 0x10},
-	{"Standartization II", 0x10},
-	{"Standartization III", 0x10},
-	{"Cult of Anubis", 0x40},
-	{"Statue of Isis, mother of Anubis", 0x40},
-	{"Path of the dead I", 0x40},
-	{"Path of the dead II", 0x40},
-	{"Path of the dead III", 0x40},
-	{"Cult of Horus", 0x40},
-	{"Statue of Osiris, father of Horus", 0x40},
-	{"Light of Horus I", 0x40},
-	{"Light of Horus II", 0x40},
-	{"Light of Horus III", 0x40},
-	{"Statue of Amon-Ra", 0x40},
-	{"TFights", 0x80},
-	{"Legendary Valkyries", 0x80},
-	{"Learning", 0x80},
-	{"Attack focus", 0x80},
-	{"Teuton Master", 0x80},
-	{"Barrack Level 1", 0xff},
-	{"Barrack Level 2", 0xdf},
-	{"BBarrack Level 2", 0x20},
-	{"Barrack Level 3", 0x4c},
-	{"Strenghten Stronghold Defences I", 0xff},
-	{"Strenghten Stronghold Defences II", 0xff},
-	{"Roman Archers", 0x12},
-	{"Roman Velit", 0x10},
-	{"Roman Principle", 0x12},
-	{"Roman Scout", 0x12},
-	{"Roman Praetorian", 0x10},
-	{"Roman Full Armor", 0x2},
-	{"Roman Chariot Wheels", 0x2},
-	{"Gaul Axeman", 0x1},
-	{"Gaul Iron Axes", 0x1},
-	{"Gaul Spearman", 0x1},
-	{"Gaul Iron Spearheads", 0x1},
-	{"Gaul Horseman", 0x1},
-	{"Gaul Woman Warrior", 0x1},
-	{"Gaul Fine Armor", 0x1},
-	{"Spears", 0x8},
-	{"Horseshoes", 0x8},
-	{"Slings", 0x8},
-	{"Battleaxes", 0x8},
-	{"Forge spears", 0x4},
-	{"Forge javelins", 0x4},
-	{"Forge swords", 0x4},
-	{"Forge maces", 0x4},
-	{"Forge pikes", 0x4},
-	{"Britain Spears", 0x20},
-	{"Britain Large Shields", 0x20},
-	{"Britain Javelins", 0x20},
-	{"Britain Swords", 0x20},
-	{"Britain chamber", 0x20},
-	{"Britain Ghoul Summoning", 0x20},
-	{"Wolf Summoning", 0x20},
-	{"Britain Mass Heal", 0x20},
-	{"Dark Rituals", 0x4},
-	{"Zombify", 0x4},
-	{"Sacred Legion", 0x4},
-	{"Ferocity", 0x4},
-	{"Ritual Chamber", 0x21},
-	{"Ghoul Summoning", 0x21},
-	{"Restoration", 0x21},
-	{"Eagle Summoning", 0x21},
-	{"Cult of Osiris", 0x40},
-	{"EZombify", 0x40},
-	{"ECloud of Plague", 0x40},
-	{"Mumification", 0x40},
-	{"GBarrack Level 3", 0x1},
-	{"MBarrack Level 3", 0x10},
-	{"RBarrack Level 3", 0x2},
-	{"Code of Valor", 0x8},
-	{"Ancestral Knowledge", 0x8},
-	{"Cover of Mercy", 0x8},
-	{"Iberian Mass Heal", 0x8},
-	{"Free Beer", 0x1},
-	{"Free Wine", 0x12},
-	{"Free Trade", 0x4},
-	{"Free Drinks", 0x8},
-	{"Gambling", 0x20},
-	{"Gambler's Day", 0x20},
-	{"Gambler's Test", 0x20},
-	{"Gambler's Luck", 0x20},
-	{"Import horses", 0x12},
-	{"Food Tax", 0x1},
-	{"Nordic trade routes", 0x1},
-	{"Belts of Might", 0x1},
-	{"Mercenary pact", 0x4},
-	{"GrainTrade", 0x40},
-	{"ReligiousFeast", 0x40},
-	{"TGrainTrade", 0x80},
-	{"TFoodTax", 0x80},
-	{"TReligiousFeast", 0x80},
-	{"TBarrack Level 3", 0x80},
-	{"Altar of Jupiter", 0x12},
-	{"Cloud of Plague", 0x12},
-	{"Wrath of Jupiter", 0x12},
-	{"God's Gift", 0x12},
-	{"German chamber", 0x80},
-	{"German Wolf Summoning", 0x80},
-	{"German Eagle Summoning", 0x80},
-	{"German Mass Heal", 0x80},
-};
+bool ScriptSafe(const std::string &s)
+{
+	if (s.empty() || s.size() > 120) return false;
+	for (unsigned char c : s) {
+		if (c < 0x20 || c == '"' || c == '\\') return false;
+	}
+	return true;
+}
 
-struct UnitDef {
-	const char *id;
-	int civ;
-	const char *name;
-	bool hero;
-};
-const UnitDef kUnits[] = {
-	{"GArcher", 0, "Archer", false},
-	{"GAxeman", 0, "Axeman", false},
-	{"GDruid", 0, "Druid", false},
-	{"GHero1", 0, "Mraxis", true},
-	{"GHero2", 0, "Ogox", true},
-	{"GHero3", 0, "Dumnorix", true},
-	{"GHero4", 0, "Ercenberht", true},
-	{"GHorseman", 0, "Horseman", false},
-	{"GSpearman", 0, "Spearman", false},
-	{"GSwordsman", 0, "Swordsman", false},
-	{"GTridentWarrior", 0, "Trident Warrior", false},
-	{"GWomanWarrior", 0, "Woman Warrior", false},
-	{"RArcher", 1, "Archer", false},
-	{"RChariot", 1, "Chariot", false},
-	{"RGladiator", 1, "Gladiator", false},
-	{"RHastatus", 1, "Hastatus", false},
-	{"MHero1", 1, "Rutilanus", true},
-	{"MHero2", 1, "Damasus", true},
-	{"MHero3", 1, "Sabucius", true},
-	{"RHero1", 1, "Anteros", true},
-	{"RHero2", 1, "Chilo", true},
-	{"RHero3", 1, "Dioges", true},
-	{"RLiberatus", 1, "Liberatus", false},
-	{"RPraetorian", 1, "Praetorian", false},
-	{"RPriest", 1, "Priest", false},
-	{"RPrinciple", 1, "Principle", false},
-	{"RScout", 1, "Scout", false},
-	{"RTribune", 1, "Tribune", false},
-	{"RVelit", 1, "Velit", false},
-	{"CBerberAssassin", 2, "Berber Assassin", false},
-	{"CHero1", 2, "Mago", true},
-	{"CHero2", 2, "Hamack", true},
-	{"CHero3", 2, "Carthalo", true},
-	{"CJavelinThrower", 2, "Numidian Javelin Thrower", false},
-	{"CLibyanFootman", 2, "Libyan Footman", false},
-	{"CMaceman", 2, "Maceman", false},
-	{"CNoble", 2, "Noble", false},
-	{"CNumidianRider", 2, "Numidian Rider", false},
-	{"CShaman", 2, "Shaman", false},
-	{"CWarElephant", 2, "War Elephant", false},
-	{"IArcher", 3, "Archer", false},
-	{"ICavalry", 3, "Cavalry", false},
-	{"IDefender", 3, "Defender", false},
-	{"IEliteGuard", 3, "Elite Guard", false},
-	{"IEnchantress", 3, "Enchantress", false},
-	{"IHero1", 3, "Tantamo", true},
-	{"IHero2", 3, "Caraunio", true},
-	{"IHero3", 3, "Baraeco", true},
-	{"IMilitiaman", 3, "Militiaman", false},
-	{"IMountaineer", 3, "Mountaineer", false},
-	{"IScout", 3, "Scout", false},
-	{"ISlinger", 3, "Slinger", false},
-	{"BBowman", 4, "Bowman", false},
-	{"BBronzeSpearman", 4, "Bronze Spearman", false},
-	{"BDruid", 4, "Druid", false},
-	{"BHero1", 4, "Gawain", true},
-	{"BHero2", 4, "Alvin", true},
-	{"BHero3", 4, "Wuffa", true},
-	{"BHighlander", 4, "Highlander", false},
-	{"BJavelineer", 4, "Javelineer", false},
-	{"BShieldBearer", 4, "Shield Bearer", false},
-	{"BSwordsman", 4, "Swordsman", false},
-	{"BVikingLord", 4, "Viking Lord", false},
-	{"TArcher", 5, "Archer", false},
-	{"TAxeman", 5, "Axeman", false},
-	{"TEnchantress", 5, "Enchantress", false},
-	{"THero1", 5, "Otho", true},
-	{"THero2", 5, "Eidhart", true},
-	{"THero3", 5, "Amalrich", true},
-	{"THuntress", 5, "Huntress", false},
-	{"TMaceman", 5, "Maceman", false},
-	{"TSwordsman", 5, "Swordsman", false},
-	{"TTeutonArcher", 5, "Teuton Archer", false},
-	{"TTeutonRider", 5, "Teuton Rider", false},
-	{"TTeutonWolf", 5, "Teuton Wolf", false},
-	{"TValkyrie", 5, "Valkyrie", false},
-	{"EAnubisWarrior", 6, "Anubis Warrior", false},
-	{"EArcher", 6, "Archer", false},
-	{"EAxetrower", 6, "Axe Thrower", false},
-	{"EChariot", 6, "Chariot of Osiris", false},
-	{"EGuardian", 6, "Guardian", false},
-	{"EHero1", 6, "Mentuhotep", true},
-	{"EHero2", 6, "Nebnufer", true},
-	{"EHero3", 6, "Imhotep", true},
-	{"EHorusWarrior", 6, "Horus Warrior", false},
-	{"EPriest", 6, "Priest", false},
-	{"ESwordsman", 6, "Swordsman", false},
-	{"Caesar", 7, "Caesar", true},
-	{"NHero1", 7, "Heardred", true},
-	{"Keltill", 7, "Keltill", true},
-	{"Larax", 7, "Larax", true},
-	{"DLleldoryn", 7, "Lleldoryn", true},
-	{"GHeroWoman", 7, "Morgatha", true},
-	{"CHero4", 7, "Unknown, Carthaginian", true},
-	{"IHero4", 7, "Unknown, Iberian", true},
-};
-const int kUnitCount = static_cast<int>(sizeof(kUnits) / sizeof(kUnits[0]));
+bool ClassIdSafe(const std::string &s)
+{
+	if (s.empty() || s.size() > 31) return false;
+	for (unsigned char c : s) {
+		if (!isalnum(c) && c != '_' && c != '-' && c != ' ') return false;
+	}
+	return true;
+}
 
 std::vector<std::string> TechScripts(int player)
 {
-	std::vector<std::string> out;
+	std::vector<TechCommand> commands;
+	for (const GameCommand &c : GameCommands()) commands.push_back({c.name, c.method, c.param});
+	const std::vector<TechStep> steps = TechPlan(commands);
 	const std::string p = std::to_string(player);
-	const std::string declarations = "ObjList ol; Building b; Building cb; Settlement s; int i; ";
-	const std::string scan = "ol = ClassPlayerObjs(\"BaseBuilding\", " + p +
-		").GetObjList(); for (i = 0; i < ol.count; i += 1) { b = ol[i].AsBuilding(); if (b.IsValid()) { s = b.settlement; if (s.IsValid()) { cb = s.GetCentralBuilding; if (cb.IsValid() && cb.pos.x == b.pos.x && cb.pos.y == b.pos.y";
-	for (int race = 0; race < 8; race++) {
-		std::string batch;
-		int inBatch = 0;
-		auto flush = [&]() {
-			if (!inBatch) return;
-			out.push_back(declarations + scan + " && cb.race == " + std::to_string(race) + ") { " + batch + "} } } }");
-			batch.clear();
-			inBatch = 0;
-		};
-		for (const Tech &t : kTechs) {
-			if (!(t.races & (1u << race))) continue;
-			batch += std::string("b.Research(\"") + t.name + "\"); ";
+	const std::string head = "ObjList ol; Building b; Settlement s; int i; ol = ClassPlayerObjs(\"BaseBuilding\", " + p +
+		").GetObjList(); for (i = 0; i < ol.count; i += 1) { b = ol[i].AsBuilding(); if (b.IsValid()) { s = b.settlement; if (s.IsValid()) { ";
+	std::vector<std::string> out;
+	std::string batch;
+	int inBatch = 0;
+	auto flush = [&]() {
+		if (!inBatch) return;
+		out.push_back(head + batch + "} } }");
+		batch.clear();
+		inBatch = 0;
+	};
+	int usable = 0;
+	for (int pass = 0; pass < 2; pass++) {
+		for (const TechStep &step : steps) {
+			bool safe = ScriptSafe(step.command) && ScriptSafe(step.name);
+			for (const TechCondition &c : step.choices) safe = safe && ScriptSafe(c.var) && (c.value.empty() || ScriptSafe(c.value));
+			if (!safe) continue;
+			if (pass == 0) usable++;
+			const std::string scope = step.playerName ? p : "s";
+			batch += "if (!IsResearched(" + scope + ", \"" + step.name + "\")) if (!IsResearching(" + scope + ", \"" + step.name + "\")) ";
+			for (const TechCondition &c : step.choices) {
+				batch += "if (EnvReadString(" + (c.player ? p : std::string("s")) + ", \"" + c.var + "\") != \"" + c.value + "\") ";
+			}
+			batch += "if (Mod_CanExecCmd(b, \"" + step.command + "\")) b.Research(\"" + step.command + "\"); ";
 			if (++inBatch == 8) flush();
 		}
 		flush();
 	}
-	out.push_back(declarations + "Mod_Log(\"Researching technologies: player " + p + ", race \" + GetPlayerRace(" + p + ") + \", forums \" + ClassPlayerObjs(\"BaseTownhall\", " + p +
-		").count + \", buildings \" + ClassPlayerObjs(\"BaseBuilding\", " + p + ").count); " + scan +
-		") { Mod_Log(\"  settlement at \" + b.pos.x + \",\" + b.pos.y + \": race \" + cb.race + \" (\" + cb.name + \") Horseshoes=\" + EnvReadString(s, \"Horseshoes\") + \" RScout=\" + EnvReadString(s, \"RScout\") + \" GHorseman=\" + EnvReadString(s, \"GHorseman\") + \" Arrows=\" + EnvReadString(s, \"Arrows\") + \" RArcher=\" + EnvReadString(s, \"RArcher\")); } } } }");
+	LogI("cheats", "technologies of player %d: %d research commands of the game, in the order of their requirements, twice (%u script fragments)", player,
+		usable, static_cast<unsigned>(out.size()));
 	out.push_back("ObjList u; int i; InvalidateDamageFormulaParams(); InvalidateRegenConsts(); u = GetPlayerUnits(" + p +
 		", \"Military\"); for (i = 0; i < u.count; i += 1) { if (u[i].IsValid()) u[i].AsUnit().RecalcBonuses(); }");
 	return out;
@@ -412,12 +198,13 @@ std::string Snippet(const std::string &verb, const std::string &arg, int player,
 	}
 	if (verb == "spawn") {
 		const size_t comma = arg.find(',');
-		const int idx = atoi(arg.c_str());
+		const std::string id = arg.substr(0, comma);
 		const int n = comma == std::string::npos ? 1 : std::max(1, std::min(kCheatsMaxSpawn, atoi(arg.c_str() + comma + 1)));
-		if (idx < 0 || idx >= kUnitCount) return std::string();
-		label = std::string(kUnits[idx].name) + " x" + std::to_string(n);
+		void *registry = *reinterpret_cast<void **>(addr::kRegistry);
+		if (!ClassIdSafe(id) || !registry || !reinterpret_cast<FindClass_t>(addr::kFindClassByName)(registry, nullptr, id.c_str())) return std::string();
+		label = id + " x" + std::to_string(n);
 		return "Query q; Obj b; Unit u; point e; int k; q = ClassPlayerObjs(\"BaseBuilding\", " + p + "); if (q.count > 0) { b = q.NearestObj(Point(" + ref + ")); e = b.AsBuilding.GetExitPoint(b.pos, false); for (k = 0; k < " +
-			std::to_string(n) + "; k += 1) { u = Place(\"" + kUnits[idx].id + "\", e, " + p + "); b.AsBuilding.settlement.ForceAddUnit(u); } }";
+			std::to_string(n) + "; k += 1) { u = Place(\"" + id + "\", e, " + p + "); b.AsBuilding.settlement.ForceAddUnit(u); } }";
 	}
 	if (verb == "heal") {
 		label = "troops healed";
@@ -674,19 +461,25 @@ bool CheatsPanelAvailable()
 	return game && *reinterpret_cast<unsigned *>(game + 0x1258) > 0 && !GameRoomActive() && !reinterpret_cast<IsDemo_t>(addr::kIsDemoPlayback)() && Allowed();
 }
 
-void LocalizeUnits();
 bool CheatsPanelOpen() { return g_panelOpen; }
 void CheatsPanelToggle()
 {
 	g_panelOpen = !g_panelOpen;
-	if (g_panelOpen) LocalizeUnits();
-	else g_panelKeyOpened = false;
+	if (!g_panelOpen) g_panelKeyOpened = false;
 }
 
 bool CheatsPanelConsumeKeyOpen() { return g_panelKeyOpened.exchange(false); }
 
+namespace {
+
 typedef char *(__cdecl *LocFormat_t)(void *db, char *out, const char *key, ...);
-std::vector<std::string> g_unitLoc;
+typedef int(__fastcall *IsKindOfName_t)(void *self, void *edx, const char *name);
+
+const char *const kRaceEnglish[8] = {"Gaul", "Republican Rome", "Carthage", "Iberia", "Imperial Rome", "Britain", "Egypt", "Germany"};
+const int kClassId = 4, kClassEntity = 0x74, kClassDisplayName = 0x8d4, kClassEditTree = 0x928, kClassRace = 0xb48;
+
+UnitCatalog g_catalog;
+bool g_catalogReady = false;
 
 bool LocalizeKey(void *db, const char *key, char *out, size_t size)
 {
@@ -702,28 +495,84 @@ bool LocalizeKey(void *db, const char *key, char *out, size_t size)
 	}
 }
 
-void LocalizeUnits()
+std::string Localized(void *db, const std::string &text, const std::string &context)
 {
-	if (!g_unitLoc.empty()) return;
-	void *db = *reinterpret_cast<void **>(addr::kUiLocalization);
-	g_unitLoc.assign(kUnitCount, std::string());
-	if (!db) return;
-	for (int i = 0; i < kUnitCount; i++) {
-		char out[512];
-		const std::string withContext = std::string(kUnits[i].name) + "@" + kUnits[i].id + " class name";
-		if (LocalizeKey(db, withContext.c_str(), out, sizeof(out)) && out[0] && withContext != out) g_unitLoc[i] = out;
-		else if (LocalizeKey(db, kUnits[i].name, out, sizeof(out)) && out[0] && strcmp(out, kUnits[i].name) != 0) g_unitLoc[i] = out;
+	if (!db || text.empty() || text.find('%') != std::string::npos) return text;
+	char out[512];
+	if (!context.empty()) {
+		const std::string key = text + "@" + context;
+		if (LocalizeKey(db, key.c_str(), out, sizeof(out)) && out[0] && key != out) return out;
 	}
+	if (LocalizeKey(db, text.c_str(), out, sizeof(out)) && out[0]) return out;
+	return text;
 }
 
-int CheatsUnitCount() { return kUnitCount; }
-int CheatsUnitCiv(int i) { return i >= 0 && i < kUnitCount ? kUnits[i].civ : 0; }
-const char *CheatsUnitName(int i)
+void CollectClasses(char *node, char *head, std::vector<char *> &out, int depth)
 {
-	if (i < 0 || i >= kUnitCount) return "";
-	return static_cast<int>(g_unitLoc.size()) == kUnitCount && !g_unitLoc[i].empty() ? g_unitLoc[i].c_str() : kUnits[i].name;
+	if (!node || node == head || depth > 64) return;
+	CollectClasses(*reinterpret_cast<char **>(node), head, out, depth + 1);
+	char *cls = *reinterpret_cast<char **>(node + 0x28);
+	if (cls && GameStringAt(node + 0xc) == GameStringAt(cls + kClassId)) out.push_back(cls);
+	CollectClasses(*reinterpret_cast<char **>(node + 8), head, out, depth + 1);
 }
-bool CheatsUnitIsHero(int i) { return i >= 0 && i < kUnitCount && kUnits[i].hero; }
+
+bool BuildCatalog()
+{
+	char *registry = *reinterpret_cast<char **>(addr::kRegistry);
+	if (!registry || !*reinterpret_cast<int *>(registry + 0xc)) return false;
+	char *head = *reinterpret_cast<char **>(registry + 4);
+	if (!head) return false;
+	std::vector<char *> classes;
+	CollectClasses(*reinterpret_cast<char **>(head + 4), head, classes, 0);
+	void *db = *reinterpret_cast<void **>(addr::kUiLocalization);
+	std::vector<CatalogClass> input;
+	for (char *cls : classes) {
+		const std::string id = GameStringAt(cls + kClassId);
+		EditTreeSpot spot;
+		if (!ClassIdSafe(id) || GameStringAt(cls + kClassEntity).empty() || !EditTreeUnit(GameStringAt(cls + kClassEditTree), spot)) continue;
+		CatalogClass c;
+		c.id = id;
+		c.name = GameStringAt(cls + kClassDisplayName);
+		c.leafName = Localized(db, spot.leaf, spot.leafContext);
+		const int race = *reinterpret_cast<int *>(cls + kClassRace);
+		if (race >= 0 && race < 8) {
+			c.groupName = Localized(db, kRaceEnglish[race], "race");
+			c.groupOrder = race;
+		}
+		else if (const Civ *civ = race >= 10 ? CivByIndex(race) : nullptr) {
+			c.groupName = CivDisplayName(*civ);
+			c.groupOrder = 100 + race;
+		}
+		if (c.groupName.empty()) {
+			c.groupName = Localized(db, spot.folder, "editortree/Units");
+			c.groupOrder = 1000;
+		}
+		c.hero = reinterpret_cast<IsKindOfName_t>(addr::kIsKindOfName)(cls, nullptr, "Hero") != 0;
+		input.push_back(c);
+	}
+	g_catalog = BuildUnitCatalog(input);
+	LogI("cheats", "troops for spawning: %u units in %u groups, from the %u classes the game loaded", static_cast<unsigned>(g_catalog.units.size()),
+		static_cast<unsigned>(g_catalog.groups.size()), static_cast<unsigned>(classes.size()));
+	return true;
+}
+
+const UnitCatalog &Catalog()
+{
+	if (!g_catalogReady) g_catalogReady = BuildCatalog();
+	return g_catalog;
+}
+
+}
+
+int CheatsUnitCount() { return static_cast<int>(Catalog().units.size()); }
+int CheatsUnitGroup(int i) { return i >= 0 && i < CheatsUnitCount() ? Catalog().units[i].group : -1; }
+const char *CheatsGroupName(int group)
+{
+	const UnitCatalog &c = Catalog();
+	return group >= 0 && group < static_cast<int>(c.groups.size()) ? c.groups[group].c_str() : "";
+}
+const char *CheatsUnitName(int i) { return i >= 0 && i < CheatsUnitCount() ? Catalog().units[i].name.c_str() : ""; }
+bool CheatsUnitIsHero(int i) { return i >= 0 && i < CheatsUnitCount() && Catalog().units[i].hero; }
 
 void CheatsSpawn(int index, int count)
 {
@@ -731,13 +580,13 @@ void CheatsSpawn(int index, int count)
 		UiToast("Cheats are not allowed in this game. The host can enable them in the room options.");
 		return;
 	}
-	if (index < 0 || index >= kUnitCount) return;
+	if (index < 0 || index >= CheatsUnitCount()) return;
 	Selection s;
 	if (!ReadSelection(s)) {
 		UiToast("Select a forum or a fort first.");
 		return;
 	}
-	const std::string wire = std::to_string(index) + "," + std::to_string(std::max(1, std::min(kCheatsMaxSpawn, count)));
+	const std::string wire = Catalog().units[index].id + "," + std::to_string(std::max(1, std::min(kCheatsMaxSpawn, count)));
 	if (!QueueCheat(WithRef(std::string(kPrefix) + "spawn:" + wire, s.fx, s.fy))) UiToast("The cheat could not be sent.", true);
 }
 

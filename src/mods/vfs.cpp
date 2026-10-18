@@ -304,6 +304,7 @@ std::string ResurrectedCredits()
 	t += Tr("Libraries") + nl + nl;
 	t += "MinHook - Tsuda Kageyu" + nl;
 	t += "miniaudio - David Reid" + nl;
+	t += "miniz - Rich Geldreich" + nl;
 	t += "Steamworks SDK - Valve" + nl;
 	t += nl + nl;
 	t += bar + nl + nl + nl;
@@ -383,9 +384,11 @@ void *OpenMergedLoc(void *original, const char *path, unsigned mode, void *err)
 
 std::recursive_mutex g_patchLock;
 std::map<std::string, std::string> g_patchedPath;
+thread_local bool t_unpatched = false;
 
 void *OpenPatched(void *original, const std::string &rel, const char *path, unsigned mode, void *err)
 {
+	if (t_unpatched) return original;
 	std::lock_guard<std::recursive_mutex> lock(g_patchLock);
 	auto done = g_patchedPath.find(rel);
 	if (done != g_patchedPath.end()) {
@@ -421,6 +424,54 @@ void *OpenPatched(void *original, const std::string &rel, const char *path, unsi
 	return g_origOpen(path, mode, err);
 }
 
+bool PackArchive(const std::string &rel, unsigned mode)
+{
+	const bool writing = (mode & 2) != 0, creating = (mode & 0xc) != 0;
+	return writing && !creating && rel.size() > 11 && rel.compare(0, 6, "packs/") == 0 && rel.compare(rel.size() - 5, 5, ".bfhp") == 0;
+}
+
+std::string PackArchiveSource(const std::string &rel)
+{
+	if (const std::string *chosen = ModsChosenFile(rel)) {
+		if (chosen->compare(0, 5, "mods/") == 0) return DiskPath("mods", chosen->substr(5));
+	}
+	for (const std::string &dir : ModsMountedDirs()) {
+		std::string disk = dir + "\\" + rel;
+		std::replace(disk.begin(), disk.end(), '/', '\\');
+		if (DiskFileExists(disk)) return disk;
+	}
+	return "";
+}
+
+bool SameSizeAndTime(const std::string &a, const std::string &b)
+{
+	WIN32_FILE_ATTRIBUTE_DATA x, y;
+	if (!GetFileAttributesExA(a.c_str(), GetFileExInfoStandard, &x) || !GetFileAttributesExA(b.c_str(), GetFileExInfoStandard, &y)) return false;
+	return x.nFileSizeHigh == y.nFileSizeHigh && x.nFileSizeLow == y.nFileSizeLow && CompareFileTime(&x.ftLastWriteTime, &y.ftLastWriteTime) == 0;
+}
+
+void *OpenPackArchive(const std::string &rel, unsigned mode, void *err)
+{
+	const std::string source = PackArchiveSource(rel);
+	if (source.empty()) return nullptr;
+	const std::string copyRel = "_cache/archives/" + rel;
+	const std::string copy = DiskPath("mod", copyRel);
+	if (!SameSizeAndTime(source, copy)) {
+		MakeDirsFor(copy);
+		if (!CopyFileA(source.c_str(), copy.c_str(), FALSE)) {
+			LogW("content", "could not copy %s to mod\\%s (error %lu); the game's is used", source.c_str(), copyRel.c_str(), GetLastError());
+			return nullptr;
+		}
+	}
+	void *f = g_origOpen(("mod/" + copyRel).c_str(), mode, err);
+	std::lock_guard<std::mutex> lock(g_lock);
+	if (g_reportedOverrides.insert(rel).second) {
+		LogAt(f ? kLogInfo : kLogWarn, "content", "%s -> %s %s (the game opens it for writing, so a private copy is served)", rel.c_str(),
+			f ? "the content pack's," : "could NOT open the content pack's", source.c_str());
+	}
+	return f;
+}
+
 void *__cdecl HookVfsOpen(const char *path, unsigned mode, void *err)
 {
 	if (!path) {
@@ -443,12 +494,19 @@ void *__cdecl HookVfsOpen(const char *path, unsigned mode, void *err)
 		}
 	}
 
+	if (reading && VfsIsHidden(rel)) return g_origOpen(("mods/_hidden/" + rel).c_str(), mode, err);
 	void *f = nullptr;
 	std::string opened = path;
-	if (reading && rel.compare(0, 12, "currentlang/") == 0) {
+	if (reading) {
+		if (const std::string *chosen = ModsChosenFile(rel)) {
+			if ((f = g_origOpen(chosen->c_str(), mode, err)) != nullptr) opened = *chosen;
+		}
+	}
+	if (!f && reading && rel.compare(0, 12, "currentlang/") == 0) {
 		const std::string alt = LangLooseFile(rel);
 		if (!alt.empty() && (f = g_origOpen(alt.c_str(), mode, err)) != nullptr) opened = alt;
 	}
+	if (!f && PackArchive(rel, mode) && (f = OpenPackArchive(rel, mode, err)) != nullptr) opened = "mod/_cache/archives/" + rel;
 	if (!f) f = g_origOpen(path, mode, err);
 	if (!f && reading) {
 		std::string builtin;
@@ -568,6 +626,7 @@ void InstallVfsHooks(bool knownExe)
 	else {
 		LogE("vfs", "could not hook VfsOpenCompressedAware");
 	}
+	InstallHiddenHooks();
 }
 
 void VfsDumpAtStartup()
@@ -604,4 +663,15 @@ namespace {
 
 const bool g_dumpRegistered = (TweaksOnConfigLoaded(&VfsDumpAtStartup), true);
 
+}
+
+bool VfsReadUnpatched(const std::string &rel, std::string &out)
+{
+	std::vector<char> data;
+	t_unpatched = true;
+	const bool ok = ReadGameFile(rel.c_str(), 1, data);
+	t_unpatched = false;
+	if (!ok) return false;
+	out.assign(data.begin(), data.end());
+	return true;
 }

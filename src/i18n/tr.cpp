@@ -239,6 +239,25 @@ std::string Tr(const std::string &english)
 	return result;
 }
 
+namespace {
+std::string SourceOf(const std::string &text, int depth)
+{
+	auto hit = g_source.find(text);
+	if (hit != g_source.end()) return hit->second;
+	std::vector<std::string> values;
+	for (const Pattern &p : g_patterns) {
+		for (int lang = 0; lang < 2; lang++) {
+			if (!Match(Split(Target(*p.row, lang)), text, values)) continue;
+			if (depth > 0) {
+				for (std::string &v : values) v = SourceOf(v, depth - 1);
+			}
+			return Fill(p.row->en, values);
+		}
+	}
+	return text;
+}
+}
+
 std::string TrSource(const std::string &text)
 {
 	if (text.empty()) return text;
@@ -253,15 +272,7 @@ std::string TrSource(const std::string &text)
 			}
 		}
 	}
-	auto hit = g_source.find(text);
-	if (hit != g_source.end()) return hit->second;
-	std::vector<std::string> values;
-	for (const Pattern &p : g_patterns) {
-		for (int lang = 0; lang < 2; lang++) {
-			if (Match(Split(Target(*p.row, lang)), text, values)) return Fill(p.row->en, values);
-		}
-	}
-	return text;
+	return SourceOf(text, 1);
 }
 
 std::vector<std::string> TrAllLanguages(const std::string &english)

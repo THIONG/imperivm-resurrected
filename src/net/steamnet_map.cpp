@@ -11,6 +11,7 @@
 #include "mods/mods.h"
 #include "net/mpsave.h"
 #include "net/rejoin.h"
+#include "net/sharemsg.h"
 #include "i18n/tr.h"
 
 #include "net/steamnet_internal.h"
@@ -388,12 +389,12 @@ void ReceiveShare()
 			const std::string t(reinterpret_cast<const char *>(data + 1), len - 1);
 			if (sscanf_s(t.c_str(), "%d %d %d", &player, &x, &y) == 3) MpSaveSetPlayerCamera(player, x, y);
 		}
-		else if (len && data[0] >= 40 && data[0] < 60) {
+		else if (len && kSpectatorMessages.Has(data[0])) {
 			const bool fromViewer = g_spectate.lobby && InLobby(g_spectate.lobby, peer);
 			const bool fromHost = g_lobby && Data(g_lobby, "spec") == "1" && S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby) == peer;
 			if (fromViewer || fromHost) SpectatorOnSteamMessage(peer, data[0], std::string(reinterpret_cast<const char *>(data + 1), len - 1));
 		}
-		else if (len && data[0] >= 20 && data[0] < 40) {
+		else if (len && (kRejoinMessages.Has(data[0]) || kReloadMessages.Has(data[0]))) {
 			RejoinOnSteamMessage(peer, data[0], std::string(reinterpret_cast<const char *>(data + 1), len - 1));
 		}
 		else if (len && data[0] == kShMapReq) {

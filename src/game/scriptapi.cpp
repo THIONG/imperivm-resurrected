@@ -8,6 +8,7 @@
 #include "hooks/hookcount.h"
 #include "core/log.h"
 #include "game/civs.h"
+#include "game/cmdcheck.h"
 #include "mods/mods.h"
 #include "mods/modoptions.h"
 #include "mods/modvars.h"
@@ -237,6 +238,24 @@ int __cdecl Mod_TrueRace(int *pSP)
 	return 0;
 }
 
+int __cdecl Mod_CanExecCmd(int *pSP)
+{
+	const int text = PopText(pSP);
+	unsigned handle;
+	int offset;
+	PopObj(pSP, &handle, &offset);
+	const bool ok = CanExecCommand(handle, TextOf(text));
+	ReleaseText(text);
+	PushBool(pSP, ok);
+	return 0;
+}
+
+int __cdecl Mod_PlayerCiv(int *pSP)
+{
+	PushInt(pSP, CivsPlayerCiv(PopInt(pSP)));
+	return 0;
+}
+
 int __cdecl Mod_ApiVersion(int *pSP)
 {
 	PushInt(pSP, kScriptApiVersion);
@@ -264,6 +283,8 @@ const Native kNatives[] = {
 	{Mod_TrueRace, "Mod_TrueRace", "int, Obj obj"},
 	{Mod_GetOption, "Mod_GetOption", "bool, str id"},
 	{Mod_GetOptionValue, "Mod_GetOptionValue", "int, str id"},
+	{Mod_PlayerCiv, "Mod_PlayerCiv", "int, int player"},
+	{Mod_CanExecCmd, "Mod_CanExecCmd", "bool, Obj obj, str command"},
 };
 
 int __cdecl RegisterModNatives(void *engine)

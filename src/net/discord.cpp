@@ -14,7 +14,7 @@
 #include "addr/state.h"
 #include "core/uiport.h"
 
-const char kDiscordInviteUrl[] = "https://discord.gg/76gee3GMB7";
+const char kDiscordInviteUrl[] = "https://discord.gg/6kCatX3Zbc";
 
 void OpenDiscordInvite()
 {

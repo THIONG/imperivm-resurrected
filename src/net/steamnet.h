@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+#include "net/roomcontent.h"
+
 struct OnlineMod {
 	std::string id, name, version;
 	bool gameplay = true;
@@ -65,7 +67,6 @@ struct OnlineMember {
 	bool me = false;
 	int receiving = -1;
 	uint64_t receivingBytes = 0;
-	bool receivingFromGb = false;
 };
 
 struct OnlineChatLine {
@@ -84,6 +85,7 @@ struct OnlineRoom {
 	std::vector<OnlineChatLine> chat;
 	uint32_t chatSerial = 0;
 	bool owner = false;
+	bool contentSync = false;
 };
 
 struct OnlineCreateSettings {
@@ -176,6 +178,8 @@ void SteamPublishSlots(const std::string &text);
 void SteamPublishSaveColors(const std::string &text);
 std::string SteamTakeNotice();
 std::string SteamOwnGameplayKey();
+RoomContent SteamRoomContent(const OnlineLobby &lobby, const std::string &ownKey);
+void SteamLeaveForContent();
 
 void SteamRejoinSend(uint64_t peer, uint8_t type, const std::string &data);
 void SteamRejoinAllow(uint64_t peer);

@@ -14,6 +14,8 @@ namespace mpui_impl {
 namespace {
 void StartSyncCheck(const OnlineLobby lobby, const std::map<std::string, std::string> installed, bool update)
 {
+	g_s.rate.Reset();
+	g_s.hashDone = g_s.hashTotal = 0;
 	SafeThread([lobby, installed, update] {
 		ModsScan();
 		const std::vector<ModInfo> mods = ModsList();
@@ -66,22 +68,20 @@ void StartSyncCheck(const OnlineLobby lobby, const std::map<std::string, std::st
 
 void UpdateSpeed(uint64_t bytes)
 {
-	const DWORD now = GetTickCount();
-	if (g_s.speedTick == 0 || bytes < g_s.speedBytes) {
-		g_s.speedTick = now;
-		g_s.speedBytes = bytes;
-		return;
-	}
-	if (now - g_s.speedTick < 700) return;
-	const double inst = (bytes - g_s.speedBytes) * 1000.0 / (now - g_s.speedTick);
-	g_s.speed = g_s.speed <= 0 ? inst : g_s.speed * 0.6 + inst * 0.4;
-	g_s.speedTick = now;
-	g_s.speedBytes = bytes;
+	g_s.rate.Sample(bytes, GetTickCount());
 }
 
 bool RequestFromHost(const std::vector<OnlineMod> &list)
 {
 	if (list.empty()) return true;
+	if (g_s.syncWatch && (g_s.syncLive || g_s.room.info.playing || g_s.room.info.started)) {
+		std::vector<std::string> names;
+		for (const OnlineMod &m : list) names.push_back(m.name + " " + m.version);
+		g_s.syncPhase = 4;
+		g_s.syncError = TrFmt("%s could not be downloaded from GameBanana, and the host can't send content during a game.", {ShortList(names)});
+		LogI("content-share", "room mods: %u mods would have to come from the host, which does not send content during a game", static_cast<unsigned>(list.size()));
+		return false;
+	}
 	for (const OnlineMod &m : list) {
 		if (m.redistributable) continue;
 		g_s.syncPhase = 4;
@@ -92,8 +92,7 @@ bool RequestFromHost(const std::vector<OnlineMod> &list)
 	SteamResetModDownload();
 	SteamRequestMods(list);
 	g_s.syncStage = 2;
-	g_s.speedTick = 0;
-	g_s.speed = 0;
+	g_s.rate.Reset();
 	return true;
 }
 
@@ -104,8 +103,7 @@ void StartSyncReceive(const std::vector<OnlineMod> &missing)
 	g_s.syncInstalled.clear();
 	g_s.syncFromIo.clear();
 	g_s.syncRetryHost = false;
-	g_s.speedTick = 0;
-	g_s.speed = 0;
+	g_s.rate.Reset();
 	for (const OnlineMod &m : missing) {
 		if (m.gbId) io.push_back({m.id, m.gbId, m.version});
 		else g_s.syncHostList.push_back(m);
@@ -184,6 +182,8 @@ void SyncTick()
 		}
 		break;
 	case 3:
+		ModsHashProgress(g_s.hashDone, g_s.hashTotal);
+		if (g_s.hashTotal) UpdateSpeed(g_s.hashDone);
 		if (g_syncResult.empty()) break;
 		if (g_s.room.id != g_s.syncLobby.id) {
 			g_s.syncPhase = 4;

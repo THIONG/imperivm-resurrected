@@ -14,15 +14,15 @@ struct CategoryRow {
 };
 
 const CategoryRow kCategories[kCatCount] = {
-	{"Gameplay & Balance", "Rules and balance", {"gameplay", "balance", "rules", "rules and balance", "total conversions", "total conversion"}},
+	{"Gameplay & Balance", "Gameplay & Balance", {"gameplay", "balance", "rules", "rules and balance", "total conversions", "total conversion"}},
 	{"Units & Heroes", "Units & Heroes", {"units", "heroes", "units and heroes"}},
 	{"Civilizations", "Civilizations", {"civilization", "civs", "factions"}},
-	{"Maps", "Maps", {"map", "scenarios", "scenario", "skirmish", "multiplayer maps"}},
-	{"Campaigns", "Battles and campaigns", {"campaign", "battles", "battles and campaigns", "adventures", "historical battles"}},
-	{"Conquest", "Conquest", {"conquests"}},
-	{"Graphics", "Graphics and interface", {"interface", "ui", "textures", "skins", "graphics and interface"}},
+	{"Scenarios", "Scenarios", {"scenario", "maps", "map", "skirmish", "multiplayer maps"}},
+	{"Adventures", "Adventures", {"adventure", "campaigns", "campaign", "battles", "battles and campaigns", "historical battles"}},
+	{"Conquests", "Conquests", {"conquest"}},
+	{"Graphics", "Graphics", {"interface", "ui", "textures", "skins", "graphics and interface"}},
 	{"Audio & Voices", "Audio & Voices", {"audio", "sound", "sounds", "music", "voices", "audio and voices"}},
-	{"Translations", "Texts and translations", {"translation", "texts", "localization", "texts and translations"}},
+	{"Translations", "Translations", {"translation", "texts", "localization", "texts and translations"}},
 };
 
 struct LanguageRow {
@@ -114,6 +114,44 @@ uint32_t Range(int from, int to)
 	return out;
 }
 
+enum TagTitle { kTitleNone, kTitleType, kTitlePlayers, kTitleLanguage, kTitleOther };
+
+const char *const kTypeTitles[] = {"type", "types", "category", "categories", "tipo", "tipos", "categoria", "categorias", "tipologia"};
+const char *const kPlayerTitles[] = {"players", "player", "number of players", "jugadores", "giocatori"};
+const char *const kLanguageTitles[] = {"language", "languages", "idioma", "idiomas", "lingua", "lingue"};
+
+struct SplitTag {
+	TagTitle title = kTitleNone;
+	std::string value;
+};
+
+bool OneOf(const std::string &folded, const char *const *list, size_t count)
+{
+	for (size_t i = 0; i < count; i++) {
+		if (folded == list[i]) return true;
+	}
+	return false;
+}
+
+SplitTag Split(const std::string &tag)
+{
+	SplitTag out;
+	const size_t colon = tag.find(':');
+	if (colon == std::string::npos) {
+		out.value = tag;
+		return out;
+	}
+	const std::string title = Fold(tag.substr(0, colon));
+	const size_t first = tag.find_first_not_of(' ', colon + 1);
+	out.value = first == std::string::npos ? std::string() : tag.substr(first);
+	while (!out.value.empty() && out.value.back() == ' ') out.value.pop_back();
+	if (OneOf(title, kTypeTitles, sizeof(kTypeTitles) / sizeof(kTypeTitles[0]))) out.title = kTitleType;
+	else if (OneOf(title, kPlayerTitles, sizeof(kPlayerTitles) / sizeof(kPlayerTitles[0]))) out.title = kTitlePlayers;
+	else if (OneOf(title, kLanguageTitles, sizeof(kLanguageTitles) / sizeof(kLanguageTitles[0]))) out.title = kTitleLanguage;
+	else out.title = kTitleOther;
+	return out;
+}
+
 bool ParseVersus(const std::string &word, int &total)
 {
 	total = 0;
@@ -154,9 +192,9 @@ const char *CatalogLanguageLabel(int language)
 	return language >= 0 && language < kLangCount ? kLanguages[language].label : "";
 }
 
-bool CatalogHasPlayers(int category) { return category == kCatMaps; }
+bool CatalogHasPlayers(int category) { return category == kCatScenarios; }
 
-bool CatalogHasLanguage(int category) { return category == kCatCampaigns || category == kCatAudio || category == kCatTranslations; }
+bool CatalogHasLanguage(int category) { return category == kCatAdventures || category == kCatAudio || category == kCatTranslations; }
 
 int CatalogCategoryFromName(const std::string &name)
 {
@@ -230,11 +268,43 @@ CatalogFacts CatalogFactsOf(const std::string &category, const std::vector<std::
 	CatalogFacts out;
 	out.category = CatalogCategoryFromName(category);
 	for (const std::string &t : tags) {
-		if (out.category < 0) out.category = CatalogCategoryFromName(t);
-		out.players |= CatalogPlayersFromTag(t);
-		out.languages |= CatalogLanguagesFromTag(t);
+		const SplitTag s = Split(t);
+		int c = -1;
+		if (s.title == kTitleType) c = CatalogCategoryFromName(s.value);
+		else if (s.title == kTitleNone) c = CatalogCategoryFromName(t);
+		if (c >= 0) {
+			if (out.category < 0) out.category = c;
+			out.categories |= 1u << c;
+		}
+		if (s.title == kTitlePlayers) out.players |= CatalogPlayersFromTag(s.value + " players");
+		else if (s.title == kTitleNone) out.players |= CatalogPlayersFromTag(t);
+		if (s.title == kTitleLanguage || s.title == kTitleNone) out.languages |= CatalogLanguagesFromTag(s.value);
 	}
+	if (out.category >= 0) out.categories |= 1u << out.category;
 	return out;
+}
+
+uint32_t CatalogCategoriesOf(const CatalogFacts &facts)
+{
+	const uint32_t main = facts.category >= 0 && facts.category < kCatCount ? 1u << facts.category : 0u;
+	return (facts.categories | main) & ((1u << kCatCount) - 1);
+}
+
+bool CatalogTagIsFacet(const std::string &tag)
+{
+	const SplitTag s = Split(tag);
+	switch (s.title) {
+	case kTitleType:
+		return CatalogCategoryFromName(s.value) >= 0;
+	case kTitlePlayers:
+		return CatalogPlayersFromTag(s.value + " players") != 0;
+	case kTitleLanguage:
+		return CatalogLanguagesFromTag(s.value) != 0;
+	case kTitleOther:
+		return false;
+	default:
+		return CatalogCategoryFromName(tag) >= 0 || CatalogPlayersFromTag(tag) != 0 || CatalogLanguagesFromTag(tag) != 0;
+	}
 }
 
 std::string CatalogPlayersText(uint32_t players)
@@ -279,25 +349,35 @@ int CatalogFilterSize(const CatalogFilter &filter)
 
 bool CatalogMatches(const CatalogFacts &facts, const CatalogFilter &filter)
 {
-	if (filter.types && (facts.category < 0 || !((filter.types >> facts.category) & 1))) return false;
-	if (filter.players && CatalogHasPlayers(facts.category) && !(facts.players & filter.players)) return false;
-	if (filter.languages && CatalogHasLanguage(facts.category) && !(facts.languages & (filter.languages | (1u << kLangSeveral)))) return false;
-	return true;
+	const uint32_t categories = CatalogCategoriesOf(facts);
+	const uint32_t candidates = filter.types ? categories & filter.types : categories;
+	if (filter.types && !candidates) return false;
+	if (!candidates) return true;
+	for (int c = 0; c < kCatCount; c++) {
+		if (!((candidates >> c) & 1)) continue;
+		if (filter.players && CatalogHasPlayers(c) && !(facts.players & filter.players)) continue;
+		if (filter.languages && CatalogHasLanguage(c) && !(facts.languages & (filter.languages | (1u << kLangSeveral)))) continue;
+		return true;
+	}
+	return false;
 }
 
 void CatalogCount(const CatalogFacts &facts, CatalogCounts &counts)
 {
-	if (facts.category < 0) return;
-	counts.types[facts.category]++;
-	if (CatalogHasPlayers(facts.category)) {
-		for (int n = kCatalogMinPlayers; n <= kCatalogMaxPlayers; n++) {
-			if ((facts.players >> n) & 1) counts.players[n]++;
+	const uint32_t categories = CatalogCategoriesOf(facts);
+	bool players = false;
+	for (int c = 0; c < kCatCount; c++) {
+		if (!((categories >> c) & 1)) continue;
+		counts.types[c]++;
+		players = players || CatalogHasPlayers(c);
+		if (!CatalogHasLanguage(c)) continue;
+		for (int l = 0; l < kLangCount; l++) {
+			if ((facts.languages >> l) & 1) counts.languages[c][l]++;
 		}
 	}
-	if (CatalogHasLanguage(facts.category)) {
-		for (int l = 0; l < kLangCount; l++) {
-			if ((facts.languages >> l) & 1) counts.languages[facts.category][l]++;
-		}
+	if (!players) return;
+	for (int n = kCatalogMinPlayers; n <= kCatalogMaxPlayers; n++) {
+		if ((facts.players >> n) & 1) counts.players[n]++;
 	}
 }
 

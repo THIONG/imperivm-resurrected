@@ -207,7 +207,6 @@ OnlineRoom SteamCurrentRoom()
 			if (ext != g_share.extProgress.end() && GetTickCount() - ext->second.stamp < 6000) {
 				m.receiving = static_cast<int>(ext->second.got * 100 / ext->second.total);
 				m.receivingBytes = ext->second.total;
-				m.receivingFromGb = true;
 			}
 		}
 	}
@@ -241,6 +240,30 @@ std::string SteamTakeNotice()
 std::string SteamOwnGameplayKey()
 {
 	return OwnKey();
+}
+
+RoomContent SteamRoomContent(const OnlineLobby &lobby, const std::string &ownKey)
+{
+	RoomContentFacts facts;
+	facts.roomKey = lobby.gameplayKey;
+	facts.ownKey = ownKey;
+	facts.mapModId = lobby.scenModId;
+	facts.haveMapMod = !lobby.scenModId.empty() && ModsMountedHasExact(lobby.scenModId, lobby.scenModVersion);
+	return CompareRoomContent(facts);
+}
+
+void SteamLeaveForContent()
+{
+	if (!SteamOnlineReady()) return;
+	Post([] {
+		if (!g_lobby) return;
+		const uint64 lobby = g_lobby;
+		const OnlineLobby info = ReadLobby(lobby);
+		const RoomContent content = SteamRoomContent(info, OwnKey());
+		if (!RoomContentDiffers(content)) return;
+		Leave();
+		RefuseForContent(lobby, info, content);
+	});
 }
 
 void SteamSetHosting(bool hosting)
