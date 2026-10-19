@@ -609,6 +609,7 @@ for (const f of files.filter(f => /^specials\/[^/]+\.json$/i.test(f))) {
 
 // --- clases -----------------------------------------------------------------------------------------------------------
 function checkClassFile(f, text, source) {
+	text = text.replace(/<!--[\s\S]*?-->/g, c => c.replace(/[^\n]/g, " ")); // lo comentado no cuenta; los espacios mantienen los números de línea
 	const header = text.match(/<class\b[^>]*>/);
 	if (!header) { warn(f, 0, T('no hay ninguna etiqueta <class>', 'there is no <class> tag', 'non c\'è nessun tag <class>')); return; }
 	if (!/\bid\s*=\s*"[^"]+"/.test(header[0])) error(f, lineOf(text, header.index), T('<class> sin id', '<class> without an id', '<class> senza id'));

@@ -20,6 +20,8 @@ Needs Imperivm Resurrected 0.9.0 or later.
 
 Needs Imperivm Resurrected 0.9.0 or later.
 
+- `shrink-mod.js` works on Linux and macOS too: it no longer builds paths with `\`.
+- The validator ignores what is commented out in a class (`<!-- <behavior .../> -->`): it no longer asks for those scripts.
 - `shrink-mod.js` also converts mods whose `rle.mmp` changes the game's graphics, not only those that append graphics at the
   end. The game's `rle.mmp` stays whole: what the mod changes or adds goes after it, in `rle.mmp.tail`, and its images are
   adjusted to find it in its new place. The game's images that the mod does not replace still look as in the game.
