@@ -176,7 +176,8 @@ for (const s of mine) {
 		`${newName}: ${objs.length} oggetti, ${w} x ${h} unità, a x ${cursorX}`));
 	cursorX += w + 3000;
 }
-if (cursorX > 31000) { console.error(T('no caben en la zona libre', 'they do not fit in the free area', 'non c\'è spazio nella zona libera')); process.exit(1); }
+// the 3000 gap after the last one doesn't count: what has to fit is its right edge
+if (cursorX - 3000 > 31000) { console.error(T('no caben en la zona libre', 'they do not fit in the free area', 'non c\'è spazio nella zona libera')); process.exit(1); }
 
 const patch = `<patch>
   <!-- ${T(`Plantillas de ${prefix} (generadas por create-template.js a partir de ${baseName}). Zona libre del plano: y 24192-27904`,
