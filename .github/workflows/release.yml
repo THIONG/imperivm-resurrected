@@ -23,6 +23,10 @@ jobs:
   assets:
     needs: checks
     runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
@@ -51,6 +55,22 @@ jobs:
       - name: Attach the SDK zip and the checksums
         shell: bash
         run: gh release upload "$TAG" assets/imperivm-resurrected-sdk-*.zip assets/SHA256SUMS.txt --clobber
+
+      - name: Attest where the files were verified
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: assets/*
+
+  withdraw:
+    needs: [checks, assets]
+    if: always() && github.event_name == 'release' && (needs.checks.result == 'failure' || needs.assets.result == 'failure')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Back to draft (a release that failed verification must not be the latest one)
+        run: gh release edit "$TAG" --draft --repo "$GITHUB_REPOSITORY"
 
   discord:
     needs: assets
