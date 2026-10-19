@@ -41,7 +41,7 @@ This needs neither the game nor the Steamworks SDK, and the CI runs the same ste
 
 1. `gen-tr.js` regenerates `src/i18n/tr_data.cpp` from `translations.json`.
 2. `check-addresses.js`, `check-layering.js`, `check-conventions.js` and `check-includes.js` check the source.
-3. `check-sdk.js` and `check-examples.js` check the SDK.
+3. `check-sdk.js` and `check-examples.js` check the SDK: its links, and that every example and template validates.
 4. `syntax-check.js` compiles every file that does not need the Steamworks headers (all of them if `STEAMWORKS_SDK` is set).
 5. The unit tests in `tests/` are built with CMake and run with ctest.
 
@@ -75,15 +75,11 @@ Each test links only the files it needs, so the logic worth testing has to live 
 
 ## Changing the SDK
 
-`sdk/es` is the source of the tools, the examples and the function list. The guides and READMEs of each language are written by hand.
+The SDK is in English only and lives directly in `sdk/`: guides, `tools/`, `examples/` and `templates/`.
 
-1. Change `sdk/es`.
-2. Run `node tools/sync-sdk.js`. It copies what is not translated by hand to `en` and `it` and lists the comments that need translating again.
-3. Edit the English and Italian guides.
-4. Run `node tools/check-sdk.js` and `node tools/check-examples.js`.
-5. If a modder can now do something new, add a line to the three change logs (`CAMBIOS.md`, `CHANGELOG.md`, `CAMBIAMENTI.md`). The SDK version is the first `## x.y` of `sdk/en/CHANGELOG.md`.
-
-If you only write one of the three languages, change that one and say so; the maintainer translates the rest.
+1. Change the guide, the tool or the example.
+2. Run `node tools/check-sdk.js` (links between guides, examples with their README) and `node tools/check-examples.js` (every example and template passes the validator).
+3. If a modder can now do something new, add a line to `sdk/CHANGELOG.md`. The SDK version is its first `## x.y`.
 
 ## Pull requests
 

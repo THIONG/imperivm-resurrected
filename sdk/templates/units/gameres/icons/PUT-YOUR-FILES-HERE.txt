@@ -1,0 +1,1 @@
+The unit's portrait: MyUnit.bmp. Make it with tools\convert-image.js --type icon. Delete this note.

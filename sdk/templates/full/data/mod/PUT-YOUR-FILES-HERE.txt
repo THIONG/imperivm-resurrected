@@ -1,0 +1,1 @@
+Your own scripts, called from events and classes. See scripts.md. Delete this folder if you do not use it. Delete this note.

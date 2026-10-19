@@ -1,0 +1,11 @@
+{
+  "id": "my-graphics",
+  "name": "My graphics",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "What it changes: textures, unit looks, terrain, menus, icons.",
+  "category": "Graphics",
+  "redistributable": true
+}

@@ -1,0 +1,14 @@
+{
+  "id": "my-adventure",
+  "name": "My adventure",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "What the adventure is: story, number of missions and difficulty.",
+  "category": "Adventures",
+  "tags": [
+    "Language: English"
+  ],
+  "redistributable": true
+}

@@ -1,6 +1,0 @@
-<patch>
-	<add select="/commands/cmd[@name='goutpost_sellfood']"><src obj="DOutpost"/></add>
-	<add select="/commands/cmd[@name='goutpost_no_sellfood']"><src obj="DOutpost"/></add>
-	<add select="/commands/cmd[@name='goutpost_sellgold']"><src obj="DOutpost"/></add>
-	<add select="/commands/cmd[@name='goutpost_no_sellgold']"><src obj="DOutpost"/></add>
-</patch>

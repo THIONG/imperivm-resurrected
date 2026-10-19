@@ -1,0 +1,16 @@
+<conquestmap name="My conquest"
+	     data="ConquestMaps/MY-CONQUEST-MAP"
+	     owned_colorize="1"
+	     enemy_colorize="1"
+	     disable_colorize="0"
+	     owned_hue="560"
+	     enemy_hue="0"
+	     disabled_hue="1000"
+	     owned_sat="1360"
+	     enemy_sat="1000"
+	     disabled_sat="1024">
+>
+  <territory id="Italy" index="7" state="1" neighbours="Gaul, Spain"/>
+  <territory id="Gaul" index="8" state="0" neighbours="Italy, Spain"/>
+  <territory id="Spain" index="3" state="0" neighbours="Italy, Gaul"/>
+</conquestmap>

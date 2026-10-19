@@ -1,0 +1,17 @@
+{
+  "id": "example-abilities",
+  "name": {
+    "spanish": "Ejemplo: habilidad de tropa",
+    "english": "Example: troop ability",
+    "italian": "Esempio: abilità di truppa"
+  },
+  "version": "1.0",
+  "category": "Units & Heroes",
+  "authors": ["Imperivm Resurrected"],
+  "description": {
+    "spanish": "Ejemplo del SDK: una habilidad nueva, 'Respiro' (tecla Y), para todos los soldados de infantería cuerpo a cuerpo: gasta 5 de energía y cura 60 de vida. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",
+    "english": "SDK example: a new ability, 'Respiro' (key Y), for all melee infantry: it costs 5 energy and heals 60 health. Changes gameplay: everyone must have it in multiplayer.",
+    "italian": "Esempio dell'SDK: una nuova abilità, 'Respiro' (tasto Y), per tutti i soldati di fanteria in mischia: costa 5 di energia e cura 60 di vita. Cambia il gioco: in multigiocatore devono averlo tutti."
+  },
+  "redistributable": true
+}

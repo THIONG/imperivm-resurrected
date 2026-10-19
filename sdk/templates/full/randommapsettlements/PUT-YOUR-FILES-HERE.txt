@@ -1,0 +1,1 @@
+City and village templates. See city-templates.md. Delete this folder if you do not use it. Delete this note.

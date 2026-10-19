@@ -1,0 +1,1 @@
+Loose interface images: gameres\icons\..., gameres\cmdbar\Actions\... Delete this folder if you do not change the interface. Delete this note.

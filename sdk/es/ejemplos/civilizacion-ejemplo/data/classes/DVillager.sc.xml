@@ -1,9 +1,0 @@
-<class id="DVillager" cpp_class="CVXUnit" parent="Peasant" entity="Units/GVillager/GVillager.ent.xml">
-
-	<properties race="Dacia"/>
-	<properties icon="gameres/icons/GMan.bmp"/>
-
-	<properties edittree_pos="Units/Gaul/Peasant (male)"/>
-	<sounds command="data/sound entities/VoiceGMaleVillager.xml"/>
-
-</class>

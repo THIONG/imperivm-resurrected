@@ -1,0 +1,1 @@
+Put your map here: MyMap.bfhp (the file you save from the map editor as a skirmish map). Delete this note.

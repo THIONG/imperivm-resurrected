@@ -1,0 +1,11 @@
+{
+  "id": "my-gameplay-mod",
+  "name": "My gameplay mod",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "What changes: rules, stats, costs, AI, victory modes or options.",
+  "category": "Gameplay & Balance",
+  "redistributable": true
+}

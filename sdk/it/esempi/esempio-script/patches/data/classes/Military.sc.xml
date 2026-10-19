@@ -1,6 +1,0 @@
-<patch>
-  <!-- Un comportamento nella classe base viene ereditato da tutte le classi di soldati -->
-  <add select="/class">
-    <behavior script="data/mod/soldier.vs"/>
-  </add>
-</patch>

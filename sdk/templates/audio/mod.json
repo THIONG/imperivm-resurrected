@@ -1,0 +1,14 @@
+{
+  "id": "my-audio-pack",
+  "name": "My audio pack",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "What it changes: music, sounds, unit voices.",
+  "category": "Audio & Voices",
+  "tags": [
+    "Language: Multilingual"
+  ],
+  "redistributable": true
+}

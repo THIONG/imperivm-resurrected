@@ -1,0 +1,1 @@
+Put your adventure here: MyAdventure.bfhp and MyAdventure.bmp (same name, only the extension differs). Delete this note.

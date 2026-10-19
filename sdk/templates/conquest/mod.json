@@ -1,0 +1,11 @@
+{
+  "id": "my-conquest",
+  "name": "My conquest",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "What the conquest is: the territories, who takes part and how it is played.",
+  "category": "Conquests",
+  "redistributable": true
+}

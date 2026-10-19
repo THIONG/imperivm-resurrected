@@ -44,7 +44,7 @@ Después, [abre una incidencia](https://github.com/THIONG/imperivm-resurrected/i
 ## Hacer mods
 
 El **SDK** está en [`sdk/`](sdk): guías, herramientas y ejemplos para hacer contenido sin compilar nada, en
-[español](sdk/es/README.md), [inglés](sdk/en/README.md) e [italiano](sdk/it/README.md). Cada release lo adjunta como zip.
+inglés ([empieza aquí](sdk/README.md)). Cada release lo adjunta como zip.
 Los mods terminados se publican en [GameBanana](https://gamebanana.com/games/26069).
 
 ## Desarrollo
@@ -61,8 +61,7 @@ comprobación con una release descargada: `node tools/verify-release.js <carpeta
 - **Código** (`src/`, `tests/`, `tools/`): GPL-3.0-or-later con una excepción para Steamworks. Ver [LICENSE](LICENSE) y
   [ADDITIONAL-PERMISSION.md](ADDITIONAL-PERMISSION.md). Software de terceros: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
   Agradecimientos: [CREDITS.md](CREDITS.md).
-- **SDK** (`sdk/`): MIT para el código y CC BY-SA 4.0 para las guías. Ver el archivo de licencia de cada idioma
-  (por ejemplo [sdk/es/LICENCIA.md](sdk/es/LICENCIA.md)).
+- **SDK** (`sdk/`): MIT para el código y CC BY-SA 4.0 para las guías. Ver [sdk/LICENSE.md](sdk/LICENSE.md).
 - **Imágenes** (`assets/`): todos los derechos reservados. Ver [assets/LICENSE.md](assets/LICENSE.md).
 
 ---

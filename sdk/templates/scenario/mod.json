@@ -1,0 +1,14 @@
+{
+  "id": "my-scenario",
+  "name": "My scenario",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "What the map is: size, players, terrain and how it plays.",
+  "category": "Scenarios",
+  "tags": [
+    "Players: 2"
+  ],
+  "redistributable": true
+}

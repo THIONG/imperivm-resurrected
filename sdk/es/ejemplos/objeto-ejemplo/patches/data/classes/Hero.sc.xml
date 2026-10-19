@@ -1,6 +1,0 @@
-<patch>
-  <!-- Un comportamiento más para todos los héroes: se les da el objeto al aparecer -->
-  <add select="/class">
-    <behavior script="data/mod/dar_amuleto.vs"/>
-  </add>
-</patch>

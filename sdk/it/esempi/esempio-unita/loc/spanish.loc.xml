@@ -1,7 +1,0 @@
-<translationtable>
-  <!-- Il nome della classe: "<display_name>@<id della classe> class name" e il suo plurale -->
-  <translationtableentry text="Veteran@RVeteran class name" result="Veterano"/>
-  <translationtableentry text="Veterans@RVeteran class name plural" result="Veteranos"/>
-  <!-- Il testo del pulsante di reclutamento: il "rollover" dell'ordine, con il nome dell'ordine come contesto -->
-  <translationtableentry text="Equip Veteran@trainRVeteran" result="Equipar veterano"/>
-</translationtable>

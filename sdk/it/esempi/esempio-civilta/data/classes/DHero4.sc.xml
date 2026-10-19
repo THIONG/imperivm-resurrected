@@ -1,7 +1,0 @@
-<class id="DHero4" cpp_class="CVXHero" parent="DaciaHero" entity="Units/GHero4/GHero4.ent.xml">
-
-	<properties display_name="Ercenberht" display_name_plural="Heroes"/>
-	<properties icon="gameres/icons/GHero4.bmp"/>
-	<properties edittree_pos="Units/Gaul/Hero 4"/>
-
-</class>

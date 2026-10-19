@@ -1,0 +1,17 @@
+{
+  "id": "example-patches",
+  "name": {
+    "spanish": "Ejemplo: parches",
+    "english": "Example: patches",
+    "italian": "Esempio: patch"
+  },
+  "version": "1.0",
+  "category": "Gameplay & Balance",
+  "authors": ["Imperivm Resurrected"],
+  "description": {
+    "spanish": "Ejemplo del SDK: hace más barato al hastatus romano y añade una orden nueva al cuartel, sin sustituir el archivo de órdenes entero. Cambia la jugabilidad: en multijugador todos tienen que llevarlo.",
+    "english": "SDK example: makes the Roman hastatus cheaper and adds a new order to the barracks, without replacing the whole orders file. Changes gameplay: everyone must have it in multiplayer.",
+    "italian": "Esempio dell'SDK: rende l'hastatus romano più economico e aggiunge un nuovo ordine alla caserma, senza sostituire l'intero file degli ordini. Cambia il gioco: in multigiocatore devono averlo tutti."
+  },
+  "redistributable": true
+}

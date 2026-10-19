@@ -1,4 +1,0 @@
-<patch>
-	<add select="/commands/cmd[@name='attach']"><nsrc obj="DGhost"/></add>
-	<add select="/commands/cmd[@name='detach']"><nsrc obj="DTridentWarrior"/></add>
-</patch>

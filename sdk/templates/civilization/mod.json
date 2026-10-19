@@ -1,0 +1,11 @@
+{
+  "id": "my-civilization",
+  "name": "My civilization",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "The civilization: what it is based on and what makes it different.",
+  "category": "Civilizations",
+  "redistributable": true
+}

@@ -1,0 +1,1 @@
+The recruit button: train MyUnit.bmp. Make it with tools\convert-image.js --type button. Delete this note.

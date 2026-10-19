@@ -1,0 +1,11 @@
+{
+  "id": "my-mod",
+  "name": "My mod",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "What your mod does, in a sentence or two.",
+  "category": "Gameplay & Balance",
+  "redistributable": true
+}

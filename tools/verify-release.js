@@ -72,7 +72,7 @@ if (fs.existsSync(zipPath) && fs.existsSync(jsonPath)) {
 }
 
 const SDK_ROOT = fs.existsSync(path.join(ROOT, 'sdk')) ? path.join(ROOT, 'sdk') : path.resolve(ROOT, '..', 'sdk');
-const sdkChangelog = path.join(SDK_ROOT, 'en', 'CHANGELOG.md');
+const sdkChangelog = path.join(SDK_ROOT, 'CHANGELOG.md');
 const sdkVersion = fs.existsSync(sdkChangelog) ? (/^## (\d+\.\d+(?:\.\d+)?)/m.exec(fs.readFileSync(sdkChangelog, 'utf8')) || [])[1] : '';
 const sdkZip = sdkVersion ? path.join(dir, `imperivm-resurrected-sdk-${sdkVersion}.zip`) : '';
 if (sdkZip && fs.existsSync(sdkZip)) {
@@ -83,7 +83,7 @@ if (sdkZip && fs.existsSync(sdkZip)) {
     }
     return out;
   };
-  const expected = new Set(['es', 'en', 'it'].flatMap((l) => walk(SDK_ROOT, l, [])));
+  const expected = new Set(walk(SDK_ROOT, '', []));
   const found = new Set(listZip(sdkZip).filter((e) => !e.endsWith('/')));
   for (const f of expected) if (!found.has(f)) bad(`the SDK zip lacks ${f}`);
   for (const f of found) if (!expected.has(f)) bad(`the SDK zip has ${f}, which is not in sdk/`);

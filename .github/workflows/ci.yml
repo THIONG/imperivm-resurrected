@@ -30,7 +30,7 @@ jobs:
           node tools/check-includes.js
           node tools/check-logs.js
 
-      - name: SDK checks (the three languages match, every example validates)
+      - name: SDK checks (links between guides, every example and template validates)
         shell: bash
         run: |
           node tools/check-sdk.js

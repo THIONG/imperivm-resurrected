@@ -1,0 +1,1 @@
+Effects and projectiles. Only the .xml counts. Delete this folder if you do not use it. Delete this note.

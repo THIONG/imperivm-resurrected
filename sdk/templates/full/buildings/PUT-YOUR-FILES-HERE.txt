@@ -1,0 +1,1 @@
+Building sprites and entity files. The .xml and .pass count. See graphics.md. Delete this folder if you do not use it. Delete this note.

@@ -1,0 +1,1 @@
+Unit, building and hero classes (.sc.xml): new ones or copies of the game's. See units.md. Delete this folder if you do not use it. Delete this note.

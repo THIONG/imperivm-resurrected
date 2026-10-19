@@ -1,5 +1,0 @@
-<class id="DTower01" cpp_class="CVXBuilding" parent="Tower" entity="Buildings/GWalls/Tower/Tower.ent.xml">
-	<properties race="Dacia"/>
-	<properties wall_set="Gaul walls"/>
-	<properties icon="gameres/icons/GTower.bmp"/>
-</class>

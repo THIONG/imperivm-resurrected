@@ -1,0 +1,1 @@
+Building images and entity files. Delete this folder if you do not change buildings. Delete this note.

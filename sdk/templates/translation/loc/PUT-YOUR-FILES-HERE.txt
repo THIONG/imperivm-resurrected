@@ -1,0 +1,1 @@
+Put your texts here: <language>.loc.xml, for example french.loc.xml, or several files inside loc\<language>\. Delete this note.

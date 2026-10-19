@@ -1,0 +1,1 @@
+Victory modes: one .vs per mode. See victory-modes.md. Delete this folder if you do not use it. Delete this note.

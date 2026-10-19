@@ -1,0 +1,11 @@
+{
+  "id": "hero-speed",
+  "name": { "english": "Hero speed", "spanish": "Velocidad de héroes", "italian": "Velocità degli eroi" },
+  "description": { "english": "How much faster heroes move.", "spanish": "Cuánto más rápido se mueven los héroes.", "italian": "Quanto più veloci si muovono gli eroi." },
+  "values": [
+    { "id": "normal", "name": { "english": "Normal", "spanish": "Normal", "italian": "Normale" } },
+    { "id": "fast", "name": { "english": "Fast (+25%)", "spanish": "Rápida (+25 %)", "italian": "Veloce (+25%)" } },
+    { "id": "very-fast", "name": { "english": "Very fast (+50%)", "spanish": "Muy rápida (+50 %)", "italian": "Molto veloce (+50%)" } }
+  ],
+  "default": "normal"
+}

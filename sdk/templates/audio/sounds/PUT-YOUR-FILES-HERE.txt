@@ -1,0 +1,1 @@
+Sounds (.wav) with the same path as the game's: sounds\FIGHT\..., sounds\WALK\..., sounds\SELECTION\..., sounds\DEATH\... The groups are AMBIENT, ANIMALS, DEATH, EFFECTS, FIGHT, GATES, NOTIFICATIONS, SELECTION, UI and WALK. Delete this folder if you do not change sounds. Delete this note.

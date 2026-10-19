@@ -1,0 +1,11 @@
+{
+  "id": "my-unit",
+  "name": "My unit",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "The unit or hero: where it is recruited and what it does.",
+  "category": "Units & Heroes",
+  "redistributable": true
+}

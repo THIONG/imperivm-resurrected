@@ -1,6 +1,0 @@
-<patch>
-  <!-- Un comportamento in più per tutti gli eroi: controlla l'opzione della sala -->
-  <add select="/class">
-    <behavior script="data/mod/eroi_veloci.vs"/>
-  </add>
-</patch>

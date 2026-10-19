@@ -1,4 +1,0 @@
-<patch>
-	<add select="/commands/cmd[@name='catapult_attack']"><src obj="DCatapult"/></add>
-	<add select="/commands/cmd[@name='attack_ground']"><src obj="DCatapult"/></add>
-</patch>

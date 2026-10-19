@@ -1,0 +1,1 @@
+Music tracks (.ogg). A file with the same name as one of the game's replaces it: GBR_TRACK_1.ogg to GBR_TRACK_7.ogg and _menu.ogg. Delete this folder if you do not change music. Delete this note.

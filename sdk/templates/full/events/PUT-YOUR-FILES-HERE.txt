@@ -1,0 +1,1 @@
+Event scripts: OnGameStart.vs, OnObjectDie.vs and so on. See scripts.md. Delete this folder if you do not use it. Delete this note.

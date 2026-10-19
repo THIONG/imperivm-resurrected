@@ -1,0 +1,1 @@
+Its recruit commands (.xml). clone-civilization.js writes them. Delete this note.

@@ -1,5 +1,0 @@
-<patch>
-	<add select="/commands/cmd[@name='autotrain_start_gr']"><src obj="DTownhall"/></add>
-	<add select="/commands/cmd[@name='autotrain_stop_gr']"><src obj="DTownhall"/></add>
-	<add select="/commands/cmd[@name='refreshment']"><src obj="DTownhall"/></add>
-</patch>

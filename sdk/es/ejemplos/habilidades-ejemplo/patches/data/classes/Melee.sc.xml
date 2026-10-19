@@ -1,6 +1,0 @@
-<patch>
-  <!-- El método que ejecuta la orden "respiro". Los métodos se heredan: lo tienen todas las clases que cuelgan de Melee -->
-  <add select="/class">
-    <method sig="respiro" vs="data/mod/respiro.vs"/>
-  </add>
-</patch>

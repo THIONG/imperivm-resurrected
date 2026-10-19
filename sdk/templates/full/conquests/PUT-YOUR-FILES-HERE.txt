@@ -1,0 +1,1 @@
+Conquests (.bfhp), with their folder in conquestmaps. Delete this folder if you do not use it. Delete this note.

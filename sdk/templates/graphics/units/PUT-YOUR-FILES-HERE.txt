@@ -1,0 +1,1 @@
+Unit images and entity files. Same name as the game's file to replace it. See graphics.md. Delete this folder if you do not change units. Delete this note.

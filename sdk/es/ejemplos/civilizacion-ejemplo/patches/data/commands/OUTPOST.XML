@@ -1,3 +1,0 @@
-<patch>
-	<add select="/commands/cmd[@name='Outpost Attack']"><nsrc obj="DGuardPost"/></add>
-</patch>

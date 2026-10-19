@@ -1,0 +1,19 @@
+{
+  "id": "my-translation",
+  "name": "My translation",
+  "version": "1.0",
+  "authors": [
+    "Your name"
+  ],
+  "description": "The language it translates and how much of the game it covers.",
+  "category": "Translations",
+  "tags": [
+    "Language: French"
+  ],
+  "redistributable": true,
+  "language": {
+    "code": "french",
+    "name": "Français",
+    "base": "english"
+  }
+}

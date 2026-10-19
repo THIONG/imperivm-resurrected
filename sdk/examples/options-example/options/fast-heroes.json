@@ -1,0 +1,6 @@
+{
+  "id": "fast-heroes",
+  "name": { "english": "Fast heroes", "spanish": "Héroes veloces", "italian": "Eroi veloci" },
+  "description": { "english": "All heroes move 50% faster.", "spanish": "Todos los héroes se mueven un 50 % más rápido.", "italian": "Tutti gli eroi si muovono il 50% più veloci." },
+  "default": false
+}

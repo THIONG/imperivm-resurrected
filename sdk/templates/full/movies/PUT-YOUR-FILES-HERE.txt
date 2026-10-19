@@ -1,0 +1,1 @@
+Cutscenes (.avi) that a map plays with PlayMovie. Delete this folder if you do not use it. Delete this note.

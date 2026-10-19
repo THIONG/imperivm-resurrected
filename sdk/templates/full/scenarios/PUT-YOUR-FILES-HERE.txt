@@ -1,0 +1,1 @@
+Skirmish and multiplayer maps (.bfhp). Delete this folder if you do not use it. Delete this note.

@@ -1,7 +1,0 @@
-<patch>
-	<add select="/commands/cmd[@name='Free Beer']"><src obj="DTavern"/></add>
-	<add select="/commands/cmd[@name='Food Tax']"><src obj="DTavern"/></add>
-	<add select="/commands/cmd[@name='Nordic trade routes']"><src obj="DTavern"/></add>
-	<add select="/commands/cmd[@name='Belts of Might']"><src obj="DTavern"/></add>
-	<add select="/commands/cmd[@name='getloan']"><src obj="DTavern"/></add>
-</patch>

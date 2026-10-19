@@ -1,7 +1,0 @@
-<patch>
-	<add select="/commands/cmd[@name='repair druid house']"><src obj="DDruidHouse"/></add>
-	<add select="/commands/cmd[@name='Ritual Chamber']"><src obj="DDruidHouse"/></add>
-	<add select="/commands/cmd[@name='Ghoul Summoning']"><src obj="DDruidHouse"/></add>
-	<add select="/commands/cmd[@name='Restoration']"><src obj="DDruidHouse"/></add>
-	<add select="/commands/cmd[@name='Eagle Summoning']"><src obj="DDruidHouse"/></add>
-</patch>

@@ -1,0 +1,1 @@
+Sounds (.wav), same path as the game's. Delete this folder if you do not use it. Delete this note.

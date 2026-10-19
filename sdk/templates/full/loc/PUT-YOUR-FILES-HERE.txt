@@ -1,0 +1,1 @@
+Texts: <language>.loc.xml (spanish, english, italian, french...). languages.md. Delete this folder if you do not use it. Delete this note.

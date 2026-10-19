@@ -1,0 +1,15 @@
+<patch>
+  <!-- Changes two attributes of an existing order and removes another -->
+  <set select="/commands/cmd[@name='trainRHastatus']" costgold="60" execdelay="3000" unset="costpop"/>
+
+  <!-- Adds a new order (here a second button that trains archers, as an example) -->
+  <add select="/commands">
+    <cmd name="trainRArcherExample" priority="12"
+         button="actions/train RArcher.bmp" queueicon="gameres/icons/RArcher.bmp"
+         groupverifier="data/subai/barrack_train_verify.vs" transpicon="1" traincommand="yes"
+         key="z" rollover="Equip Archer (example)" method="train" param="RArcher,Arrows"
+         costgold="40" costfood="0" costpop="1" execdelay="5000" sclass="RArcher">
+      <src obj="RBarracks"/>
+    </cmd>
+  </add>
+</patch>

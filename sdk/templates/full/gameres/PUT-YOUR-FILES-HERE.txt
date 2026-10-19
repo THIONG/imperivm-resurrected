@@ -1,0 +1,1 @@
+Loose interface images: icons and buttons. See images.md. Delete this folder if you do not use it. Delete this note.

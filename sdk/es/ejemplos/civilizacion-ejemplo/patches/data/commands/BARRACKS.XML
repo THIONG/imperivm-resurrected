@@ -1,5 +1,0 @@
-<patch>
-	<add select="/commands/cmd[@name='repair barracks']"><src obj="DBarracks"/></add>
-	<add select="/commands/cmd[@name='Barrack Level 1']"><src obj="DBarracks"/></add>
-	<add select="/commands/cmd[@name='Barrack Level 2']"><src obj="DBarracks"/></add>
-</patch>

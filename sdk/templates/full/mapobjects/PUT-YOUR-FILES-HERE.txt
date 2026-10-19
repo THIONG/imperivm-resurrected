@@ -1,0 +1,1 @@
+Map object files. The .xml and .pass count. Delete this folder if you do not use it. Delete this note.

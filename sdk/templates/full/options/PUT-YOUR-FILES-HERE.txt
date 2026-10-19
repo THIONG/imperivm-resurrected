@@ -1,0 +1,1 @@
+Lobby switches: *.json. See options.md. Delete this folder if you do not use it. Delete this note.
