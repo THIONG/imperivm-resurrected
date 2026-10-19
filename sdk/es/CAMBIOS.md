@@ -20,6 +20,8 @@ Necesita Imperivm Resurrected 0.9.0 o posterior.
 
 Necesita Imperivm Resurrected 0.9.0 o posterior.
 
+- `reducir-mod.js` funciona también en Linux y macOS: ya no monta rutas con `\`.
+- El validador ignora lo comentado en una clase (`<!-- <behavior .../> -->`): ya no pide esos scripts.
 - `reducir-mod.js` convierte también los mods cuyo `rle.mmp` cambia gráficos del juego, no solo los que añaden gráficos al
   final. El `rle.mmp` del juego se queda entero: lo que el mod cambia o añade va detrás, en `rle.mmp.tail`, y sus imágenes se
   ajustan para encontrarlo en su sitio nuevo. Las imágenes del juego que el mod no sustituye se siguen viendo como en el juego.

@@ -20,6 +20,8 @@ Richiede Imperivm Resurrected 0.9.0 o successiva.
 
 Richiede Imperivm Resurrected 0.9.0 o successiva.
 
+- `riduci-mod.js` funziona anche su Linux e macOS: non costruisce più i percorsi con `\`.
+- Il validatore ignora ciò che è commentato in una classe (`<!-- <behavior .../> -->`): non chiede più quegli script.
 - `riduci-mod.js` converte anche le mod il cui `rle.mmp` cambia la grafica del gioco, non solo quelle che aggiungono grafica
   in fondo. L'`rle.mmp` del gioco resta intero: ciò che la mod cambia o aggiunge va dopo, in `rle.mmp.tail`, e le sue immagini
   si aggiornano per trovarlo nel suo nuovo posto. Le immagini del gioco che la mod non sostituisce si vedono ancora come nel gioco.

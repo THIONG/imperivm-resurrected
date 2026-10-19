@@ -48,6 +48,8 @@ const FORBIDDEN = ['.exe', '.dll', '.asi', '.bat', '.cmd', '.com', '.scr', '.ps1
 const INSTALL_FILES = ['config.ini', 'settings.ini'];
 const md5 = buf => crypto.createHash('md5').update(buf).digest('hex');
 const mb = n => (n / 1048576).toFixed(1) + ' MB';
+// i percorsi interni usano \ (come i pacchetti); \ separa le cartelle solo su Windows, quindi diventa / prima di toccare il disco
+const J = (...a) => path.join(...a.map(s => s.split('\\').join('/')));
 const norm = p => p.toLowerCase().split('\\').join('/');
 
 // --- Pacchetti .pak ("HMMSYS PackFile": indice con nomi compressi per prefisso; dati non compressi) ---
@@ -72,8 +74,8 @@ function readPak(file) {
 }
 function walk(dir, rel = '') {
 	const out = [];
-	if (!fs.existsSync(path.join(dir, rel))) return out;
-	for (const e of fs.readdirSync(path.join(dir, rel), {withFileTypes: true})) {
+	if (!fs.existsSync(J(dir, rel))) return out;
+	for (const e of fs.readdirSync(J(dir, rel), {withFileTypes: true})) {
 		const r = rel ? rel + '\\' + e.name : e.name;
 		if (e.isDirectory()) out.push(...walk(dir, r));
 		else out.push(r);
@@ -82,7 +84,7 @@ function walk(dir, rel = '') {
 }
 function pakFiles(dir) {
 	if (!fs.existsSync(dir)) return [];
-	return fs.readdirSync(dir).filter(f => /\.pak$/i.test(f)).map(f => ({name: f, low: f.toLowerCase(), full: path.join(dir, f)}));
+	return fs.readdirSync(dir).filter(f => /\.pak$/i.test(f)).map(f => ({name: f, low: f.toLowerCase(), full: J(dir, f)}));
 }
 // Come il gioco: i pacchetti di una cartella, dal nome maggiore al minore; il primo che ha un file è quello che vale
 const pakCache = new Map();
@@ -142,7 +144,7 @@ function moved(name, data) {
 
 if (opt.rutas) {
 	for (const rel of walk(oldDir).filter(r => /\.pak$/i.test(r))) {
-		const pk = readPak(path.join(oldDir, rel));
+		const pk = readPak(J(oldDir, rel));
 		if (!pk) continue;
 		const tops = {};
 		for (const v of pk.values()) {
@@ -165,10 +167,10 @@ const oldFiles = walk(oldDir);
 const top = rel => rel.split('\\')[0].toLowerCase();
 const folderOf = name => (oldFiles.find(r => top(r) === name) || name).split('\\')[0];
 const fromMod = list => list.map(p => Object.assign(p, {fromMod: true}));
-const oldPacks = fromMod(pakFiles(path.join(oldDir, folderOf('packs'))));
-const oldLocals = fromMod(pakFiles(path.join(oldDir, folderOf('local'))));
-const gamePacks = pakFiles(path.join(gameDir, 'Packs'));
-const gameLocals = pakFiles(path.join(gameDir, 'local'));
+const oldPacks = fromMod(pakFiles(J(oldDir, folderOf('packs'))));
+const oldLocals = fromMod(pakFiles(J(oldDir, folderOf('local'))));
+const gamePacks = pakFiles(J(gameDir, 'Packs'));
+const gameLocals = pakFiles(J(gameDir, 'local'));
 
 // 1. Cosa vede il gioco senza la mod e con la mod copiata sopra
 const before = resolve(gamePacks);
@@ -184,7 +186,7 @@ for (const lang of modLangs) {
 
 fs.mkdirSync(outDir, {recursive: true});
 function write(rel, data) {
-	const full = path.join(outDir, rel);
+	const full = J(outDir, rel);
 	fs.mkdirSync(path.dirname(full), {recursive: true});
 	fs.writeFileSync(full, moved(rel, data));
 }
@@ -196,7 +198,7 @@ function keep(rel, data, isNew) {
 	stats.kept++;
 	stats.keptBytes += data.length;
 }
-for (const rel of oldFiles) stats.before += fs.statSync(path.join(oldDir, rel)).size;
+for (const rel of oldFiles) stats.before += fs.statSync(J(oldDir, rel)).size;
 
 // 2. I file sciolti della mod vecchia: vincono sui pacchetti
 const loose = new Map();
@@ -232,7 +234,7 @@ function rleMoveProblem(from, modSize, gameSize) {
 		return T('con lo del mod detrás, el rle.mmp pasaría de 4 GB', 'with the mod\'s bytes after it, rle.mmp would go past 4 GB', 'con i byte della mod in fondo, rle.mmp supererebbe i 4 GB');
 	}
 	const sprites = [];
-	for (const [n, rel] of loose) if (isSprite(n)) sprites.push([rel, fs.readFileSync(path.join(oldDir, rel))]);
+	for (const [n, rel] of loose) if (isSprite(n)) sprites.push([rel, fs.readFileSync(J(oldDir, rel))]);
 	for (const view of [after, ...Object.values(afterLang)]) {
 		for (const [k, v] of view) if (v.fromMod && isSprite(k) && !loose.has(k)) sprites.push([v.name, v.data]);
 	}
@@ -252,7 +254,7 @@ function rleMoveProblem(from, modSize, gameSize) {
 if (loose.has('rle.mmp')) {
 	const rel = loose.get('rle.mmp');
 	loose.delete('rle.mmp');
-	const mine = path.join(oldDir, rel), theirs = path.join(gameDir, 'rle.mmp');
+	const mine = J(oldDir, rel), theirs = J(gameDir, 'rle.mmp');
 	const a = fs.openSync(mine, 'r'), b = fs.openSync(theirs, 'r');
 	const sa = fs.fstatSync(a).size, sb = fs.fstatSync(b).size;
 	const bufA = Buffer.alloc(1 << 22), bufB = Buffer.alloc(1 << 22);
@@ -287,7 +289,7 @@ if (loose.has('rle.mmp')) {
 		head.writeUInt32LE(56, 12);
 		head.writeBigUInt64LE(BigInt(sb), 16);
 		Buffer.from(sha.digest('hex'), 'hex').copy(head, 24);
-		const out = fs.openSync(path.join(outDir, 'rle.mmp.tail'), 'w');
+		const out = fs.openSync(J(outDir, 'rle.mmp.tail'), 'w');
 		fs.writeSync(out, head);
 		for (let off = from; off < sa; off += bufA.length) {
 			const n = Math.min(bufA.length, sa - off);
@@ -357,13 +359,13 @@ function iniPatch(baseText, newText, skipSections) {
 	}
 	return out.join('\r\n');
 }
-const finalConst = loose.has('data/const.ini') ? fs.readFileSync(path.join(oldDir, loose.get('data/const.ini'))) : (after.get('data/const.ini') || {}).data;
+const finalConst = loose.has('data/const.ini') ? fs.readFileSync(J(oldDir, loose.get('data/const.ini'))) : (after.get('data/const.ini') || {}).data;
 const gameConst = (before.get('data/const.ini') || {}).data;
 let constPatched = false;
 if (finalConst && gameConst && md5(finalConst) !== md5(gameConst)) {
 	const patch = iniPatch(gameConst.toString('latin1'), finalConst.toString('latin1'), ['resolutions']);
 	if (patch.trim()) {
-		write(path.join('patches', 'data', 'const.ini'), Buffer.from(patch, 'latin1'));
+		write(J('patches', 'data', 'const.ini'), Buffer.from(patch, 'latin1'));
 		stats.changed++;
 		stats.kept++;
 		stats.keptBytes += patch.length;
@@ -452,7 +454,7 @@ function writePak(rel, entries) {
 	write(rel, Buffer.concat([header, index, Buffer.alloc(4 * list.length), ...recs.map(r => r.data)]));
 }
 for (const [lang, entries] of Object.entries(langPaks)) {
-	writePak(path.join('Local', lang + '.pak'), entries);
+	writePak(J('Local', lang + '.pak'), entries);
 	stats.changed++;
 	stats.kept++;
 	stats.keptBytes += entries.reduce((n, e) => n + e.data.length, 0);
@@ -514,8 +516,8 @@ for (const byLang of Object.values(langFiles)) {
 // 8. Gli altri file sciolti: fuori se sono uguali a ciò che il gioco vede già in tutte le lingue
 const shownBefore = lang => beforeLang[lang] || langView(lang);
 for (const [n, rel] of loose) {
-	const data = fs.readFileSync(path.join(oldDir, rel));
-	const gamePath = path.join(gameDir, rel);
+	const data = fs.readFileSync(J(oldDir, rel));
+	const gamePath = J(gameDir, rel);
 	const h = md5(data);
 	const same = fs.existsSync(gamePath) ? md5(fs.readFileSync(gamePath)) === h :
 		before.has(n) && before.get(n).md5 === h && allLangs.every(l => !shownBefore(l).has(n) || shownBefore(l).get(n).md5 === h);
@@ -529,7 +531,7 @@ for (const [n, rel] of loose) {
 
 // 9. mod.json
 let manifest = {};
-const oldManifest = path.join(oldDir, 'mod.json');
+const oldManifest = J(oldDir, 'mod.json');
 if (fs.existsSync(oldManifest)) {
 	try {
 		manifest = JSON.parse(fs.readFileSync(oldManifest, 'utf8'));
@@ -546,7 +548,7 @@ if (opt.version) manifest.version = opt.version;
 if (opt.categoria) { manifest.category = opt.categoria; delete manifest.categoria; }
 if (opt.etiquetas) { manifest.tags = opt.etiquetas.split(',').map(s => s.trim()).filter(Boolean); delete manifest.etiquetas; }
 if (!manifest.id) manifest.id = path.basename(path.resolve(oldDir)).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-fs.writeFileSync(path.join(outDir, 'mod.json'), JSON.stringify(manifest, null, 2) + '\n');
+fs.writeFileSync(J(outDir, 'mod.json'), JSON.stringify(manifest, null, 2) + '\n');
 
 console.log(T(`Mod antiguo: ${mb(stats.before)}`, `Old mod: ${mb(stats.before)}`, `Mod vecchia: ${mb(stats.before)}`));
 console.log(T(
