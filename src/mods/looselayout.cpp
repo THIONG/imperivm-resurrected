@@ -3,8 +3,10 @@
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #include "mods/looselayout.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cstring>
 
 #include "mods/catalogfilter.h"
 
@@ -95,6 +97,37 @@ std::vector<LooseMove> PlanLooseFiles(const std::vector<LooseFile> &rootFiles, b
 		for (const std::string &a : adventures) {
 			if (Stem(f.name) == a) out.push_back({f.name, MapKindFolder(kMapAdventure)});
 		}
+	}
+	return out;
+}
+
+std::vector<std::string> BfhpVideoReferences(const std::string &text)
+{
+	static const char kFolder[] = "movies";
+	const size_t folderLen = sizeof(kFolder) - 1;
+	std::vector<std::string> out;
+	for (size_t at = 0; at + folderLen < text.size(); at++) {
+		if (tolower(static_cast<unsigned char>(text[at])) != 'm' || Lower(text.substr(at, folderLen)) != kFolder) continue;
+		size_t name = at + folderLen;
+		if (text[name] != '\\' && text[name] != '/') continue;
+		while (name < text.size() && (text[name] == '\\' || text[name] == '/')) name++;
+		size_t end = name;
+		while (end < text.size() && end - name < 120 && (isalnum(static_cast<unsigned char>(text[end])) || strchr("_ .()-", text[end]))) end++;
+		const std::string run = Lower(text.substr(name, end - name));
+		const size_t ext = run.find(".avi");
+		if (ext == std::string::npos || ext == 0) continue;
+		const std::string lower = run.substr(0, ext + 4);
+		if (std::find(out.begin(), out.end(), lower) == out.end()) out.push_back(lower);
+	}
+	return out;
+}
+
+std::vector<LooseMove> PlanLooseVideos(const std::vector<std::string> &rootFiles, const std::vector<std::string> &referenced)
+{
+	std::vector<LooseMove> out;
+	for (const std::string &f : rootFiles) {
+		if (Extension(f) != ".avi") continue;
+		if (std::find(referenced.begin(), referenced.end(), Lower(f)) != referenced.end()) out.push_back({f, "movies"});
 	}
 	return out;
 }

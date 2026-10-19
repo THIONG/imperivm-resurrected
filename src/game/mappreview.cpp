@@ -80,26 +80,50 @@ const std::vector<MapLayerColor> &LayersFor(const std::string &season)
 	return g_layers.emplace(key, std::move(layers)).first->second;
 }
 
+struct Timing {
+	unsigned long long read = 0, parse = 0, render = 0, origin = 0, bytes = 0;
+	int maps = 0;
+};
+Timing g_timing;
+
+unsigned long long NowMs()
+{
+	return GetTickCount64();
+}
+
 std::shared_ptr<const MapPreviewData> Load(const std::string &path)
 {
 	auto data = std::make_shared<MapPreviewData>();
 	std::vector<char> bytes;
+	const unsigned long long t0 = NowMs();
 	bool ok = ReadFirst(path, bytes);
+	const unsigned long long t1 = NowMs();
 	if (!ok && !g_logged) {
 		g_logged = true;
 		LogW("game", "map preview: could not open \"%s\"", path.c_str());
 	}
 	if (ok) ok = MapInfoParse(reinterpret_cast<const unsigned char *>(bytes.data()), bytes.size(), data->info);
+	const unsigned long long t2 = NowMs();
 	if (ok && !data->info.terrain.empty()) data->image = MapRender(data->info, LayersFor(data->info.season), kPreviewSide);
+	const unsigned long long t3 = NowMs();
 	MapInfoDropGrids(data->info);
 	data->failed = !ok;
 	data->humans = MapHumanSlots(data->info);
 	data->origin = ModsMapOrigin(path);
+	const unsigned long long t4 = NowMs();
+	g_timing.read += t1 - t0;
+	g_timing.parse += t2 - t1;
+	g_timing.render += t3 - t2;
+	g_timing.origin += t4 - t3;
+	g_timing.bytes += bytes.size();
+	g_timing.maps++;
 	return data;
 }
 
 void Work()
 {
+	const bool background = SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN) != 0;
+	const unsigned long long started = NowMs();
 	for (;;) {
 		std::string key, path;
 		unsigned generation = 0;
@@ -107,6 +131,13 @@ void Work()
 			std::lock_guard<std::mutex> lock(g_lock);
 			if (g_queue.empty()) {
 				g_running = false;
+				if (g_timing.maps) {
+					LogI("game", "map previews: %d maps, %.0f MB read, %.1f s in all (reading %.1f s, parsing %.1f s, drawing %.1f s, origin %.1f s; background mode %s)", g_timing.maps,
+						static_cast<double>(g_timing.bytes) / 1048576.0, static_cast<double>(NowMs() - started) / 1000.0, static_cast<double>(g_timing.read) / 1000.0,
+						static_cast<double>(g_timing.parse) / 1000.0, static_cast<double>(g_timing.render) / 1000.0, static_cast<double>(g_timing.origin) / 1000.0, background ? "on" : "off");
+					g_timing = Timing();
+				}
+				if (background) SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_END);
 				return;
 			}
 			key = g_queue.front();
@@ -115,6 +146,7 @@ void Work()
 			generation = g_generation;
 		}
 		const std::shared_ptr<const MapPreviewData> data = Load(path);
+		Sleep(4);
 		std::lock_guard<std::mutex> lock(g_lock);
 		g_queued.erase(key);
 		if (generation != g_generation) continue;

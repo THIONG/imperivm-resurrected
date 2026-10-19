@@ -175,7 +175,7 @@ bool CollectFiles(const std::string &base, const std::string &rel, std::vector<s
 			}
 			continue;
 		}
-		if (_stricmp(r.c_str(), "winmm.dll") != 0 && _strnicmp(r.c_str(), "mod\\", 4) != 0) {
+		if (_stricmp(r.c_str(), "winmm.dll") != 0 && _stricmp(r.c_str(), "steam_api.dll") != 0 && _strnicmp(r.c_str(), "imperivm-resurrected\\", 21) != 0) {
 			bad = r;
 			FindClose(f);
 			return false;
@@ -239,8 +239,16 @@ void DownloadAndInstall()
 		if (_stricmp(f.c_str(), "winmm.dll") == 0) continue;
 		const std::string dest = game + "\\" + f;
 		MakeDirs(dest.substr(0, dest.find_last_of('\\')));
+		const bool loaded = _stricmp(f.c_str(), "steam_api.dll") == 0 && GetFileAttributesA(dest.c_str()) != INVALID_FILE_ATTRIBUTES;
+		const std::string aside = dest + ".previous";
+		if (loaded) {
+			SetFileAttributesA(aside.c_str(), FILE_ATTRIBUTE_NORMAL);
+			DeleteFileA(aside.c_str());
+			MoveFileExA(dest.c_str(), aside.c_str(), MOVEFILE_REPLACE_EXISTING);
+		}
 		if (!CopyFileA((work + "\\" + f).c_str(), dest.c_str(), FALSE)) {
 			const DWORD e = GetLastError();
+			if (loaded) MoveFileExA(aside.c_str(), dest.c_str(), MOVEFILE_REPLACE_EXISTING);
 			DeleteTree(work);
 			return Fail(TrFmt("could not copy %s (error %s)", {f, std::to_string(e)}));
 		}

@@ -18,5 +18,6 @@ void ModVarsFromJson(const Json &obj);
 
 void ModVarsPendingFromSave(const std::string &gamePath);
 bool ModRulesFromSaveTake(unsigned &rules, unsigned long &tick);
+bool ModRulesFromSavePeek(unsigned &rules, unsigned long &tick);
 
 void InstallModVars(bool knownExe);

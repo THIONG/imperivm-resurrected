@@ -118,6 +118,19 @@ static void OtherBitsKept()
 	CHECK_EQ(ModOptionSet(flag, others | flag.bit, 0), others);
 }
 
+static void Season()
+{
+	ModOption season = Make("season", 3);
+	season.pos = 9;
+	season.bit = 3u << 28;
+	CHECK_EQ(ModOptionSet(season, 0, 2), 0x20000000u);
+	CHECK_EQ(ModOptionGet(season, 0x10000000u), 1);
+	CHECK_EQ(ModOptionGet(season, ModOptionSet(season, 0, 2)), 2);
+	CHECK_EQ(season.bit & (0xFFu * kModOptionFirstBit), 0u);
+	CHECK_EQ(season.bit & 0x8000000u, 0u);
+	CHECK_EQ(ModOptionSet(season, 0xFFFFFFFFu, 0), 0xCFFFFFFFu);
+}
+
 int main()
 {
 	Width();
@@ -126,5 +139,6 @@ int main()
 	GetSet();
 	Clamp();
 	OtherBitsKept();
+	Season();
 	return test::Summary("options");
 }

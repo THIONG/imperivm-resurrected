@@ -11,6 +11,7 @@
 
 #include "core/json.h"
 #include "core/log.h"
+#include "i18n/tr.h"
 #include "mods/mods.h"
 
 namespace {
@@ -94,6 +95,7 @@ void Load()
 			}
 			const int maxValue = o.values.empty() ? 1 : static_cast<int>(o.values.size()) - 1;
 			o.def = (std::max)(0, (std::min)(o.def, maxValue));
+			if (o.id == kSeasonOptionId) continue;
 			if (std::find_if(found.begin(), found.end(), [&](const ModOption &x) { return x.id == o.id; }) != found.end()) continue;
 			found.push_back(o);
 		} while (FindNextFileA(h, &fd));
@@ -111,6 +113,15 @@ void Load()
 			o.values.empty() ? "" : (", list of " + std::to_string(o.values.size())).c_str(), o.bit, o.def);
 		placed.push_back(o);
 	}
+	ModOption season;
+	season.id = kSeasonOptionId;
+	season.name = Tr("Season");
+	season.description = Tr("Time of year the game is played in. It changes the look of the terrain and of some buildings.");
+	season.values = {Tr("Spring"), Tr("Autumn"), Tr("Winter")};
+	season.width = 2;
+	season.pos = 9;
+	season.bit = kSeasonBits;
+	placed.insert(placed.begin(), season);
 	g_options = placed;
 }
 

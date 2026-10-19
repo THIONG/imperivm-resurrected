@@ -22,7 +22,7 @@ void LoadDiscordIcon()
 	GetModuleFileNameA(nullptr, path, MAX_PATH);
 	char *slash = strrchr(path, '\\');
 	if (slash) *(slash + 1) = 0;
-	const std::wstring file = W(std::string(path) + "mod\\discord.png");
+	const std::wstring file = W(std::string(path) + "imperivm-resurrected\\discord.png");
 	IWICImagingFactory *factory = nullptr;
 	IWICBitmapDecoder *decoder = nullptr;
 	IWICBitmapFrameDecode *frame = nullptr;
@@ -38,7 +38,7 @@ void LoadDiscordIcon()
 		if (SUCCEEDED(conv->CopyPixels(nullptr, w * 4, static_cast<UINT>(g_icon.base.size() * 4), reinterpret_cast<BYTE *>(g_icon.base.data())))) {
 			g_icon.baseW = static_cast<int>(w);
 			g_icon.baseH = static_cast<int>(h);
-			LogI("discord", "icon from mod\\discord.png (%ux%u)", w, h);
+			LogI("discord", "icon from imperivm-resurrected\\discord.png (%ux%u)", w, h);
 		}
 		else {
 			g_icon.base.clear();

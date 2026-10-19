@@ -20,3 +20,6 @@ struct LooseMove {
 int BfhpMapKind(const std::string &head);
 const char *MapKindFolder(int mapKind);
 std::vector<LooseMove> PlanLooseFiles(const std::vector<LooseFile> &rootFiles, bool hasGameFolders, int category);
+
+std::vector<std::string> BfhpVideoReferences(const std::string &text);
+std::vector<LooseMove> PlanLooseVideos(const std::vector<std::string> &rootFiles, const std::vector<std::string> &referenced);

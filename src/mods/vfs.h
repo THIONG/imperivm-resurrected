@@ -10,6 +10,7 @@
 void InstallVfsHooks(bool knownExe);
 
 void VfsDumpAtStartup();
+void VfsLogStats();
 
 void VfsSetHidden(const std::set<std::string> &paths);
 bool VfsIsHidden(const std::string &rel);

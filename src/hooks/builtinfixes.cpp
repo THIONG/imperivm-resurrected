@@ -13,7 +13,7 @@
 
 namespace {
 
-const char kCacheDir[] = "mod/_cache/builtin/";
+const char kCacheDir[] = "imperivm-resurrected/_cache/builtin/";
 
 const char kHeroAttackIndependentPath[] = "data/subai/hero_attack_independent.vs";
 const char kHeroAttackIndependent[] =

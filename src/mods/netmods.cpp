@@ -152,10 +152,22 @@ int __cdecl HookVersionHash(int options)
 typedef void(__fastcall *PublishGameOptions_t)(void *self, void *edx, int *options);
 PublishGameOptions_t g_origPublish = nullptr;
 
+typedef void(__fastcall *BroadcastGameDesc_t)(void *shell, void *edx, int to);
+BroadcastGameDesc_t g_origBroadcast = nullptr;
+thread_local bool t_publishing = false;
+
+void __fastcall HookBroadcastGameDesc(void *shell, void *edx, int to)
+{
+	if (t_publishing) return;
+	g_origBroadcast(shell, edx, to);
+}
+
 void __fastcall HookPublishGameOptions(void *self, void *edx, int *options)
 {
-	g_origPublish(self, edx, options);
 	const unsigned key = ProfileKey();
+	t_publishing = key != 0 && options != nullptr;
+	g_origPublish(self, edx, options);
+	t_publishing = false;
 	if (!key || !options) return;
 	options[0] = g_origHash(reinterpret_cast<int>(options)) ^ static_cast<int>(key << 16);
 	char *dlg = static_cast<char *>(self);
@@ -164,7 +176,7 @@ void __fastcall HookPublishGameOptions(void *self, void *edx, int *options)
 	if (shell) {
 		char *desc = *reinterpret_cast<char **>(shell + 0x10);
 		if (desc) *reinterpret_cast<int *>(desc + 0x4a) = options[0];
-		reinterpret_cast<void(__fastcall *)(void *, void *, int)>(addr::kBroadcastGameDesc)(shell, nullptr, 0xffff);
+		g_origBroadcast(shell, nullptr, 0xffff);
 	}
 }
 
@@ -283,6 +295,8 @@ void InstallNetModsHooks(bool knownExe)
 						reinterpret_cast<void **>(&g_origHash), "NetComputeGameVersionHash") &&
 		HookAt(addr::kAddFoundGame, reinterpret_cast<void *>(&HookAddFoundGame), reinterpret_cast<void **>(&g_origAddFoundGame),
 			"CNGameLocator::AddFoundGame") &&
+		HookAt(addr::kBroadcastGameDesc, reinterpret_cast<void *>(&HookBroadcastGameDesc), reinterpret_cast<void **>(&g_origBroadcast),
+			"CNGameShell::BroadcastGameDesc") &&
 		HookAt(addr::kPublishGameOptions, reinterpret_cast<void *>(&HookPublishGameOptions), reinterpret_cast<void **>(&g_origPublish),
 			"CVXUIMultiplayerGame::PublishGameOptions");
 	LogAt(ok ? kLogInfo : kLogError, "net", "online: mod check in the rooms %s", ok ? "active" : "NOT active");

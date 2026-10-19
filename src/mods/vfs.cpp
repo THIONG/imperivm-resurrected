@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <set>
 #include <string>
@@ -331,7 +332,7 @@ std::vector<char> ReadAllAndClose(void *file)
 void *OpenMergedCredits(void *original, const char *path, unsigned mode, void *err)
 {
 	std::vector<char> data = ReadAllAndClose(original);
-	std::string out = DiskPath("mod", "_cache/credits.txt");
+	std::string out = DiskPath("imperivm-resurrected", "_cache/credits.txt");
 	bool written = false;
 	if (!data.empty()) {
 		MakeDirsFor(out);
@@ -346,7 +347,7 @@ void *OpenMergedCredits(void *original, const char *path, unsigned mode, void *e
 		}
 	}
 	if (written) {
-		if (void *merged = g_origOpen("mod/_cache/credits.txt", mode, err)) {
+		if (void *merged = g_origOpen("imperivm-resurrected/_cache/credits.txt", mode, err)) {
 			LogI("vfs", "credits: Imperivm Resurrected block added (%u bytes of the game)", static_cast<unsigned>(data.size()));
 			return merged;
 		}
@@ -366,7 +367,7 @@ void *OpenMergedLoc(void *original, const char *path, unsigned mode, void *err)
 	}
 	std::string merged;
 	if (LangMergeLoc(base, patches, merged)) {
-		const std::string out = DiskPath("mod", "_cache/loc/game.loc.xml");
+		const std::string out = DiskPath("imperivm-resurrected", "_cache/loc/game.loc.xml");
 		MakeDirsFor(out);
 		FILE *f = nullptr;
 		bool written = false;
@@ -375,7 +376,7 @@ void *OpenMergedLoc(void *original, const char *path, unsigned mode, void *err)
 			fclose(f);
 		}
 		if (written) {
-			if (void *m = g_origOpen("mod/_cache/loc/game.loc.xml", mode, err)) return m;
+			if (void *m = g_origOpen("imperivm-resurrected/_cache/loc/game.loc.xml", mode, err)) return m;
 		}
 		LogW("language", "could not write %s; only the game's texts are used", out.c_str());
 	}
@@ -408,11 +409,11 @@ void *OpenPatched(void *original, const std::string &rel, const char *path, unsi
 	std::string data(raw.begin(), raw.end());
 	std::string result;
 	if (PatchApply(rel, data)) {
-		const std::string out = DiskPath("mod", "_cache/patched/" + rel);
+		const std::string out = DiskPath("imperivm-resurrected", "_cache/patched/" + rel);
 		MakeDirsFor(out);
 		FILE *f = nullptr;
 		if (fopen_s(&f, out.c_str(), "wb") == 0 && f) {
-			if (fwrite(data.data(), 1, data.size(), f) == data.size()) result = "mod/_cache/patched/" + rel;
+			if (fwrite(data.data(), 1, data.size(), f) == data.size()) result = "imperivm-resurrected/_cache/patched/" + rel;
 			fclose(f);
 		}
 		if (result.empty()) LogW("patch", "could not write %s; the game's file is used", out.c_str());
@@ -455,15 +456,15 @@ void *OpenPackArchive(const std::string &rel, unsigned mode, void *err)
 	const std::string source = PackArchiveSource(rel);
 	if (source.empty()) return nullptr;
 	const std::string copyRel = "_cache/archives/" + rel;
-	const std::string copy = DiskPath("mod", copyRel);
+	const std::string copy = DiskPath("imperivm-resurrected", copyRel);
 	if (!SameSizeAndTime(source, copy)) {
 		MakeDirsFor(copy);
 		if (!CopyFileA(source.c_str(), copy.c_str(), FALSE)) {
-			LogW("content", "could not copy %s to mod\\%s (error %lu); the game's is used", source.c_str(), copyRel.c_str(), GetLastError());
+			LogW("content", "could not copy %s to imperivm-resurrected\\%s (error %lu); the game's is used", source.c_str(), copyRel.c_str(), GetLastError());
 			return nullptr;
 		}
 	}
-	void *f = g_origOpen(("mod/" + copyRel).c_str(), mode, err);
+	void *f = g_origOpen(("imperivm-resurrected/" + copyRel).c_str(), mode, err);
 	std::lock_guard<std::mutex> lock(g_lock);
 	if (g_reportedOverrides.insert(rel).second) {
 		LogAt(f ? kLogInfo : kLogWarn, "content", "%s -> %s %s (the game opens it for writing, so a private copy is served)", rel.c_str(),
@@ -472,7 +473,17 @@ void *OpenPackArchive(const std::string &rel, unsigned mode, void *err)
 	return f;
 }
 
-void *__cdecl HookVfsOpen(const char *path, unsigned mode, void *err)
+std::atomic<long long> g_openTicks{0}, g_existTicks{0};
+std::atomic<int> g_openCount{0};
+
+long long Ticks()
+{
+	LARGE_INTEGER q;
+	QueryPerformanceCounter(&q);
+	return q.QuadPart;
+}
+
+void *__cdecl OpenImpl(const char *path, unsigned mode, void *err)
 {
 	if (!path) {
 		return g_origOpen(path, mode, err);
@@ -480,12 +491,18 @@ void *__cdecl HookVfsOpen(const char *path, unsigned mode, void *err)
 	const std::string rel = Normalize(path);
 	const bool reading = (mode & 2) == 0;
 
-	if (reading && GetConfig().modOverrides && DiskFileExists(DiskPath("mod", rel))) {
-		std::string alt = "mod/" + rel;
+	bool overridden = false;
+	if (reading && GetConfig().modOverrides) {
+		const long long t0 = Ticks();
+		overridden = DiskFileExists(DiskPath("imperivm-resurrected", rel));
+		g_existTicks += Ticks() - t0;
+	}
+	if (overridden) {
+		std::string alt = "imperivm-resurrected/" + rel;
 		void *f = g_origOpen(alt.c_str(), mode, err);
 		std::lock_guard<std::mutex> lock(g_lock);
 		if (g_reportedOverrides.insert(rel).second) {
-			LogAt(f ? kLogDebug : kLogWarn, "content", "mod file %s -> %s", rel.c_str(), f ? "replaced by mod\\" : "could NOT open the mod\\ version");
+			LogAt(f ? kLogDebug : kLogWarn, "content", "mod file %s -> %s", rel.c_str(), f ? "replaced by imperivm-resurrected\\" : "could NOT open the imperivm-resurrected\\ version");
 		}
 		if (f) {
 			if (rel == "currentlang/game.loc.xml") f = OpenMergedLoc(f, alt.c_str(), mode, err);
@@ -506,7 +523,7 @@ void *__cdecl HookVfsOpen(const char *path, unsigned mode, void *err)
 		const std::string alt = LangLooseFile(rel);
 		if (!alt.empty() && (f = g_origOpen(alt.c_str(), mode, err)) != nullptr) opened = alt;
 	}
-	if (!f && PackArchive(rel, mode) && (f = OpenPackArchive(rel, mode, err)) != nullptr) opened = "mod/_cache/archives/" + rel;
+	if (!f && PackArchive(rel, mode) && (f = OpenPackArchive(rel, mode, err)) != nullptr) opened = "imperivm-resurrected/_cache/archives/" + rel;
 	if (!f) f = g_origOpen(path, mode, err);
 	if (!f && reading) {
 		std::string builtin;
@@ -605,6 +622,15 @@ void *__cdecl HookVfsOpen(const char *path, unsigned mode, void *err)
 	return f;
 }
 
+void *__cdecl HookVfsOpen(const char *path, unsigned mode, void *err)
+{
+	const long long t0 = Ticks();
+	void *r = OpenImpl(path, mode, err);
+	g_openTicks += Ticks() - t0;
+	g_openCount++;
+	return r;
+}
+
 }
 
 void InstallVfsHooks(bool knownExe)
@@ -620,13 +646,22 @@ void InstallVfsHooks(bool knownExe)
 	if (HookCreate(reinterpret_cast<void *>(addr::kVfsOpenCompressedAware), reinterpret_cast<void *>(&HookVfsOpen),
 			reinterpret_cast<void **>(&g_origOpen)) == MH_OK &&
 		HookEnable(reinterpret_cast<void *>(addr::kVfsOpenCompressedAware)) == MH_OK) {
-		LogD("vfs", "hooked (replacement from mod\\ %s, dump: %s)", GetConfig().modOverrides ? "active" : "disabled",
+		LogD("vfs", "hooked (replacement from imperivm-resurrected\\ %s, dump: %s)", GetConfig().modOverrides ? "active" : "disabled",
 			GetConfig().dumpFiles.empty() ? "-" : GetConfig().dumpFiles.c_str());
 	}
 	else {
 		LogE("vfs", "could not hook VfsOpenCompressedAware");
 	}
 	InstallHiddenHooks();
+}
+
+void VfsLogStats()
+{
+	LARGE_INTEGER f;
+	QueryPerformanceFrequency(&f);
+	const double ms = 1000.0 / static_cast<double>(f.QuadPart);
+	LogI("vfs", "game files opened so far: %d, %.0f ms in total (the check for files replaced by imperivm-resurrected\\ took %.0f ms)", g_openCount.load(),
+		static_cast<double>(g_openTicks.load()) * ms, static_cast<double>(g_existTicks.load()) * ms);
 }
 
 void VfsDumpAtStartup()

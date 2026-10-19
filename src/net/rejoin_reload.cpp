@@ -8,6 +8,9 @@
 #include "core/log.h"
 #include "game/autosave.h"
 #include "i18n/tr.h"
+#include "core/framefreeze.h"
+#include "core/json.h"
+#include "mods/modoptions.h"
 #include "net/mpsave.h"
 #include "net/steamnet.h"
 #include "addr/state.h"
@@ -73,6 +76,12 @@ bool FromRoomOwner(uint64_t peer)
 	return false;
 }
 
+unsigned CurrentRules()
+{
+	const unsigned active = ModRulesActive();
+	return active ? active : SteamCurrentRoom().info.rules;
+}
+
 int MyNumber()
 {
 	for (const OnlineMember &m : SteamCurrentRoom().members) {
@@ -114,6 +123,7 @@ void Forget(std::vector<uint64_t> &list, uint64_t peer)
 
 void Finish()
 {
+	FrameFreeze(false);
 	g_reload = ReloadState();
 }
 
@@ -137,6 +147,7 @@ void WaitAcksTick()
 	if (!g_reload.waiting.empty()) return;
 	for (uint64_t p : g_reload.peers) SteamRejoinSend(p, kRjReloadGo, "");
 	Arm(kRQuit, kQuitMs);
+	FrameFreeze(true);
 	LogI("rejoin", "reload: the %u players have the game; everyone loads it, this computer too", static_cast<unsigned>(g_reload.peers.size()));
 	UiToast(TrFmt("%s is rejoining the game: everyone reloads it, it takes a few seconds.", {g_reload.returning}));
 }
@@ -151,6 +162,11 @@ void StartTick()
 	const std::string settings = g_reload.wireRaw.substr(sizeof(WireState) + static_cast<size_t>(blobs), g_reload.wire.settingsSize);
 	if (!WriteFileAll(DiskPath(kReloadSave), g_reload.save) || !WriteFileAll(DiskPath(kReloadSettings), settings)) {
 		return ReloadCancel("could not write the game", false);
+	}
+	if (g_reload.rules) {
+		Json side = Json::MakeObject();
+		side.Set("rules", Json::MakeNumber(static_cast<double>(g_reload.rules)));
+		WriteJsonFile(DiskPath(kReloadSave) + ".mods.json", side);
 	}
 	g_blobs.wire = g_reload.wire;
 	if (!LoadSettings(kReloadSettings, slot)) return ReloadCancel("could not read the game settings", false);
@@ -215,6 +231,7 @@ void ReloadBroadcast(const std::string &save, const std::string &cams, const std
 	memcpy(&g_reload.wire, state.data(), sizeof(WireState));
 	g_reload.save = save;
 	g_reload.cams = cams;
+	g_reload.rules = CurrentRules();
 	Arm(kRWaitAcks, kAcksMs);
 	LogI("rejoin", "reload: the game (%u bytes) was sent to %u players; waiting for each one to confirm it", static_cast<unsigned>(save.size()),
 		static_cast<unsigned>(g_reload.peers.size()));
@@ -252,6 +269,7 @@ void ReloadOnMessage(const Msg &m)
 		g_reload = ReloadState();
 		g_reload.from = m.peer;
 		g_reload.mine = g_session.role == kBack;
+		g_reload.rules = CurrentRules();
 		g_reload.wireRaw = m.data;
 		if (g_session.role == kBack || g_session.role == kOther) g_session.deadline = 0;
 		if (g_reload.mine) SetStatus("Receiving the game...");
@@ -273,6 +291,7 @@ void ReloadOnMessage(const Msg &m)
 	}
 	if (m.type == kRjReloadGo && g_reload.phase == kRWaitGo) {
 		Arm(kRQuit, kQuitMs);
+		if (!g_reload.mine) FrameFreeze(true);
 		LogI("rejoin", "reload: everyone has the game; loading it again");
 		if (g_reload.mine) SetStatus("Loading the game...");
 		else UiToast("A player is rejoining the game: everyone reloads it, it takes a few seconds.");

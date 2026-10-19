@@ -199,8 +199,10 @@ SOFTWARE.
 ```
 
 ## Steamworks SDK — Valve Corporation
-Not included. The code only loads `steam_api.dll` at run time and is built against the SDK headers, which you must download yourself
+Not included in this repository. The code only loads `steam_api.dll` at run time and is built against the SDK headers, which you must download yourself
 from https://partner.steamgames.com under Valve's terms. See `ADDITIONAL-PERMISSION.md`.
+The release zip carries Valve's unmodified `steam_api.dll` (the redistributable library of the Steamworks SDK) next to `winmm.dll`, so that the
+online features work on a game folder that does not have it. It belongs to Valve Corporation and is not covered by this repository's license.
 
 ## Imperivm
 Imperivm III: Great Battles of Rome HD and all its files, data, images and sounds belong to their authors and owners. This repository does not

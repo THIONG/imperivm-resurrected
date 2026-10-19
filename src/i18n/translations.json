@@ -1026,7 +1026,7 @@
 {"en":"With open slots","es":"Con huecos libres","it":"Con posti liberi"},
 {"en":"In progress","es":"En curso","it":"In corso"},
 {"en":"Various","es":"Varios","it":"Vari"},
-{"en":"Classic: like the original game. Competitive: 5000 gold, normal population, no bonuses, unexplored map with fog; no ruins, caves, items or strongholds and with diplomacy locked. Various: 10000 gold, high population, with bonuses, explored map and no fog.","es":"Clásico: como el juego original. Competitivo: 5000 de oro, población normal, sin bonificaciones, mapa sin explorar y con niebla; sin ruinas, cuevas, objetos ni fortalezas y con la diplomacia bloqueada. Varios: 10000 de oro, población alta, con bonificaciones, mapa explorado y sin niebla.","it":"Classico: come il gioco originale. Competitivo: 5000 di oro, popolazione normale, senza bonus, mappa inesplorata con nebbia; senza rovine, grotte, oggetti né fortezze e con la diplomazia bloccata. Vari: 10000 di oro, popolazione alta, con bonus, mappa esplorata e senza nebbia."},
+{"en":"Classic: like the original game. Competitive: 5000 gold, normal population, no bonuses, unexplored map with fog and diplomacy locked. Various: 10000 gold, high population, with bonuses, explored map and no fog.","es":"Clásico: como el juego original. Competitivo: 5000 de oro, población normal, sin bonificaciones, mapa sin explorar y con niebla, y con la diplomacia bloqueada. Varios: 10000 de oro, población alta, con bonificaciones, mapa explorado y sin niebla.","it":"Classico: come il gioco originale. Competitivo: 5000 di oro, popolazione normale, senza bonus, mappa inesplorata con nebbia e con la diplomazia bloccata. Vari: 10000 di oro, popolazione alta, con bonus, mappa esplorata e senza nebbia."},
 {"en":"Cosmetic: does not affect games","es":"Estético: no afecta a las partidas","it":"Estetico: non influisce sulle partite"},
 {"en":"Will be enabled:","es":"Se activan:","it":"Si attivano:"},
 {"en":"Will be disabled (this game does not use them):","es":"Se desactivan (esta partida no los usa):","it":"Si disattivano (questa partita non li usa):"},
@@ -1420,5 +1420,15 @@
 {"en":"Updates","es":"Actualizaciones","it":"Aggiornamenti"},
 {"en":"Notify","es":"Avisar","it":"Avvisa"},
 {"en":"Automatic","es":"Automático","it":"Automatico"},
-{"en":"Never","es":"Nunca","it":"Mai"}
+{"en":"Never","es":"Nunca","it":"Mai"},
+{"en":"Season","es":"Estación","it":"Stagione"},
+{"en":"Spring","es":"Primavera","it":"Primavera"},
+{"en":"Autumn","es":"Otoño","it":"Autunno"},
+{"en":"Winter","es":"Invierno","it":"Inverno"},
+{"en":"Time of year the game is played in. It changes the look of the terrain and of some buildings.","es":"Época del año en la que se juega. Cambia el aspecto del terreno y de algunos edificios.","it":"Periodo dell'anno in cui si gioca. Cambia l'aspetto del terreno e di alcuni edifici."},
+{"en":"Search by name, author or category","es":"Buscar por nombre, autor o categoría","it":"Cerca per nome, autore o categoria"},
+{"en":"Previous","es":"Anterior","it":"Precedente"},
+{"en":"Next","es":"Siguiente","it":"Successivo"},
+{"en":"%s-%s of %s","es":"%s-%s de %s","it":"%s-%s di %s"},
+{"en":"Page %s of %s","es":"Página %s de %s","it":"Pagina %s di %s"}
 ]

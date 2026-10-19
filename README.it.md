@@ -29,7 +29,7 @@ online senza aprire porte, mod con un clic, controlli personalizzabili e molte c
    (in Steam: clic destro sul gioco → Gestisci → Sfoglia file locali).
 3. Avvia il gioco da Steam.
 
-Per disinstallare, elimina `winmm.dll` dalla cartella del gioco. La mod non modifica nessun file del gioco.
+Per disinstallare, elimina `winmm.dll`, `steam_api.dll` e la cartella `imperivm-resurrected` dalla cartella del gioco. La mod non modifica nessun file del gioco.
 
 Ti serve la tua copia del gioco su Steam. Questa mod non include nessun file del gioco.
 

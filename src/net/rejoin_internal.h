@@ -290,6 +290,7 @@ struct ReloadState {
 	std::string cams;
 	bool mine = false;
 	bool quitAsked = false;
+	unsigned rules = 0;
 	DWORD deadline = 0;
 };
 extern ReloadState g_reload;
@@ -342,6 +343,7 @@ typedef void(__fastcall *SetPosition_t)(void *self, void *edx, uint32_t *pt, int
 
 void __fastcall HookSetPosition(void *self, void *edx, uint32_t *pt, int a, int b);
 typedef void(__cdecl *TraceTileLine_t)(int, int, int, int, void *);
+typedef void(__cdecl *SmoothPath_t)(int, void *, int);
 
 typedef int(__fastcall *TileLineVisit_t)(void *self, void *edx, int x, int y);
 
@@ -358,10 +360,12 @@ struct HookOriginals {
 	AiAddOrder_t aiAddOrder = nullptr;
 	SetPosition_t setPosition = nullptr;
 	TraceTileLine_t traceTileLine = nullptr;
+	SmoothPath_t smoothPath = nullptr;
 	TileLineVisit_t tileLineVisit = nullptr;
 };
 extern HookOriginals g_orig;
 void __cdecl HookTraceTileLine(int x1, int y1, int x2, int y2, void *visitor);
+void __cdecl HookSmoothPath(int path, void *out, int flag);
 int __fastcall HookTileLineVisit(void *self, void *edx, int x, int y);
 bool HookAt(uintptr_t addr, void *detour, void **orig);
 

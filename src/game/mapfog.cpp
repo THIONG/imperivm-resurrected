@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstring>
 #include <vector>
 
 #include "MinHook.h"
@@ -67,6 +68,12 @@ int Darken(void *zoom)
 	if (!dst || !src) return -1;
 	const int w = At<int>(dst, 8), h = At<int>(dst, 0xc);
 	if (w < 16 || h < 16 || w > 8192 || h > 8192 || At<short>(dst, 0x10) != 16 || At<int>(src, 8) != w || At<int>(src, 0xc) != h) return -1;
+	alignas(16) unsigned char viewer[0x40] = {};
+	memcpy(viewer, player, sizeof(viewer));
+	const unsigned selfBit = At<unsigned>(player, 0xc);
+	const unsigned receiveMask = At<unsigned>(player, 0x18) | selfBit;
+	*reinterpret_cast<unsigned *>(viewer + 0x14) = receiveMask;
+	const bool hasAllies = receiveMask != selfBit;
 	const unsigned short fogColor = At<unsigned short>(zoom, 0x30);
 
 	const unsigned hd = At<unsigned>(dst, 4);
@@ -106,11 +113,14 @@ int Darken(void *zoom)
 				int world[2] = {};
 				PixelToWorld(zoom, px, py, world);
 				asked++;
-				if (!reinterpret_cast<IsExplored_t>(addr::kIsExplored)(exploration, nullptr, reinterpret_cast<unsigned *>(world), playerIndex)) continue;
+				const bool wasExplored = reinterpret_cast<IsExplored_t>(addr::kIsExplored)(exploration, nullptr, reinterpret_cast<unsigned *>(world), playerIndex) != 0;
+				if (!wasExplored && !hasAllies) continue;
+				memset(query, 0, sizeof(query));
+				const bool isSeen = reinterpret_cast<VisionRun_t>(addr::kVisionRun)(query, nullptr, world, viewer) != 0;
+				if (!wasExplored && !isSeen) continue;
 				explored[idx] = 1;
 				g_exploredN++;
-				memset(query, 0, sizeof(query));
-				if (reinterpret_cast<VisionRun_t>(addr::kVisionRun)(query, nullptr, world, player)) {
+				if (isSeen) {
 					seen[idx] = 1;
 					g_visibleN++;
 				}

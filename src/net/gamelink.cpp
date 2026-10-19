@@ -4,6 +4,7 @@
 #include "game/netlink.h"
 #include "net/mpsave.h"
 #include "net/rejoin.h"
+#include "net/spectator.h"
 #include "net/steamnet.h"
 #include "net/vnet.h"
 
@@ -16,7 +17,7 @@ bool MultiplayerSaveLoading()
 
 bool RejoinLoading()
 {
-	return RejoinPendingLoad() || RejoinClientActive();
+	return RejoinPendingLoad() || RejoinClientActive() || SpectatorWatching() || SpectatorViewing();
 }
 
 unsigned RoomRules()

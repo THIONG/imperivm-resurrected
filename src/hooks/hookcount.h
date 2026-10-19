@@ -8,4 +8,7 @@ MH_STATUS HookCreate(LPVOID target, LPVOID detour, LPVOID *original);
 
 MH_STATUS HookEnable(LPVOID target);
 
+void HookBatchBegin();
+void HookBatchEnd();
+
 void LogHookSummary();

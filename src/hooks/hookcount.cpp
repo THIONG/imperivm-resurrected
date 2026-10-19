@@ -16,6 +16,9 @@ std::mutex g_lock;
 int g_created = 0;
 int g_enabled = 0;
 std::vector<std::string> g_failed;
+bool g_batch = false;
+std::vector<LPVOID> g_queued;
+DWORD g_applyMs = 0;
 
 void Fail(const char *what, LPVOID target, MH_STATUS status)
 {
@@ -42,6 +45,12 @@ MH_STATUS HookCreate(LPVOID target, LPVOID detour, LPVOID *original)
 
 MH_STATUS HookEnable(LPVOID target)
 {
+	if (g_batch) {
+		const MH_STATUS queued = MH_QueueEnableHook(target);
+		if (queued == MH_OK) g_queued.push_back(target);
+		else Fail("enable", target, queued);
+		return queued;
+	}
 	const MH_STATUS status = MH_EnableHook(target);
 	if (status == MH_OK) {
 		std::lock_guard<std::mutex> lock(g_lock);
@@ -53,11 +62,34 @@ MH_STATUS HookEnable(LPVOID target)
 	return status;
 }
 
+void HookBatchBegin()
+{
+	g_batch = true;
+}
+
+void HookBatchEnd()
+{
+	g_batch = false;
+	const DWORD start = GetTickCount();
+	if (MH_ApplyQueued() == MH_OK) {
+		g_enabled += static_cast<int>(g_queued.size());
+	}
+	else {
+		for (LPVOID target : g_queued) {
+			const MH_STATUS status = MH_EnableHook(target);
+			if (status == MH_OK || status == MH_ERROR_ENABLED) g_enabled++;
+			else Fail("enable", target, status);
+		}
+	}
+	g_queued.clear();
+	g_applyMs = GetTickCount() - start;
+}
+
 void LogHookSummary()
 {
 	std::lock_guard<std::mutex> lock(g_lock);
 	std::string failed;
 	for (const std::string &f : g_failed) failed += (failed.empty() ? "" : ", ") + f;
-	LogAt(g_failed.empty() ? kLogInfo : kLogError, "boot", "hooks: %d created, %d enabled, %u failed%s%s", g_created, g_enabled,
+	LogAt(g_failed.empty() ? kLogInfo : kLogError, "boot", "hooks: %d created, %d enabled in %lu ms, %u failed%s%s", g_created, g_enabled, g_applyMs,
 		static_cast<unsigned>(g_failed.size()), failed.empty() ? "" : ": ", failed.c_str());
 }

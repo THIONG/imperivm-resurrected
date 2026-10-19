@@ -115,7 +115,7 @@ bool ReadFileText(const std::string &path, std::string &out)
 
 void AddError(const std::string &folder, const std::string &rel, const std::string &message)
 {
-	const std::string who = folder.empty() ? "mod\\patches" : folder;
+	const std::string who = folder.empty() ? "imperivm-resurrected\\patches" : folder;
 	const std::string line = rel + ": " + message;
 	bool first = false, toast = false;
 	{
@@ -139,7 +139,7 @@ void PatchRebuild()
 		const std::string folder = it->substr(it->find_last_of('\\') + 1);
 		Walk(*it + "\\patches\\", "", folder, found);
 	}
-	Walk(GameDirPath() + "\\mod\\patches\\", "", "", found);
+	Walk(GameDirPath() + "\\imperivm-resurrected\\patches\\", "", "", found);
 	for (const BuiltinPatch &b : UsableBuiltinPatches(true)) found[b.path].insert(found[b.path].begin(), {"Imperivm Resurrected", "", b.text, b.gameFileSha256});
 	unsigned files = 0;
 	for (const auto &kv : found) files += static_cast<unsigned>(kv.second.size());
@@ -213,7 +213,7 @@ bool PatchApply(const std::string &rel, std::string &data)
 		for (const std::string &e : errors) AddError(s.folder, rel, e);
 		if (ok) {
 			changed = true;
-			LogI("patch", "(%s) %s applied%s", s.folder.empty() ? "mod\\patches" : s.folder.c_str(), rel.c_str(),
+			LogI("patch", "(%s) %s applied%s", s.folder.empty() ? "imperivm-resurrected\\patches" : s.folder.c_str(), rel.c_str(),
 				errors.empty() ? "" : (" (" + std::to_string(errors.size()) + " operations with errors)").c_str());
 		}
 	}

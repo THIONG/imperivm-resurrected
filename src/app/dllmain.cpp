@@ -160,6 +160,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 		if (!game) {
 			return TRUE;
 		}
+		const DWORD bootStart = GetTickCount();
 		LogI("boot", "winmm proxy loaded, mod %s", ModVersionText());
 		InstallCrashLog();
 		const bool knownExe = CheckExecutable();
@@ -173,6 +174,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 			LogE("boot", "minhook: could not initialize");
 			return TRUE;
 		}
+		HookBatchBegin();
 		InstallRenderHooks();
 		InstallDisplayModeHooks();
 		InstallTweaks(knownExe);
@@ -220,7 +222,9 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 		InstallOptionsHooks(knownExe);
 		InstallControls(knownExe);
 		InstallModernAudio(knownExe);
+		HookBatchEnd();
 		LogHookSummary();
+		LogI("boot", "mod ready in %lu ms", static_cast<unsigned long>(GetTickCount() - bootStart));
 	}
 	else if (reason == DLL_PROCESS_DETACH) {
 		ShutdownRender();

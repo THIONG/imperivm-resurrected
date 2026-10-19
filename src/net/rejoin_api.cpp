@@ -32,6 +32,7 @@ void InstallRejoin(bool knownExe)
 	ok = HookAt(addr::kNetReportDesync, reinterpret_cast<void *>(&HookDesync), reinterpret_cast<void **>(&g_orig.desync)) && ok;
 	ok = HookAt(addr::kSetPosition, reinterpret_cast<void *>(&HookSetPosition), reinterpret_cast<void **>(&g_orig.setPosition)) && ok;
 	ok = HookAt(addr::kTraceTileLine, reinterpret_cast<void *>(&HookTraceTileLine), reinterpret_cast<void **>(&g_orig.traceTileLine)) && ok;
+	ok = HookAt(addr::kSmoothPath, reinterpret_cast<void *>(&HookSmoothPath), reinterpret_cast<void **>(&g_orig.smoothPath)) && ok;
 	ok = HookAt(addr::kTileLineVisit, reinterpret_cast<void *>(&HookTileLineVisit), reinterpret_cast<void **>(&g_orig.tileLineVisit)) && ok;
 	void **slot = reinterpret_cast<void **>(addr::kCmdMessageExecSlot);
 	DWORD old = 0;

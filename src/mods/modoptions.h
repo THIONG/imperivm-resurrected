@@ -19,6 +19,8 @@ struct ModOption {
 
 const unsigned kModOptionFirstBit = 0x80000;
 const int kModOptionBits = 8;
+const char kSeasonOptionId[] = "season";
+const unsigned kSeasonBits = 3u << 28;
 
 const std::vector<ModOption> &ModOptions();
 unsigned ModOptionsMask();

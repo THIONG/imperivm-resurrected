@@ -47,6 +47,7 @@ void FieldKey(UINT msg, WPARAM wp)
 	else if (wp == VK_RETURN) {
 		if (g_s.focus == kNameField) DoAction(kNameOk, 0);
 		else if (g_s.focus == kIoSearchField) {
+			g_s.ioSearchDue = 0;
 			g_s.ioPage = 0;
 			IoSearch();
 		}
@@ -58,6 +59,7 @@ void FieldKey(UINT msg, WPARAM wp)
 		else if (g_s.focus == kIoSearchField && !g_s.ioSearch.empty()) {
 			g_s.ioSearch.clear();
 			g_s.edit = EditState();
+			g_s.ioSearchDue = 0;
 			g_s.ioPage = 0;
 			IoSearch();
 		}
@@ -72,6 +74,7 @@ void FieldKey(UINT msg, WPARAM wp)
 		changed = EditKey(text, g_s.edit, wp, limit) == 2;
 	}
 	if (changed && g_s.focus == kSearchField) g_s.list.scroll = 0;
+	if (changed && g_s.focus == kIoSearchField) g_s.ioSearchDue = (GetTickCount() + 250) | 1;
 }
 
 bool ModUiHandleCornerMessage(UINT msg, WPARAM wp, LPARAM lp)

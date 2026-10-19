@@ -53,7 +53,7 @@ enum Action {
 	kTabInstalled, kPickArchive, kUpdateMod,
 	kDropOpen, kDropClose, kDropPick, kSaveAs, kFocusName, kNameOk, kNameCancel, kFocusSearch,
 	kUninstall,
-	kTabExplore, kIoFocusSearch, kIoPrev, kIoNext, kIoOpen, kIoBack, kIoInstall, kIoPage, kIoRetry, kOpenSource,
+	kTabExplore, kIoFocusSearch, kIoPrev, kIoNext, kIoOpen, kIoBack, kIoInstall, kIoPage, kIoRetry, kIoRefresh, kOpenSource,
 	kIoShotOpen, kIoShotClose, kIoShotStep,
 	kRichLink, kShowProblems, kUpdateAll,
 	kIoFilterOpen, kIoFilterClose, kIoFilterToggle, kIoFilterClear,
@@ -141,6 +141,7 @@ struct State {
 	bool catalogRequested = false;
 
 	std::string ioSearch;
+	DWORD ioSearchDue = 0;
 	EditState edit;
 	int tabAction = -1, tabArg = 0;
 	int ioSort = 0, ioPage = 0;

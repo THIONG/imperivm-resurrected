@@ -174,8 +174,8 @@ void PrepareRleMmp(const ModProfile &p, const std::vector<ModInfo> &all)
 		SetProblem(provider->folder, "Made for another version of the game's graphics (rle.mmp): its new graphics cannot be shown");
 		return;
 	}
-	const std::string dir = GameDir() + "\\mod\\_cache";
-	CreateDirectoryA((GameDir() + "\\mod").c_str(), nullptr);
+	const std::string dir = GameDir() + "\\imperivm-resurrected\\_cache";
+	CreateDirectoryA((GameDir() + "\\imperivm-resurrected").c_str(), nullptr);
 	CreateDirectoryA(dir.c_str(), nullptr);
 	const std::string cache = dir + "\\rle.mmp", keyFile = cache + ".key";
 	const std::string key = RleCacheKey(src);

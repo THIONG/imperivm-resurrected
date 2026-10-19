@@ -498,7 +498,7 @@ std::vector<std::string> LangPatchFiles()
 	std::vector<std::string> out;
 	std::vector<std::string> dirs = ModsMountedDirs();
 	for (auto it = dirs.rbegin(); it != dirs.rend(); ++it) AddPatchFiles(*it + "\\loc", lang, out);
-	AddPatchFiles(GameDirPath() + "\\mod\\loc", lang, out);
+	AddPatchFiles(GameDirPath() + "\\imperivm-resurrected\\loc", lang, out);
 	return out;
 }
 

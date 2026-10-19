@@ -26,7 +26,7 @@ std::string BackgroundCachePath()
 	char path[MAX_PATH] = {};
 	GetModuleFileNameA(nullptr, path, MAX_PATH);
 	if (char *slash = strrchr(path, '\\')) *(slash + 1) = 0;
-	return std::string(path) + "mod\\_cache\\menu-background.bmp";
+	return std::string(path) + "imperivm-resurrected\\_cache\\menu-background.bmp";
 }
 
 bool MostlyBlack(const uint32_t *buf, size_t n)

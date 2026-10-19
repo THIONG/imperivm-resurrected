@@ -8,6 +8,7 @@ namespace addr {
 
 inline constexpr uintptr_t kTileLineVisit = 0x0040b1b0;
 inline constexpr uintptr_t kTraceTileLine = 0x0040b2b0;
+inline constexpr uintptr_t kSmoothPath = 0x0040c6b0;
 inline constexpr uintptr_t kTransportChangeDetachHero = 0x00417e19;
 inline constexpr uintptr_t kComputeNeeds = 0x0041c0e0;
 inline constexpr uintptr_t kOnUnitRemoved = 0x0041eee0;
@@ -37,6 +38,7 @@ inline constexpr uintptr_t kGameUpdate = 0x0051e940;
 inline constexpr uintptr_t kShowPausedMenu = 0x0051ee80;
 inline constexpr uintptr_t kRandomDrawSite = 0x005223b5;
 inline constexpr uintptr_t kDeclareDefeated = 0x00522f90;
+inline constexpr uintptr_t kCreateWorldCore = 0x00526200;
 inline constexpr uintptr_t kHeroAvailableSkillPoints = 0x0052da80;
 inline constexpr uintptr_t kVisionRun = 0x0053e910;
 inline constexpr uintptr_t kGetHeightAt = 0x0053eaa0;
@@ -94,6 +96,7 @@ inline constexpr uintptr_t kApplySelection = 0x005e7910;
 inline constexpr uintptr_t kClearSelection = 0x005e7e50;
 inline constexpr uintptr_t kInitForPlayer = 0x005e80c0;
 inline constexpr uintptr_t kCreateEntityImage = 0x0060cb20;
+inline constexpr uintptr_t kZoomMapHide = 0x0060e5a0;
 inline constexpr uintptr_t kZoomMapOnDraw = 0x00612fc0;
 inline constexpr uintptr_t kRebuild = 0x00616c40;
 inline constexpr uintptr_t kScreenToMap = 0x006243b0;

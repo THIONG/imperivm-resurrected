@@ -2,7 +2,7 @@
 //   - the version of the tag is the one in src/core/version.cpp (kVersion);
 //   - version.json: same version, the link of the zip points to this release, size and SHA-256 of the zip are the real ones, and the
 //     signature is valid for the public key that the mod has in src/mods/updater.cpp (the one the game checks before installing);
-//   - the zip holds winmm.dll and the mod\ folder and nothing else, with no path that escapes;
+//   - the zip holds winmm.dll, steam_api.dll and the imperivm-resurrected\ folder and nothing else, with no path that escapes;
 //   - the SDK zip, if there is one, holds exactly the files of sdk/ at this commit;
 //   - SHA256SUMS.txt, if there is one, matches the files.
 //   node tools/verify-release.js <folder with the files> [--tag v0.31.54] [--repo THIONG/imperivm-resurrected] [--write-sums]
@@ -65,8 +65,9 @@ if (fs.existsSync(zipPath) && fs.existsSync(jsonPath)) {
   } catch (e) { bad('the signature could not be checked: ' + e.message); }
   const entries = listZip(zipPath);
   if (!entries.includes('winmm.dll')) bad(`${zipName} has no winmm.dll`);
+  if (!entries.includes('steam_api.dll')) bad(`${zipName} has no steam_api.dll`);
   for (const e of entries) {
-    if (e !== 'winmm.dll' && !e.startsWith('mod/')) bad(`${zipName} holds ${e}, only winmm.dll and mod/ may go in`);
+    if (e !== 'winmm.dll' && e !== 'steam_api.dll' && !e.startsWith('imperivm-resurrected/')) bad(`${zipName} holds ${e}, only winmm.dll, steam_api.dll and imperivm-resurrected/ may go in`);
     if (e.includes('..') || path.isAbsolute(e) || e.includes(':')) bad(`${zipName} has an unsafe path: ${e}`);
   }
 }

@@ -432,7 +432,7 @@ void PaintGameRoom(Painter &p, const State &st)
 					return gameValue(id, key, index, enabled);
 				});
 				row("Preset", preset >= 0 ? kPresets[preset].name : "Custom setup", preset != 0, host, true, kDropPreset, 0,
-					"Classic: like the original game. Competitive: 5000 gold, normal population, no bonuses, unexplored map with fog; no ruins, caves, items or strongholds and with diplomacy locked. Various: 10000 gold, high population, with bonuses, explored map and no fog.");
+					"Classic: like the original game. Competitive: 5000 gold, normal population, no bonuses, unexplored map with fog and diplomacy locked. Various: 10000 gold, high population, with bonuses, explored map and no fog.");
 			}
 			section("MAP");
 			comboRow(0x1000, "Map type", "Map type", nullptr);
@@ -449,6 +449,14 @@ void PaintGameRoom(Painter &p, const State &st)
 				row("Remove from map", !g.randomMap ? "Only on random maps" : removed.empty() ? "None" : removed, g.randomMap && !removed.empty(),
 					host && g.randomMap, true, kDropSites, 0,
 					"Neutral sites that are not generated on the random map: ruins, caves, item locations and strongholds (these only appear on large maps).");
+				const std::vector<ModOption> &mods = ModOptions();
+				for (size_t oi = 0; oi < mods.size(); oi++) {
+					const ModOption &mo = mods[oi];
+					if (mo.id != kSeasonOptionId) continue;
+					const int v = ModOptionGet(mo, g.rules);
+					row(mo.name.c_str(), !g.randomMap ? Tr("Only on random maps") : mo.values[v < static_cast<int>(mo.values.size()) ? v : 0], g.randomMap && v != 0,
+						host && g.randomMap, true, kDropModOption, static_cast<int>(oi), mo.description.c_str());
+				}
 			}
 			section("GAME");
 			comboRow(0x1002, "Mode", "Game type", nullptr);
@@ -481,6 +489,7 @@ void PaintGameRoom(Painter &p, const State &st)
 				const std::vector<ModOption> &mods = ModOptions();
 				for (size_t oi = 0; oi < mods.size(); oi++) {
 					const ModOption &mo = mods[oi];
+					if (mo.id == kSeasonOptionId) continue;
 					if (mo.values.empty()) {
 						ruleRow(mo.bit, mo.name.c_str(), true, mo.description.c_str());
 						continue;

@@ -20,8 +20,8 @@ node tools\check-layering.js || exit /b 1
 node tools\check-conventions.js || exit /b 1
 node tools\check-includes.js || exit /b 1
 node tools\check-logs.js || exit /b 1
-node tools\check-sdk.js || exit /b 1
-node tools\check-examples.js || exit /b 1
+if exist sdk node tools\check-sdk.js || exit /b 1
+if exist sdk node tools\check-examples.js || exit /b 1
 node tools\syntax-check.js || exit /b 1
 cmake -S . -B %OUT% -G Ninja -DCMAKE_BUILD_TYPE=Release -DIMPERIVM_BUILD_DLL=OFF >nul || exit /b 1
 cmake --build %OUT% || exit /b 1

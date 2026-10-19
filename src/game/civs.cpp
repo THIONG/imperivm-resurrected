@@ -111,7 +111,7 @@ void AddError(const std::string &folder, const std::string &message)
 		std::vector<std::string> &list = g_errors[folder];
 		if (std::find(list.begin(), list.end(), message) == list.end()) list.push_back(message);
 	}
-	LogW("civilizations", "(%s) %s", folder.empty() ? "mod\\civs" : folder.c_str(), message.c_str());
+	LogW("civilizations", "(%s) %s", folder.empty() ? "imperivm-resurrected\\civs" : folder.c_str(), message.c_str());
 }
 
 const Civ *FindByIndex(int index)
@@ -774,7 +774,7 @@ void CivsRebuild()
 	std::vector<std::string> dirs = ModsMountedDirs();
 	std::vector<std::pair<std::string, std::string>> roots;
 	for (const std::string &dir : dirs) roots.push_back({dir.substr(dir.find_last_of('\\') + 1), dir + "\\civs"});
-	roots.push_back({"", GameDir() + "\\mod\\civs"});
+	roots.push_back({"", GameDir() + "\\imperivm-resurrected\\civs"});
 	for (const auto &root : roots) {
 		WIN32_FIND_DATAA fd;
 		HANDLE h = FindFirstFileA((root.second + "\\*.json").c_str(), &fd);
@@ -840,7 +840,7 @@ void CivsRebuild()
 	ApplyNeutralPrefixes();
 	for (const Civ *c : unique) {
 		LogI("civilizations", "%s (index %d, base %s, letter %s, mod %s)", c->id.c_str(), c->index, kGameNames[c->base], c->letterUp.c_str(),
-			c->modFolder.empty() ? "mod\\civs" : c->modFolder.c_str());
+			c->modFolder.empty() ? "imperivm-resurrected\\civs" : c->modFolder.c_str());
 		if (c->variant) LogI("civilizations", "%s: variant of %s (the scripts see the base as the player's civilization)", c->id.c_str(), kGameNames[c->base]);
 		if (c->replacesBase) LogI("civilizations", "%s: replaces %s in the room and in the random draw", c->id.c_str(), kGameNames[c->base]);
 		if (c->ai) {

@@ -29,7 +29,7 @@ online play with no port forwarding, one-click mods, rebindable controls and man
    (in Steam: right-click the game → Manage → Browse local files).
 3. Start the game from Steam.
 
-To uninstall, delete `winmm.dll` from the game folder. The mod does not change any game file.
+To uninstall, delete `winmm.dll`, `steam_api.dll` and the `imperivm-resurrected` folder from the game folder. The mod does not change any game file.
 
 You need your own copy of the game from Steam. This mod includes no game file.
 

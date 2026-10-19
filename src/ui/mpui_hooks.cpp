@@ -9,6 +9,7 @@
 #include "hooks/hookcount.h"
 #include "core/log.h"
 #include "ui/modui.h"
+#include "mods/vfs.h"
 #include "ui/savesui.h"
 #include "addr/state.h"
 #include "addr/ui.h"
@@ -32,6 +33,7 @@ bool __cdecl HookIsNewUpdateAvailable()
 	if (n != last) {
 		last = n;
 		LogI("ui", "main menu update indicator: %d content packs have an update", n);
+		VfsLogStats();
 	}
 	return n > 0;
 }

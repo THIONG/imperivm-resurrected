@@ -27,3 +27,5 @@ uint64_t GbKeyFromUrl(const std::string &url);
 uint64_t GbKeyFromJson(const Json &o);
 void GbKeyToJson(Json &o, uint64_t key);
 std::vector<GbPicture> GbPictures(const Json &submission, bool webp);
+
+bool GbSameVersionNewFile(unsigned catalogFiles, uint64_t catalogFile, uint64_t catalogDate, uint64_t installedFile, uint64_t installedDate);

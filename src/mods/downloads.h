@@ -24,6 +24,9 @@ struct CatalogEntry {
 	std::vector<std::string> authors;
 	uint64_t bytes = 0;
 	uint64_t gbId = 0;
+	uint64_t fileId = 0;
+	uint64_t fileDate = 0;
+	unsigned fileCount = 0;
 	std::vector<std::string> tags;
 	std::string replaceFolder;
 	bool aside = false;
@@ -98,6 +101,7 @@ struct GbImage {
 	std::vector<uint32_t> bgra;
 };
 void GbSearch(const GbQuery &q);
+void GbForceRefresh();
 GbResults GbGetResults();
 std::shared_ptr<const GbImage> GbLogo(const std::string &url);
 std::shared_ptr<const GbImage> GbBigImage(const std::string &url);

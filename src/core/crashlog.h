@@ -4,5 +4,7 @@
 #pragma once
 
 void InstallCrashLog();
+void CrashLogLoadingBegin();
+void CrashLogLoadingEnd();
 
 extern thread_local int g_crashLogQuiet;

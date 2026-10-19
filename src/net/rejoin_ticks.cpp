@@ -238,12 +238,30 @@ namespace rejoin_impl {
 namespace {
 unsigned g_tileLineSteps = 0;
 unsigned g_tileLineCuts = 0;
+thread_local unsigned g_smoothDepth = 0;
+thread_local unsigned g_smoothCalls = 0;
+const unsigned kSmoothBudget = 400000;
+const DWORD kSmoothAbort = 0xE0494D31;
 }
 }
 
 namespace rejoin_impl {
+void __cdecl HookSmoothPath(int path, void *out, int flag)
+{
+	if (++g_smoothDepth == 1) g_smoothCalls = 0;
+	__try {
+		g_orig.smoothPath(path, out, flag);
+	}
+	__except (GetExceptionCode() == kSmoothAbort ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+		static int cuts = 0;
+		if (cuts++ < 5) LogW("game", "paths: smoothing of a path stopped after %u tile lines (the game would have hung)", kSmoothBudget);
+	}
+	g_smoothDepth--;
+}
+
 void __cdecl HookTraceTileLine(int x1, int y1, int x2, int y2, void *visitor)
 {
+	if (g_smoothDepth && ++g_smoothCalls > kSmoothBudget) RaiseException(kSmoothAbort, EXCEPTION_NONCONTINUABLE, 0, nullptr);
 	g_tileLineSteps = 0;
 	g_orig.traceTileLine(x1, y1, x2, y2, visitor);
 }

@@ -329,7 +329,9 @@ MapOrigin ModsMapOrigin(const std::string &scenarioPath)
 {
 	MapOrigin out;
 	const std::string rel = MapRel(scenarioPath);
+	const std::vector<std::string> mounted = ModsMountedProfile().mods;
 	for (const ModInfo &m : ModsList()) {
+		if (std::find(mounted.begin(), mounted.end(), m.folder) == mounted.end()) continue;
 		if (std::binary_search(m.loosePaths.begin(), m.loosePaths.end(), rel) || std::binary_search(m.paths.begin(), m.paths.end(), rel)) {
 			out.kind = kMapMod;
 			out.modName = m.name;

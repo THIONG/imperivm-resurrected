@@ -3,6 +3,7 @@
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #include <windows.h>
 
+#include <atomic>
 #include <cstdio>
 #include <cstdint>
 
@@ -100,6 +101,10 @@ LONG CALLBACK Handler(EXCEPTION_POINTERS *ep)
 namespace {
 
 HANDLE g_mainThread = nullptr;
+std::atomic<DWORD> g_loadingSince{0};
+const int kHangChecks = 3, kHangChecksLoading = 24;
+const DWORD kBootGraceMs = 90000;
+DWORD g_bootTick = 0;
 
 BOOL CALLBACK FindGameWindow(HWND hwnd, LPARAM param)
 {
@@ -113,6 +118,7 @@ BOOL CALLBACK FindGameWindow(HWND hwnd, LPARAM param)
 DWORD WINAPI Watchdog(void *)
 {
 	int hung = 0, logged = 0;
+	bool reported = false;
 	for (;;) {
 		Sleep(1000);
 		HWND wnd = nullptr;
@@ -121,9 +127,13 @@ DWORD WINAPI Watchdog(void *)
 		DWORD_PTR result = 0;
 		if (SendMessageTimeoutA(wnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG | SMTO_BLOCK, 1500, &result)) {
 			hung = 0;
+			reported = false;
 			continue;
 		}
-		if (++hung != 3 || logged >= 3) continue;
+		const bool starting = GetTickCount() - g_bootTick < kBootGraceMs;
+		const int limit = g_loadingSince.load() || starting ? kHangChecksLoading : kHangChecks;
+		if (++hung < limit || reported || logged >= 3) continue;
+		reported = true;
 		logged++;
 		CONTEXT c = {};
 		c.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
@@ -143,8 +153,21 @@ DWORD WINAPI Watchdog(void *)
 
 }
 
+void CrashLogLoadingBegin()
+{
+	g_loadingSince = GetTickCount() | 1;
+}
+
+void CrashLogLoadingEnd()
+{
+	const DWORD since = g_loadingSince.exchange(0);
+	if (!since) return;
+	LogI("game", "game load took %.1f s", static_cast<double>(GetTickCount() - since) / 1000.0);
+}
+
 void InstallCrashLog()
 {
+	g_bootTick = GetTickCount();
 	AddVectoredExceptionHandler(1, Handler);
 	ULONG guarantee = 64 * 1024;
 	SetThreadStackGuarantee(&guarantee);

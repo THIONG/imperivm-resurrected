@@ -106,3 +106,9 @@ std::vector<GbPicture> GbPictures(const Json &submission, bool webp)
 	}
 	return out;
 }
+
+bool GbSameVersionNewFile(unsigned catalogFiles, uint64_t catalogFile, uint64_t catalogDate, uint64_t installedFile, uint64_t installedDate)
+{
+	if (catalogFiles != 1 || !catalogFile || !installedFile) return false;
+	return catalogFile != installedFile && catalogDate > installedDate;
+}

@@ -13,6 +13,7 @@
 #include "MinHook.h"
 #include "hooks/hookcount.h"
 #include "core/config.h"
+#include "core/framefreeze.h"
 #include "game/controls.h"
 #include "ui/controlsui.h"
 #include "core/guard.h"
@@ -523,7 +524,8 @@ int WINAPI HookSetDIBitsToDevice(HDC hdc, int xDest, int yDest, DWORD w, DWORD h
 			g_frameH = ch;
 			g_frame.assign(static_cast<size_t>(cw) * ch, 0xff000000u);
 		}
-		BlitToFrame(bmi, bits, xDest, yDest, static_cast<int>(w), static_cast<int>(h), xSrc, ySrc);
+		const bool frozen = FrameFrozen();
+		if (!frozen) BlitToFrame(bmi, bits, xDest, yDest, static_cast<int>(w), static_cast<int>(h), xSrc, ySrc);
 		g_frameDirty = true;
 	}
 	OverlayNoteFrame();

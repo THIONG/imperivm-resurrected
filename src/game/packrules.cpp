@@ -54,7 +54,7 @@ void AddError(const std::string &folder, const std::string &message)
 		std::vector<std::string> &list = g_errors[folder];
 		if (std::find(list.begin(), list.end(), message) == list.end()) list.push_back(message);
 	}
-	LogW("game", "rules (%s): %s", folder.empty() ? "mod\\rules" : folder.c_str(), message.c_str());
+	LogW("game", "rules (%s): %s", folder.empty() ? "imperivm-resurrected\\rules" : folder.c_str(), message.c_str());
 }
 
 std::string GameDir()
@@ -168,7 +168,7 @@ void PackRulesRebuild()
 	Rules merged;
 	std::vector<std::pair<std::string, std::string>> roots;
 	for (const std::string &dir : ModsMountedDirs()) roots.push_back({dir.substr(dir.find_last_of('\\') + 1), dir + "\\rules\\game.json"});
-	roots.push_back({"", GameDir() + "\\mod\\rules\\game.json"});
+	roots.push_back({"", GameDir() + "\\imperivm-resurrected\\rules\\game.json"});
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
 		g_errors.clear();
@@ -190,7 +190,7 @@ void PackRulesRebuild()
 			if (std::find(merged.protectedClasses.begin(), merged.protectedClasses.end(), c) == merged.protectedClasses.end()) merged.protectedClasses.push_back(c);
 		}
 		if (!one.protectedClasses.empty()) what += " protectedClasses(" + std::to_string(one.protectedClasses.size()) + ")";
-		LogI("game", "rules of %s:%s", root.first.empty() ? "mod\\rules" : root.first.c_str(), what.empty() ? " none" : what.c_str());
+		LogI("game", "rules of %s:%s", root.first.empty() ? "imperivm-resurrected\\rules" : root.first.c_str(), what.empty() ? " none" : what.c_str());
 	}
 	{
 		std::lock_guard<std::mutex> lock(g_lock);

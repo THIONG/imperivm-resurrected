@@ -74,6 +74,22 @@ void StructuredPacksAreLeftAlone()
 	CHECK_EQ(PlanLooseFiles({}, false, kCatScenarios).size(), static_cast<size_t>(0));
 }
 
+void VideosTheMapPlays()
+{
+	const std::string script = "play(\"movies\\Video1.avi\"); x = 'Movies/Video2.AVI'; movies\\Video1.avi \"movies\\Intro final.avi\" movies\\no.txt";
+	const std::vector<std::string> refs = BfhpVideoReferences(script);
+	CHECK_EQ(refs.size(), static_cast<size_t>(3));
+	CHECK_EQ(refs[0], std::string("video1.avi"));
+	CHECK_EQ(refs[1], std::string("video2.avi"));
+	CHECK_EQ(refs[2], std::string("intro final.avi"));
+	CHECK_EQ(BfhpVideoReferences("movies\\Final.avi and more text").size(), static_cast<size_t>(1));
+	CHECK_EQ(BfhpVideoReferences("no videos here").size(), static_cast<size_t>(0));
+	CHECK_EQ(BfhpVideoReferences("movies\\").size(), static_cast<size_t>(0));
+	const std::vector<std::string> root = {"Video1.avi", "VIDEO2.AVI", "other.avi", "map.bfhp", "notes.txt"};
+	CHECK_EQ(Describe(PlanLooseVideos(root, refs)), std::string("Video1.avi>movies VIDEO2.AVI>movies"));
+	CHECK_EQ(PlanLooseVideos(root, {}).size(), static_cast<size_t>(0));
+}
+
 }
 
 int main()
@@ -83,5 +99,6 @@ int main()
 	SingleMissionsGoToAdventuresByTheirCategory();
 	UnreadableFilesFollowTheCategory();
 	StructuredPacksAreLeftAlone();
+	VideosTheMapPlays();
 	return test::Summary("looselayout");
 }

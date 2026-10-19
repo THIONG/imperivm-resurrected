@@ -51,7 +51,12 @@ int main()
 	for (const char *f : {"imperivm-mod.ini", "controles.ini", "controls.ini", "gbr.exe.sin4gb", "gbr.exe.no4gb", "winmm.dll.anterior", "winmm.dll.previous"}) {
 		DeleteFileA((d + "\\" + f).c_str());
 	}
-	for (const char *sub : {"mods", "Profiles"}) test::RemoveTree(d + "\\" + sub);
+	for (const char *sub : {"mods", "Profiles", "mod", "imperivm-resurrected"}) test::RemoveTree(d + "\\" + sub);
+	Touch(d + "\\mod\\civs\\own.json", "mine");
+	Touch(d + "\\mod\\keep.txt", "old");
+	Touch(d + "\\mod\\discord.png", "old");
+	Touch(d + "\\imperivm-resurrected\\discord.png", "new");
+	Touch(d + "\\imperivm-resurrected\\civs\\shipped.json", "shipped");
 	const std::string ini = d + "\\imperivm-mod.ini";
 	Touch(ini, "[Render]\r\nEscalado=suave\r\nBrillo=120\r\nEnabled=1\r\n[Pantalla]\r\nModo=ventana\r\nVentanaAncho=1280\r\n[Juego]\r\nAutoguardadoMinutos=15\r\n[Mods]\r\nPerfil=Sin perfil\r\n[Actualizaciones]\r\nModo=no\r\n[Online]\r\nPartidaEnCurso=abc\r\n");
 	Touch(d + "\\controles.ini", "[General]\r\nOrdenes=cuadricula\r\nLetrasEnLaBarra=0\r\n[Teclas]\r\nguardado_rapido=Ctrl+S\r\nmenu=F10\r\n[Ordenes]\r\nM=K\r\n");
@@ -85,5 +90,9 @@ int main()
 	Check(Exists(d + "\\mods\\_received.txt"), "received");
 	Check(Exists(d + "\\Profiles\\Foo\\games.json") && Exists(d + "\\Profiles\\Foo\\save-1.cameras"), "profile files");
 	Check(Exists(d + "\\gbr.exe.no4gb") && Exists(d + "\\winmm.dll.previous"), "renamed exe files");
+	Check(Exists(d + "\\imperivm-resurrected\\civs\\own.json") && Exists(d + "\\imperivm-resurrected\\keep.txt"), "files of the old mod folder merged into the new one");
+	Check(Exists(d + "\\imperivm-resurrected\\civs\\shipped.json"), "files already in the new folder kept");
+	Check(!Exists(d + "\\mod\\civs") && !Exists(d + "\\mod\\keep.txt"), "merged files left the old folder");
+	Check(Exists(d + "\\mod\\discord.png"), "a file that already exists in the new folder is not overwritten");
 	return test::Summary("legacy");
 }

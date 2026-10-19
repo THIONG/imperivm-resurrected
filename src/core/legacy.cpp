@@ -32,6 +32,28 @@ void RenameIfNeeded(const std::string &from, const std::string &to)
 	if (Exists(from) && !Exists(to)) MoveFileExA(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH);
 }
 
+void MergeFolder(const std::string &from, const std::string &to)
+{
+	if (!Exists(from)) return;
+	if (!Exists(to)) {
+		MoveFileExA(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH);
+		return;
+	}
+	WIN32_FIND_DATAA fd;
+	HANDLE f = FindFirstFileA((from + "\\*").c_str(), &fd);
+	if (f != INVALID_HANDLE_VALUE) {
+		do {
+			const std::string n = fd.cFileName;
+			if (n == "." || n == "..") continue;
+			const std::string a = from + "\\" + n, b = to + "\\" + n;
+			if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) MergeFolder(a, b);
+			else if (!Exists(b)) MoveFileExA(a.c_str(), b.c_str(), MOVEFILE_WRITE_THROUGH);
+		} while (FindNextFileA(f, &fd));
+		FindClose(f);
+	}
+	RemoveDirectoryA(from.c_str());
+}
+
 void RemoveIfContains(const std::string &path, const char *marker)
 {
 	HANDLE h = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
@@ -268,9 +290,10 @@ void LegacyMigrate()
 	RenameIfNeeded(mods + "\\_publicar", mods + "\\_publish");
 	RenameIfNeeded(mods + "\\_recibidos.txt", mods + "\\_received.txt");
 	MigrateProfilesFolder(dir + "\\Profiles");
-	RemoveIfContains(dir + "\\mod\\menuini\\mainmenu.ini", "Additional content");
-	RemoveIfContains(dir + "\\mod\\menuini\\gameoptions.ini", "ModWindowCheck");
-	RemoveDirectoryA((dir + "\\mod\\menuini").c_str());
+	MergeFolder(dir + "\\mod", dir + "\\imperivm-resurrected");
+	RemoveIfContains(dir + "\\imperivm-resurrected\\menuini\\mainmenu.ini", "Additional content");
+	RemoveIfContains(dir + "\\imperivm-resurrected\\menuini\\gameoptions.ini", "ModWindowCheck");
+	RemoveDirectoryA((dir + "\\imperivm-resurrected\\menuini").c_str());
 }
 
 const char *LegacyJsonKey(const std::string &key)

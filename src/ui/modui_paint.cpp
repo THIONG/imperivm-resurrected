@@ -123,16 +123,45 @@ std::string UpperText(const std::string &s)
 	return out;
 }
 
+std::mutex g_spinMx;
+std::map<std::string, DWORD> g_spinSeen;
+
+bool SpinnerDue(const std::string &key)
+{
+	std::lock_guard<std::mutex> lock(g_spinMx);
+	const DWORD now = GetTickCount();
+	const auto it = g_spinSeen.find(key);
+	if (it == g_spinSeen.end()) {
+		if (g_spinSeen.size() > 256) g_spinSeen.clear();
+		g_spinSeen[key] = now;
+		return false;
+	}
+	return now - it->second > 200;
+}
+
+void SpinnerDone(const std::string &key)
+{
+	std::lock_guard<std::mutex> lock(g_spinMx);
+	g_spinSeen.erase(key);
+}
+
 void PaintIoImage(Painter &p, int x, int y, int w, int h, const std::string &url)
 {
 	const std::shared_ptr<const GbImage> img = GbLogo(url);
 	if (img) {
+		SpinnerDone(url);
 		p.Image(x, y, w, h, img->bgra.data(), img->width, img->height);
 	}
 	else {
 		p.Fill(x, y, w, h, RGB(22, 17, 12));
-		p.Font(3);
-		p.Text(x, y, w, h, url.empty() ? "No image" : "Loading...", kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		if (url.empty()) {
+			p.Font(3);
+			p.Text(x, y, w, h, "No image", kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		}
+		else if (SpinnerDue(url)) {
+			const int radius = std::max(7, std::min(22, std::min(w, h) / 6));
+			p.Spinner(x + w / 2, y + h / 2, radius, std::max(4, radius / 3), GetTickCount());
+		}
 	}
 }
 
@@ -308,11 +337,16 @@ void PaintShotViewer(Painter &p, const State &st)
 		p.Frame(3, 3, kDesignW - 6, kDesignH - 6, pal::line);
 		p.Font(2);
 		p.Text(24, 10, kDesignW - 240, 34, m.name, kGold, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-		p.Font(0);
-		p.Text(kDesignW - 210, 14, 130, 26, std::to_string(st.ioShot + 1) + " / " + std::to_string(n), kDim, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
-		p.Button(kDesignW - 64, 12, 40, 30, "X", kIoShotClose, 0, mx, my);
+		p.Button(kDesignW - 16 - 100, 12, 100, 30, "Close", kIoShotClose, 0, mx, my);
+		if (n > 1) {
+			const int cw = 78, cx = kDesignW - 16 - 100 - 8 - cw;
+			p.Fill(cx, 12, cw, 30, RGB(30, 24, 16));
+			p.Frame(cx, 12, cw, 30, pal::lineDim);
+			p.Font(3);
+			p.Text(cx, 12, cw, 30, std::to_string(st.ioShot + 1) + " / " + std::to_string(n), kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		}
 		p.Fill(16, 52, kDesignW - 32, 1, pal::line);
-		const int ix = 70, iy = 64, iw = kDesignW - 140, ih = 404;
+		const int ix = 16, iy = 62, iw = kDesignW - 32, ih = 462;
 		const GbShot &shot = m.shots[st.ioShot];
 		RECT r = PaintIoImageFit(p, ix, iy, iw, ih, shot.big, true);
 		const bool loaded = r.right > r.left;
@@ -322,20 +356,31 @@ void PaintShotViewer(Painter &p, const State &st)
 		}
 		if (r.right > r.left) {
 			p.Frame(r.left - 1, r.top - 1, r.right - r.left + 2, r.bottom - r.top + 2, pal::edge);
-			p.AddHit(r.left, r.top, r.right - r.left, r.bottom - r.top, n > 1 ? kIoShotStep : kNone, 1);
+			const int half = (r.left + r.right) / 2;
+			if (n > 1) {
+				p.AddHit(r.left, r.top, half - r.left, r.bottom - r.top, kIoShotStep, -1);
+				p.AddHit(half, r.top, r.right - half, r.bottom - r.top, kIoShotStep, 1);
+			}
 		}
-		if (!loaded) {
-			p.Font(3);
-			p.Text(ix, iy + ih / 2 - 10, iw, 20, "Loading...", RGB(230, 210, 170), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		if (loaded) SpinnerDone("B|" + shot.big);
+		if (!loaded && SpinnerDue("B|" + shot.big)) {
+			const int box = 64, bx = ix + (iw - box) / 2, by = iy + (ih - box) / 2;
+			p.Fill(bx, by, box, box, RGB(14, 11, 8));
+			p.Frame(bx, by, box, box, pal::lineDim);
+			p.Spinner(bx + box / 2, by + box / 2, 18, 7, GetTickCount());
 		}
 		if (n > 1) {
-			p.Button(14, iy + ih / 2 - 36, 44, 72, "<", kIoShotStep, -1, mx, my);
-			p.Button(kDesignW - 58, iy + ih / 2 - 36, 44, 72, ">", kIoShotStep, 1, mx, my);
+			const int bw = 40, bh = 88, by = iy + ih / 2 - bh / 2;
+			const COLORREF arrow = RGB(240, 226, 180);
+			p.Button(ix + 10, by, bw, bh, "", kIoShotStep, -1, mx, my);
+			p.ArrowLeft(ix + 10 + bw / 2 - 6, by + bh / 2 - 10, 12, 20, arrow);
+			p.Button(ix + iw - 10 - bw, by, bw, bh, "", kIoShotStep, 1, mx, my);
+			p.ArrowRight(ix + iw - 10 - bw + bw / 2 - 6, by + bh / 2 - 10, 12, 20, arrow);
 		}
-		const int tw = 120, th = 68, tgap = 8;
+		const int tw = 100, th = 56, tgap = 8;
 		const int shown = std::min(n, std::max(1, (kDesignW - 60 + tgap) / (tw + tgap)));
 		const int stripW = shown * tw + (shown - 1) * tgap;
-		const int tx0 = (kDesignW - stripW) / 2, ty = iy + ih + 18;
+		const int tx0 = (kDesignW - stripW) / 2, ty = iy + ih + 14;
 		for (int i = 0; i < shown; i++) {
 			const int sx = tx0 + i * (tw + tgap);
 			const bool cur = i == st.ioShot, hov = p.Hover(sx, ty, tw, th, mx, my);
@@ -344,8 +389,6 @@ void PaintShotViewer(Painter &p, const State &st)
 			if (cur) p.Frame(sx + 1, ty + 1, tw - 2, th - 2, RGB(255, 226, 150));
 			p.AddHit(sx, ty, tw, th, kIoShotOpen, i);
 		}
-		p.Font(3);
-		p.Text(0, kDesignH - 36, kDesignW, 20, "Esc closes the image  ·  the arrow keys change screenshot", kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	}
 }
 }
@@ -459,24 +502,34 @@ void PaintExplore(Painter &p, const State &st)
 		return;
 	}
 	const int nFilters = CatalogFilterSize(st.ioFilter);
-	PaintField(p, st, 16, kContentY, 300, 26, st.ioSearch, "Search...", st.focus == kIoSearchField, false, kIoFocusSearch, mx, my);
-	p.Button(322, kContentY, 190, 26, nFilters ? Tr("Filters (") + std::to_string(nFilters) + ")" : "Filters", kIoFilterOpen, 0, mx, my, true, nFilters > 0, 0);
-	Combo(p, st, 518, kContentY, 170, 26, kIoSortNames[st.ioSort], kDropIoSort);
-	const int pages = std::max(1, (io.total + kIoPerPage - 1) / kIoPerPage);
-	p.Button(kDesignW - 16 - 24, kContentY, 24, 26, ">", kIoNext, 0, mx, my, st.ioPage + 1 < pages && !io.loading, false, 0);
-	p.Font(3);
-	p.Text(kDesignW - 16 - 24 - 46, kContentY, 44, 26, std::to_string(st.ioPage + 1) + "/" + std::to_string(pages), kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-	p.Button(kDesignW - 16 - 24 - 46 - 28, kContentY, 24, 26, "<", kIoPrev, 0, mx, my, st.ioPage > 0 && !io.loading, false, 0);
+	PaintField(p, st, 16, kContentY, 504, 26, st.ioSearch, "Search by name, author or category", st.focus == kIoSearchField, false, kIoFocusSearch, mx, my);
+	p.Button(528, kContentY, 160, 26, nFilters ? Tr("Filters (") + std::to_string(nFilters) + ")" : "Filters", kIoFilterOpen, 0, mx, my, true, nFilters > 0, 0);
+	Combo(p, st, 696, kContentY, 170, 26, kIoSortNames[st.ioSort], kDropIoSort);
+	p.Button(874, kContentY, 110, 26, "Refresh", kIoRefresh, 0, mx, my, !io.loading, false, 0);
+	{
+		const int trackX = 16, trackW = kDesignW - 32, trackY = kContentY + 29;
+		p.Fill(trackX, trackY, trackW, 2, RGB(43, 34, 20));
+		if (io.loading) {
+			const int segW = 240, cycle = 1400;
+			const int pos = -segW + (trackW + segW) * static_cast<int>(GetTickCount() % cycle) / cycle;
+			const int x0 = std::max(0, pos), x1 = std::min(trackW, pos + segW);
+			if (x1 > x0) p.Fill(trackX + x0, trackY, x1 - x0, 2, kGold);
+		}
+	}
 
 	const int gx = 16, gy = kContentY + 34, cw = 237, ch = 222, gap = 4;
 	if (io.mods.empty()) {
 		p.Fill(gx, gy, kDesignW - 32, kFootY - 8 - gy, pal::well);
 		p.Frame(gx, gy, kDesignW - 32, kFootY - 8 - gy, pal::line);
+		if (io.loading || !st.ioRequested) {
+			p.Font(0);
+			p.Text(gx, gy, kDesignW - 32, kFootY - 8 - gy, "Loading...", kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+			return;
+		}
 		p.Font(0);
-		std::string text = io.loading || !st.ioRequested ? "Searching GameBanana..."
-			: !io.error.empty()								? Tr("Could not connect to GameBanana: ") + Tr(io.error)
-			: !st.ioSearch.empty() || nFilters				? "No content matches the search."
-															: "There is no content published for Imperivm on GameBanana yet. Be the first to upload some!";
+		std::string text = !io.error.empty() ? Tr("Could not connect to GameBanana: ") + Tr(io.error)
+			: !st.ioSearch.empty() || nFilters ? "No content matches the search."
+												: "There is no content published for Imperivm on GameBanana yet. Be the first to upload some!";
 		p.TextWrapped(gx + 20, gy + 20, kDesignW - 72, 60, text, io.error.empty() ? kDim : kBad);
 		if (!io.error.empty() && !io.loading) p.Button(gx + 20, gy + 80, 160, 28, "Retry", kIoRetry, 0, mx, my);
 		return;
@@ -512,10 +565,6 @@ void PaintExplore(Painter &p, const State &st)
 		p.Text(x + 10, y + imgH + 50, cw - 20, 16, Thousands(m.downloads) + " " + Tr(m.downloads == 1 ? "download" : "downloads"), kDim,
 			DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 		p.AddHit(x, y, cw, ch, kIoOpen, static_cast<int>(i));
-	}
-	if (io.loading) {
-		p.Font(3);
-		p.Text(gx, gy + 2 * (ch + gap) - 4, kDesignW - 32, 16, "Updating...", kDim, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 	}
 }
 }
@@ -914,6 +963,25 @@ void PaintFooter(Painter &p, const State &st)
 		const int w = p.TextWidth(label) + 36;
 		closeX -= w + 8;
 		p.Button(closeX + 0, by, w, 30, label, kApply, 0, mx, my, true, true);
+	}
+	if (st.tab == 2 && st.ioDetail < 0 && !st.io.mods.empty()) {
+		const int pages = std::max(1, (st.io.total + kIoPerPage - 1) / kIoPerPage);
+		const int first = st.ioPage * kIoPerPage + 1;
+		const int last = std::min(st.io.total, first + kIoPerPage - 1);
+		const int spanL = updates ? 412 : 196, spanR = closeX - 8;
+		const int btnW = 112;
+		const int textW = std::max(0, std::min(230, spanR - spanL - 2 * btnW - 12));
+		const int total = 2 * btnW + textW + 12;
+		const int x0 = spanL + std::max(0, (spanR - spanL - total) / 2);
+		p.Button(x0, by, btnW, 30, "Previous", kIoPrev, 0, mx, my, st.ioPage > 0 && !st.io.loading);
+		p.Button(x0 + btnW + 6 + textW + 6, by, btnW, 30, "Next", kIoNext, 0, mx, my, st.ioPage + 1 < pages && !st.io.loading);
+		if (textW > 60) {
+			p.Font(3);
+			std::string text = TrFmt("%s-%s of %s", {std::to_string(first), std::to_string(last), std::to_string(st.io.total)}) + "   " +
+				TrFmt("Page %s of %s", {std::to_string(st.ioPage + 1), std::to_string(pages)});
+			if (p.TextWidth(text) > textW) text = TrFmt("Page %s of %s", {std::to_string(st.ioPage + 1), std::to_string(pages)});
+			p.Text(x0 + btnW + 6, by, textW, 30, text, kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		}
 	}
 	p.Button(kDesignW - 16 - 120, by, 120, 30, "Close", kClose, 0, mx, my);
 }

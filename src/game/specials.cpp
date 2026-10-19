@@ -54,7 +54,7 @@ void AddError(const std::string &folder, const std::string &message)
 		std::vector<std::string> &list = g_errors[folder];
 		if (std::find(list.begin(), list.end(), message) == list.end()) list.push_back(message);
 	}
-	LogW("specials", "(%s) %s", folder.empty() ? "mod\\specials" : folder.c_str(), message.c_str());
+	LogW("specials", "(%s) %s", folder.empty() ? "imperivm-resurrected\\specials" : folder.c_str(), message.c_str());
 }
 
 bool ValidId(const std::string &id)
@@ -146,7 +146,7 @@ void SpecialsRebuild()
 	std::vector<const ModSpecial *> found;
 	std::vector<std::pair<std::string, std::string>> roots;
 	for (const std::string &dir : ModsMountedDirs()) roots.push_back({dir.substr(dir.find_last_of('\\') + 1), dir + "\\specials"});
-	roots.push_back({"", GameDir() + "\\mod\\specials"});
+	roots.push_back({"", GameDir() + "\\imperivm-resurrected\\specials"});
 	for (const auto &root : roots) {
 		WIN32_FIND_DATAA fd;
 		HANDLE h = FindFirstFileA((root.second + "\\*.json").c_str(), &fd);
@@ -173,7 +173,7 @@ void SpecialsRebuild()
 		g_specials = unique;
 	}
 	for (const ModSpecial *s : unique) {
-		LogI("specials", "registered %s (bit %d, mod %s)", s->id.c_str(), s->bit, s->modFolder.empty() ? "mod\\specials" : s->modFolder.c_str());
+		LogI("specials", "registered %s (bit %d, mod %s)", s->id.c_str(), s->bit, s->modFolder.empty() ? "imperivm-resurrected\\specials" : s->modFolder.c_str());
 	}
 }
 

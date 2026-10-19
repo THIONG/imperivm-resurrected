@@ -53,7 +53,7 @@ void AddError(const std::string &folder, const std::string &message)
 		std::vector<std::string> &list = g_errors[folder];
 		if (std::find(list.begin(), list.end(), message) == list.end()) list.push_back(message);
 	}
-	LogW("room", "modes (%s): %s", folder.empty() ? "mod\\modes" : folder.c_str(), message.c_str());
+	LogW("room", "modes (%s): %s", folder.empty() ? "imperivm-resurrected\\modes" : folder.c_str(), message.c_str());
 }
 
 int ResolveCiv(const std::string &name)
@@ -139,7 +139,7 @@ void GameModesRebuild()
 	}
 	std::vector<std::pair<std::string, std::string>> roots;
 	for (const std::string &dir : ModsMountedDirs()) roots.push_back({dir.substr(dir.find_last_of('\\') + 1), dir + "\\modes"});
-	roots.push_back({"", GameDir() + "\\mod\\modes"});
+	roots.push_back({"", GameDir() + "\\imperivm-resurrected\\modes"});
 	for (const auto &root : roots) {
 		WIN32_FIND_DATAA fd;
 		HANDLE h = FindFirstFileA((root.second + "\\*.json").c_str(), &fd);
@@ -163,7 +163,7 @@ void GameModesRebuild()
 		if (m->explored >= 0) what += std::string(" explored=") + (m->explored ? "yes" : "no");
 		if (m->bonus >= 0) what += " bonus=" + std::to_string(m->bonus);
 		if (!m->civs.empty()) what += " civilizations=" + std::to_string(m->civs.size());
-		LogI("room", "mode \"%s\" (%s):%s", m->key.c_str(), m->modFolder.empty() ? "mod\\modes" : m->modFolder.c_str(), what.empty() ? " nothing" : what.c_str());
+		LogI("room", "mode \"%s\" (%s):%s", m->key.c_str(), m->modFolder.empty() ? "imperivm-resurrected\\modes" : m->modFolder.c_str(), what.empty() ? " nothing" : what.c_str());
 		unique.push_back(std::move(m));
 	}
 	std::lock_guard<std::mutex> lock(g_lock);

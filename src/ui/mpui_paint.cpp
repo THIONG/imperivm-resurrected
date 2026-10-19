@@ -745,7 +745,7 @@ std::vector<std::string> DropItems(const State &st, int &sel)
 	if (st.dropKind == kDropSites) {
 		sel = -1;
 		std::vector<std::string> items;
-		for (const SiteChoice &c : kSiteChoices) items.push_back(std::string((st.game.siteFlags & c.bit) ? "✓  " : "     ") + c.label);
+		for (const SiteChoice &c : kSiteChoices) items.push_back(std::string((st.game.siteFlags & c.bit) ? "✓  " : "     ") + Tr(c.label));
 		return items;
 	}
 	if (st.dropKind == kDropModOption) {

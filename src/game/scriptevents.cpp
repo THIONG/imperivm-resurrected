@@ -62,7 +62,7 @@ void RunEvent(void *host, const Event &e)
 		const std::string folder = dir.substr(dir.find_last_of('\\') + 1);
 		if (FileExists(dir + "\\events\\" + e.name + ".vs")) scripts.push_back({"mods/" + folder + "/events/" + e.name + ".vs", folder});
 	}
-	if (FileExists(GameDir() + "\\mod\\events\\" + e.name + ".vs")) scripts.push_back({std::string("mod/events/") + e.name + ".vs", "mod\\events"});
+	if (FileExists(GameDir() + "\\imperivm-resurrected\\events\\" + e.name + ".vs")) scripts.push_back({std::string("imperivm-resurrected/events/") + e.name + ".vs", "imperivm-resurrected\\events"});
 	void *lib = *reinterpret_cast<void **>(addr::kScriptLibrary);
 	for (const auto &s : scripts) {
 		const char *err = lib ? reinterpret_cast<LoadScriptFile_t>(addr::kLoadScriptFile)(lib, nullptr, s.first.c_str(), s.first.c_str(), e.sig, 0) : "no script library";
@@ -109,7 +109,7 @@ void PrepareObjEvent(ObjEvent &e)
 		const std::string folder = dir.substr(dir.find_last_of('\\') + 1);
 		if (FileExists(dir + "\\" + file)) e.scripts.push_back({"mods/" + folder + "/events/" + e.name + ".vs", folder});
 	}
-	if (FileExists(GameDir() + "\\mod\\" + file)) e.scripts.push_back({std::string("mod/events/") + e.name + ".vs", "mod\\events"});
+	if (FileExists(GameDir() + "\\imperivm-resurrected\\" + file)) e.scripts.push_back({std::string("imperivm-resurrected/events/") + e.name + ".vs", "imperivm-resurrected\\events"});
 	void *lib = *reinterpret_cast<void **>(addr::kScriptLibrary);
 	for (ObjScript &d : e.scripts) {
 		const char *err = lib ? reinterpret_cast<LoadScriptFile_t>(addr::kLoadScriptFile)(lib, nullptr, d.path.c_str(), d.path.c_str(), e.sig, 0) : "no script library";

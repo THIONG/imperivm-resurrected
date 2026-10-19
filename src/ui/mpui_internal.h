@@ -357,7 +357,7 @@ struct Preset {
 
 const Preset kPresets[] = {
 	{"Classic", 0, 0, false, "", "", false, false, false},
-	{"Competitive", kSiteMask, kRuleLockDiplomacy, true, "5000", "Normal", true, false, false},
+	{"Competitive", 0, kRuleLockDiplomacy, true, "5000", "Normal", true, false, false},
 	{"Various", 0, 0, true, "10000", "Alta", false, true, true},
 };
 

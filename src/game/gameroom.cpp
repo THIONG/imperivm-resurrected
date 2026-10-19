@@ -12,6 +12,7 @@
 #include "MinHook.h"
 #include "hooks/hookcount.h"
 #include "game/civs.h"
+#include "core/crashlog.h"
 #include "game/gameroom.h"
 #include "game/gamemodes.h"
 #include "hooks/gamefiles.h"
@@ -486,6 +487,7 @@ void TakeSnapshot()
 			if (s.rules & kRuleLockDiplomacy) s.optionsText += "Diplomacy locked: yes\n";
 			if (s.rules & kRuleCheats) s.optionsText += "Cheats: yes\n";
 			for (const ModOption &o : ModOptions()) {
+				if (o.id == kSeasonOptionId && !s.randomMap) continue;
 				const int v = ModOptionGet(o, s.rules);
 				if (o.values.empty()) {
 					if (v) s.optionsText += o.name + ": yes\n";
@@ -569,16 +571,37 @@ ApplyToGame_t g_origApplyToGame = nullptr;
 AskYesNo_t g_origAskYesNo = nullptr;
 char *g_applyOpts = nullptr;
 
+typedef void(__fastcall *SetSlotInfo_t)(void *room, void *edx, unsigned slot, const char *name, int *type, unsigned *color, int *ready, int *race, int *team, int *extra);
+SetSlotInfo_t g_origSetSlotInfo = nullptr;
+int g_keptRaces = 0;
+
+void __fastcall HookSetSlotInfo(void *room, void *edx, unsigned slot, const char *name, int *type, unsigned *color, int *ready, int *race, int *team, int *extra)
+{
+	if (g_applyOpts && race && slot < 8 && !strcmp(static_cast<char *>(room) + 0x114, g_applyOpts + 0x90)) {
+		const char *currentName = nullptr;
+		int currentType = 0, currentColor = 0, currentReady = 0, currentRace = 0, currentTeam = 0, currentExtra = 0;
+		if (reinterpret_cast<GetSlotInfo_t>(addr::kGetSlotInfo)(room, nullptr, static_cast<int>(slot), &currentName, &currentType, &currentColor, &currentReady, &currentRace, &currentTeam,
+				&currentExtra) &&
+			currentRace != *race) {
+			g_keptRaces++;
+			*race = currentRace;
+		}
+	}
+	g_origSetSlotInfo(room, edx, slot, name, type, color, ready, race, team, extra);
+}
+
 int __fastcall HookApplyToGame(void *self, void *edx, char *opts)
 {
 	char *prev = g_applyOpts;
 	g_applyOpts = opts;
+	g_keptRaces = 0;
 	const int r = g_origApplyToGame(self, edx, opts);
 	g_applyOpts = prev;
+	if (g_keptRaces) LogD("room", "applying the options kept the civilization of %d slots instead of the map's default", g_keptRaces);
 	if (r && opts) {
 		unsigned &flags = *reinterpret_cast<unsigned *>(opts + 0x34);
 		const bool random = *reinterpret_cast<int *>(opts + 0x18) != 0;
-		flags = (flags & ~(kSiteMask | kRuleMask)) | (random ? g_siteFlags : 0) | g_ruleFlags;
+		flags = (flags & ~(kSiteMask | kRuleMask)) | (random ? g_siteFlags : 0) | (g_ruleFlags & (random ? ~0u : ~kSeasonBits));
 		if (!NetMultiplayerSaveLoading()) GameModeApplyOptions(opts);
 	}
 	return r;
@@ -587,6 +610,47 @@ int __fastcall HookApplyToGame(void *self, void *edx, char *opts)
 unsigned g_pendingRules = 0;
 DWORD g_pendingRulesTick = 0;
 bool g_gameRunning = false;
+
+unsigned PeekGameRules()
+{
+	unsigned savedRules = 0;
+	unsigned long savedTick = 0;
+	const bool haveSaved = ModRulesFromSavePeek(savedRules, savedTick) && static_cast<int>(GetTickCount() - savedTick) < 120000;
+	if (haveSaved && (!g_pendingRulesTick || static_cast<int>(savedTick - g_pendingRulesTick) > 0)) return savedRules & kRuleMask;
+	if (g_pendingRulesTick && static_cast<int>(GetTickCount() - g_pendingRulesTick) < 120000) return g_pendingRules;
+	if (NetRejoinLoading()) return NetRoomRules() & kRuleMask;
+	return 0;
+}
+
+typedef void *(__fastcall *CreateWorldCore_t)(void *game, void *edx, void *helper, unsigned a, int b, unsigned c, unsigned d);
+CreateWorldCore_t g_origCreateWorldCore = nullptr;
+
+void *__fastcall HookCreateWorldCore(void *game, void *edx, void *helper, unsigned a, int b, unsigned c, unsigned d)
+{
+	if (!ModRulesActive()) {
+		const unsigned late = PeekGameRules();
+		if (late) {
+			unsigned consumed = 0;
+			unsigned long tick = 0;
+			ModRulesFromSaveTake(consumed, tick);
+			ModRulesSetActive(late);
+			LogI("room", "game rules: 0x%x (the saved game, read after the game started)", late);
+		}
+	}
+	for (const ModOption &o : ModOptions()) {
+		if (o.id != kSeasonOptionId) continue;
+		const unsigned active = ModRulesActive();
+		int choice = ModOptionGet(o, active ? active : PeekGameRules());
+		if (choice < 0 || choice > 2) choice = 0;
+		LogD("room", "world creation: season option %d, season of the game %d", choice, *reinterpret_cast<int *>(static_cast<char *>(game) + 0x174));
+		if (choice > 0) {
+			*reinterpret_cast<int *>(static_cast<char *>(game) + 0x174) = choice + 1;
+			LogI("room", "season of the game: %s", choice == 1 ? "autumn" : "winter");
+		}
+		break;
+	}
+	return g_origCreateWorldCore(game, edx, helper, a, b, c, d);
+}
 
 typedef void(__fastcall *BuildSettings_t)(void *dlg, void *edx, void *settings);
 BuildSettings_t g_origBuildSettings = nullptr;
@@ -774,6 +838,7 @@ void GameRoomInstall(bool knownExe)
 		HookAt(addr::kMpGameDtor, reinterpret_cast<void *>(&HookDtor), reinterpret_cast<void **>(&g_origDtor)) &&
 		HookAt(addr::kPickerOnShow, reinterpret_cast<void *>(&HookPickerOnShow), reinterpret_cast<void **>(&g_origPickerOnShow)) &&
 		HookAt(addr::kPickerDtor, reinterpret_cast<void *>(&HookPickerDtor), reinterpret_cast<void **>(&g_origPickerDtor)) &&
+		HookAt(addr::kSetSlotInfo, reinterpret_cast<void *>(&HookSetSlotInfo), reinterpret_cast<void **>(&g_origSetSlotInfo)) &&
 		HookAt(addr::kApplyToGame, reinterpret_cast<void *>(&HookApplyToGame), reinterpret_cast<void **>(&g_origApplyToGame)) &&
 		HookAt(addr::kAskYesNo, reinterpret_cast<void *>(&HookAskYesNo), reinterpret_cast<void **>(&g_origAskYesNo)) &&
 		HookAt(addr::kBuildSettings, reinterpret_cast<void *>(&HookBuildSettings), reinterpret_cast<void **>(&g_origBuildSettings)) &&
@@ -782,6 +847,7 @@ void GameRoomInstall(bool knownExe)
 		HookAt(addr::kDiplomacyApply, reinterpret_cast<void *>(&HookDiplomacyApply), reinterpret_cast<void **>(&g_origDiplomacyApply)) &&
 		HookAt(addr::kCreateSettings, reinterpret_cast<void *>(&HookCreateSettings), reinterpret_cast<void **>(&g_origCreateSettings)) &&
 		HookAt(addr::kRefreshOptions, reinterpret_cast<void *>(&HookRefreshOptions), reinterpret_cast<void **>(&g_origRefreshOptions));
+	if (ok) HookAt(addr::kCreateWorldCore, reinterpret_cast<void *>(&HookCreateWorldCore), reinterpret_cast<void **>(&g_origCreateWorldCore));
 	LogAt(ok ? kLogInfo : kLogError, "room", "interface: %s", ok ? "connected to the mod's interface" : "could NOT hook");
 }
 
@@ -998,6 +1064,7 @@ unsigned GameRuleMask() { return kRuleBaseMask | ModOptionsMask(); }
 
 void GameRulesOnGameStart()
 {
+	CrashLogLoadingBegin();
 	g_gameRunning = true;
 	const char *source = "none";
 	unsigned rules = 0;
@@ -1023,6 +1090,7 @@ void GameRulesOnGameStart()
 
 void GameRulesOnGameEnd()
 {
+	CrashLogLoadingEnd();
 	g_gameRunning = false;
 	ModRulesSetActive(0);
 	if (!g_pendingRulesTick || static_cast<int>(GetTickCount() - g_pendingRulesTick) > 5000) g_pendingRulesTick = 0;

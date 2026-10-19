@@ -300,6 +300,11 @@ void DoAction(int action, int arg)
 		g_s.ioPage = 0;
 		IoSearch();
 		break;
+	case kIoRefresh:
+		GbForceRefresh();
+		g_s.ioPage = 0;
+		IoSearch();
+		break;
 	case kIoPrev:
 		if (g_s.ioPage > 0) {
 			g_s.ioPage--;

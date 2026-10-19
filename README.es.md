@@ -29,7 +29,7 @@ online sin abrir puertos, mods con un clic, controles a tu gusto y muchos arregl
    (en Steam: clic derecho en el juego → Administrar → Ver archivos locales).
 3. Abre el juego desde Steam.
 
-Para quitarlo, borra `winmm.dll` de la carpeta del juego. No modifica ningún archivo del juego.
+Para quitarlo, borra `winmm.dll`, `steam_api.dll` y la carpeta `imperivm-resurrected` de la carpeta del juego. No modifica ningún archivo del juego.
 
 Hace falta el juego original de Steam. Este mod no incluye ningún archivo del juego.
 

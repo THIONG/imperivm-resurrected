@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -13,6 +14,7 @@
 #include "hooks/hookcount.h"
 
 #include "addr/state.h"
+#include "addr/ui.h"
 #include "addr/world.h"
 #include "core/log.h"
 #include "game/mapfog.h"
@@ -65,6 +67,70 @@ bool ExtrasEnabled()
 }
 
 bool ZoomOpen() { return g_geo.valid && GetTickCount() - g_geo.tick < kOpenWindowMs; }
+
+typedef void(__fastcall *ZoomHide_t)(void *self);
+ZoomHide_t g_origHide = nullptr;
+
+typedef int(__fastcall *IsKindOf_t)(void *self, void *edx, const char *name);
+typedef int(__fastcall *HasFlags_t)(void *window, void *edx, unsigned mask);
+
+bool WindowIsOfKind(char *w, uintptr_t nameAddr)
+{
+	__try {
+		char *obj = w + 4 + *reinterpret_cast<int *>(*reinterpret_cast<char **>(w + 4) + 4);
+		const char *cls = *reinterpret_cast<const char *const *>(nameAddr);
+		return reinterpret_cast<IsKindOf_t>((*reinterpret_cast<void ***>(obj))[1])(obj, nullptr, cls) != 0;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return false;
+	}
+}
+
+bool SameWindow(void *a, void *b)
+{
+	if (a == b) return true;
+	__try {
+		char *x = static_cast<char *>(a), *y = static_cast<char *>(b);
+		return x == y + 4 + *reinterpret_cast<int *>(*reinterpret_cast<char **>(y + 4) + 4) ||
+			y == x + 4 + *reinterpret_cast<int *>(*reinterpret_cast<char **>(x + 4) + 4);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return false;
+	}
+}
+
+bool OtherUiOpen()
+{
+	bool menu = false, modalOther = false;
+	void *modal = nullptr;
+	void *notice = *reinterpret_cast<void **>(addr::kPausedMenu);
+	__try {
+		char *root = *reinterpret_cast<char **>(addr::kUIRoot);
+		if (root) {
+			modal = *reinterpret_cast<void **>(root + 0x370);
+			int guard = 0;
+			for (char *w = *reinterpret_cast<char **>(root + 0x20); w && !menu && guard < 64; w = *reinterpret_cast<char **>(w + 0x18), guard++) {
+				if (!(WindowIsOfKind(w, addr::kClassNameCVXUIGameMenu) || WindowIsOfKind(w, addr::kClassNameCVXUIOptions) ||
+						WindowIsOfKind(w, addr::kClassNameCVXUIConfirm))) {
+					continue;
+				}
+				menu = reinterpret_cast<HasFlags_t>(addr::kWindowHasFlags)(w, nullptr, 2) != 0;
+			}
+		}
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		menu = false;
+	}
+	modalOther = modal && !(notice && SameWindow(modal, notice));
+	static int last = -1, logged = 0;
+	const int now = menu ? 1 : modalOther ? 2 : 0;
+	if (now != last && logged++ < 24) {
+		LogD("game", "zoom map extras: %s (menu window %d, other modal window %d, pause notice %d)", now ? "a menu is open, not handled" : "no menu, handled", menu ? 1 : 0,
+			modalOther ? 1 : 0, notice ? 1 : 0);
+	}
+	last = now;
+	return menu || modalOther;
+}
 
 void ResetDrag() { g_drag = Drag(); }
 
@@ -199,21 +265,37 @@ void EndBox()
 	reinterpret_cast<ManagerApply_t>(addr::kApplySelection)(manager, nullptr, 1, 0);
 }
 
+void __fastcall HookZoomHide(void *self)
+{
+	if (!g_failed) {
+		g_geo.valid = false;
+		__try {
+			if (g_boxOpen) EndBox();
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			g_boxOpen = false;
+		}
+		ResetDrag();
+		g_swallowLeftUp = g_swallowRightUp = false;
+	}
+	g_origHide(self);
+}
+
 bool InsideBitmap(int x, int y) { return x >= g_geo.left && x <= g_geo.right && y >= g_geo.top && y <= g_geo.bottom; }
 }
 
 bool ZoomViewHandleMouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
 	if (g_failed) return false;
-	if (*reinterpret_cast<void **>(addr::kPausedMenu) != nullptr) {
-		if (g_boxOpen) EndBox();
-		ResetDrag();
-		g_swallowLeftUp = g_swallowRightUp = false;
-		return false;
-	}
 	if (!ZoomOpen()) {
 		if (g_boxOpen) EndBox();
 		if (g_drag.pending || g_drag.dragging) ResetDrag();
+		g_swallowLeftUp = g_swallowRightUp = false;
+		return false;
+	}
+	if (OtherUiOpen()) {
+		if (g_boxOpen) EndBox();
+		ResetDrag();
 		g_swallowLeftUp = g_swallowRightUp = false;
 		return false;
 	}
@@ -282,6 +364,15 @@ bool ZoomViewHandleMouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	}
 }
 
+void ZoomViewGameTick()
+{
+	if (g_failed || ZoomOpen()) return;
+	if (!g_boxOpen && !g_drag.pending && !g_drag.dragging && !g_swallowLeftUp && !g_swallowRightUp) return;
+	if (g_boxOpen) EndBox();
+	ResetDrag();
+	g_swallowLeftUp = g_swallowRightUp = false;
+}
+
 void InstallZoomView(bool knownExe)
 {
 	if (!knownExe) return;
@@ -292,6 +383,9 @@ void InstallZoomView(bool knownExe)
 	}
 	const bool ok = HookCreate(reinterpret_cast<void *>(addr::kZoomMapOnDraw), reinterpret_cast<void *>(&HookZoomDraw), reinterpret_cast<void **>(&g_origDraw)) == MH_OK &&
 		HookEnable(reinterpret_cast<void *>(addr::kZoomMapOnDraw)) == MH_OK;
+	const bool hideOk = HookCreate(reinterpret_cast<void *>(addr::kZoomMapHide), reinterpret_cast<void *>(&HookZoomHide), reinterpret_cast<void **>(&g_origHide)) == MH_OK &&
+		HookEnable(reinterpret_cast<void *>(addr::kZoomMapHide)) == MH_OK;
+	if (!hideOk) LogW("game", "zoom map: could not hook Hide; a box selection in progress is ended when the map stops being drawn");
 	if (!ok) g_failed = true;
 	LogAt(ok ? kLogInfo : kLogError, "game", "zoom map extras (group icons and box selection): %s", ok ? "ready" : "NOT available");
 }

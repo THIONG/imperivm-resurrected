@@ -110,6 +110,18 @@ void SourcesRoundTrip()
 
 }
 
+void ASameVersionReuploadIsAnUpdate()
+{
+	CHECK(GbSameVersionNewFile(1, 200, 2000, 100, 1000));
+	CHECK(!GbSameVersionNewFile(1, 100, 1000, 100, 1000));
+	CHECK(!GbSameVersionNewFile(1, 100, 3000, 100, 1000));
+	CHECK(!GbSameVersionNewFile(1, 200, 900, 100, 1000));
+	CHECK(!GbSameVersionNewFile(2, 200, 2000, 100, 1000));
+	CHECK(!GbSameVersionNewFile(0, 200, 2000, 100, 1000));
+	CHECK(!GbSameVersionNewFile(1, 0, 2000, 100, 1000));
+	CHECK(!GbSameVersionNewFile(1, 200, 2000, 0, 0));
+}
+
 int main()
 {
 	ModsKeepTheirPlainNumber();
@@ -117,5 +129,6 @@ int main()
 	KeysFromProfileUrls();
 	PicturesInBothApiShapes();
 	SourcesRoundTrip();
+	ASameVersionReuploadIsAnUpdate();
 	return test::Summary("gbref");
 }

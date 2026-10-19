@@ -52,6 +52,11 @@ void ModUiDraw(uint32_t *buf, int w, int h)
 				BuildUsage();
 				g_s.restartNeeded = ModsRestartNeeded();
 			}
+			if (g_s.tab == 2 && g_s.ioSearchDue && static_cast<int>(GetTickCount() - g_s.ioSearchDue) >= 0) {
+				g_s.ioSearchDue = 0;
+				g_s.ioPage = 0;
+				IoSearch();
+			}
 			if (g_s.tab == 2) {
 				const uint64_t before = g_s.io.serial;
 				g_s.io = GbGetResults();

@@ -4,6 +4,7 @@
 #pragma once
 #define NOMINMAX
 #include <windows.h>
+#include <cmath>
 
 #include <algorithm>
 #include <cstdint>
@@ -79,6 +80,30 @@ struct Painter {
 		SelectObject(dc, op);
 		DeleteObject(b);
 		DeleteObject(pen);
+	}
+	void ArrowLeft(int x, int y, int w, int h, COLORREF c)
+	{
+		const RECT r = R(x, y, w, h);
+		POINT pts[3] = {{r.right, r.top}, {r.right, r.bottom}, {r.left, (r.top + r.bottom) / 2}};
+		HBRUSH b = CreateSolidBrush(c);
+		HPEN pen = CreatePen(PS_SOLID, 1, c);
+		HGDIOBJ ob = SelectObject(dc, b), op = SelectObject(dc, pen);
+		Polygon(dc, pts, 3);
+		SelectObject(dc, ob);
+		SelectObject(dc, op);
+		DeleteObject(b);
+		DeleteObject(pen);
+	}
+	void Spinner(int cx, int cy, int radius, int dot, DWORD tick)
+	{
+		const int n = 12;
+		const int head = static_cast<int>((tick / 70) % n);
+		for (int i = 0; i < n; i++) {
+			const double a = i * 6.283185307 / n - 1.570796327;
+			const int px = cx + static_cast<int>(std::lround(std::cos(a) * radius)), py = cy + static_cast<int>(std::lround(std::sin(a) * radius));
+			const int k = std::max(0, 255 - ((head - i + n) % n) * 22);
+			Ellipse(px - dot / 2, py - dot / 2, dot, dot, RGB(43 + (214 - 43) * k / 255, 34 + (170 - 34) * k / 255, 20 + (84 - 20) * k / 255));
+		}
 	}
 	void ArrowDown(int x, int y, int w, int h, COLORREF c)
 	{

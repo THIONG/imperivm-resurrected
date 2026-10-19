@@ -120,6 +120,15 @@ bool ModRulesFromSaveTake(unsigned &rules, unsigned long &tick)
 	return true;
 }
 
+bool ModRulesFromSavePeek(unsigned &rules, unsigned long &tick)
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	if (!g_savedRulesValid) return false;
+	rules = g_savedRules;
+	tick = g_savedRulesTick;
+	return true;
+}
+
 void ModVarsPendingFromSave(const std::string &gamePath)
 {
 	Json j;
