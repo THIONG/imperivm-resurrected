@@ -48,7 +48,8 @@ enum Action {
 	kGOptToggle, kGColor, kGSlotType, kSort, kColResize, kFieldSearch, kSyncAccept, kSyncUpdate, kSyncCancel,
 	kPickRow, kPickOk, kPickCancel,
 	kRecoverYes, kRecoverNo, kRejoinCancel, kRejoinClose,
-	kGKick, kGKickJoining, kDiscord, kPassOk, kPassCancel, kGSeat, kGBonus, kGMove, kGMoveTo, kGSwapAsk, kSwapAccept, kSwapDecline, kDropYes, kDropNo, kPassShow, kGSiteToggle, kGRuleToggle, kSpectate, kReturnGame,
+	kGKick, kGKickJoining, kDiscord, kPassOk, kPassCancel, kGSeat, kGMove, kGMoveTo, kGSwapAsk, kSwapAccept, kSwapDecline, kDropYes, kDropNo, kPassShow, kGSiteToggle, kGRuleToggle, kSpectate, kReturnGame,
+	kFieldPickSearch, kPickDelete, kPickDeleteYes, kPickDeleteNo,
 };
 
 typedef int(__cdecl *HostGame_t)(int, unsigned, int);
@@ -86,11 +87,11 @@ struct JoinFlowState {
 extern JoinFlowState g_flow;
 enum View { kViewList, kViewRanked, kViewCreate };
 
-enum Field { kNoField, kChatField, kNameField, kPassField, kJoinPassField, kSearchField };
+enum Field { kNoField, kChatField, kNameField, kPassField, kJoinPassField, kSearchField, kPickSearchField };
 
 enum { kPredTeam, kPredRace, kPredAi, kPredReady, kPredOptSel, kPredOptVal, kPredColor };
 
-enum { kDropRace, kDropAi, kDropOption, kDropColor, kDropSlot, kDropSites, kDropModOption, kDropPreset, kDropFilter, kDropPlayers, kDropProfile, kDropVisibility, kDropSaveGame, kDropSpectators };
+enum { kDropRace, kDropAi, kDropOption, kDropColor, kDropSlot, kDropSites, kDropModOption, kDropPreset, kDropFilter, kDropPlayers, kDropProfile, kDropVisibility, kDropSaveGame, kDropSpectators, kDropPickSort, kDropBonus };
 
 struct SaveEntry {
 	std::string name, vfsPath, file;
@@ -211,6 +212,15 @@ struct State {
 	RoomModStatus io;
 	TransferRate rate;
 	int pickSel = -1;
+	std::string pickSearch;
+	int pickSort = 0;
+	int pickDelete = -1;
+	std::set<std::string> pickGone;
+	std::string pickNote;
+	DWORD pickNoteUntil = 0;
+	bool pickOpened = false;
+	DWORD pickLastClick = 0;
+	int pickLastIndex = -1;
 	ListState pick;
 	ListGeom pickGeom;
 	ListState chat;
@@ -430,6 +440,11 @@ int ActionOfField(int field);
 void FocusField(int field);
 void TabStep(bool back);
 void FieldKey(UINT msg, WPARAM wp);
+void PaintPickCombo(Painter &p, const State &st, int x, int y, int w, int h, const std::string &text);
+std::vector<int> PickView(const State &st);
+bool PickInUse(const State &st, int index);
+void PickMove(WPARAM key);
+int PickRowsShown();
 void OpenMpMenu(bool checkRecover);
 extern std::atomic<bool> g_menuRefresh;
 extern std::atomic<HWND> g_wakeWnd;

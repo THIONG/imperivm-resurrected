@@ -73,6 +73,7 @@ No metas ejecutables ni scripts del sistema (`.exe .dll .asi .bat .cmd .com .scr
 - [Formaciones nuevas](formaciones.md): formaciones de héroe con sus bonos y su botón.
 - [Fortines y edificios](fortines.md): fortines neutrales nuevos en los mapas aleatorios (`crear-fortin.js`) y clases de torres, muros y puertas.
 - [Modos de victoria](victoria.md): un script en `data\GameScripts` añade un modo al desplegable "Modo" de la sala.
+- [Bonificaciones iniciales](bonificaciones.md): scripts en `data\BonusScripts` añaden opciones a la columna "Bonif." de la sala.
 - [Opciones de partida propias](opciones.md): interruptores nuevos en las reglas de la sala, que los scripts leen con `Mod_GetOption`.
 - [Tipos de mapa aleatorio](mapas-aleatorios.md): un dibujo de cuatro colores se convierte en un tipo nuevo de mapa (`crear-mapa-aleatorio.js`).
 - [Imágenes propias](imagenes.md): botones de órdenes e iconos de unidades a partir de un PNG.
@@ -114,7 +115,7 @@ Deja `data.pak` en `<salida>\DATA`. Esa es la carpeta que piden `clonar-civiliza
 
 ## ¿Qué cuenta como jugabilidad?
 
-En multijugador, todos tienen que llevar los mismos mods si cambian lo que pasa en la partida. El juego lo calcula por las carpetas que toca tu mod: `data/`, `scenarios/`, `adventures/`, `conquests/`, `civs/`, `specials/`, `events/`, `options/`, `randommap/`, `randommapsettlements/`, los `.xml` y `.pass` de `units/`, `buildings/` y `mapobjects/`, los `.xml` de `visuals/`, los mapas `.bfhp` de `packs/` y los parches (según el archivo que parchean).
+En multijugador, todos tienen que llevar los mismos mods si cambian lo que pasa en la partida. El juego lo calcula por las carpetas que toca tu mod: `data/`, `scenarios/`, `adventures/`, `conquests/`, `civs/`, `specials/`, `events/`, `options/`, `rules/`, `modes/`, `randommap/`, `randommapsettlements/`, los `.xml` y `.pass` de `units/`, `buildings/` y `mapobjects/`, los `.xml` de `visuals/`, los mapas `.bfhp` de `packs/` y los parches (según el archivo que parchean).
 
 Los gráficos, los sonidos, los textos (`loc/`) y los idiomas no cuentan: cada jugador puede llevar los suyos.
 

@@ -257,8 +257,7 @@ DWORD WINAPI RenderThread(LPVOID)
 	SafeRelease(psBlob);
 
 	D3D11_SAMPLER_DESC smp = {};
-	auto linearFor = [](int mode) { return mode == 1 || mode == 2; };
-	smp.Filter = linearFor(GetConfig().scaleMode) ? D3D11_FILTER_MIN_MAG_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
+	smp.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
 	smp.AddressU = smp.AddressV = smp.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
 	dev->CreateSamplerState(&smp, &sampler);
 
@@ -273,7 +272,6 @@ DWORD WINAPI RenderThread(LPVOID)
 	LogGpu(dev, featureLevel);
 	LogOverlayStatus("at Direct3D creation");
 
-	bool samplerLinear = linearFor(GetConfig().scaleMode);
 	bool haveFrame = false;
 	int fw = 0, fh = 0;
 	int fps = 0, framesThisSecond = 0;
@@ -285,12 +283,6 @@ DWORD WINAPI RenderThread(LPVOID)
 	bool wasVideo = false;
 	while (g_running) {
 		const bool vsync = GetConfig().vsync;
-		if (linearFor(GetConfig().scaleMode) != samplerLinear) {
-			samplerLinear = linearFor(GetConfig().scaleMode);
-			SafeRelease(sampler);
-			smp.Filter = samplerLinear ? D3D11_FILTER_MIN_MAG_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
-			dev->CreateSamplerState(&smp, &sampler);
-		}
 		if (!vsync) {
 			WaitForSingleObject(g_wake, 16);
 		}
@@ -450,12 +442,8 @@ DWORD WINAPI RenderThread(LPVOID)
 			ctx->Unmap(tex, 0);
 		}
 
-		const int mode = GetConfig().scaleMode;
 		float sx = static_cast<float>(bbW) / fw, sy = static_cast<float>(bbH) / fh;
 		float s = sx < sy ? sx : sy;
-		if (mode == 3 && s >= 1.0f) {
-			s = static_cast<float>(static_cast<int>(s));
-		}
 		float w = fw * s / bbW * 2.0f, h = fh * s / bbH * 2.0f;
 		if (SUCCEEDED(ctx->Map(cb, 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
 			float *r = static_cast<float *>(map.pData);
@@ -465,7 +453,7 @@ DWORD WINAPI RenderThread(LPVOID)
 			r[3] = h;
 			r[4] = static_cast<float>(fw);
 			r[5] = static_cast<float>(fh);
-			r[6] = mode == 2 && s > 1.0f ? static_cast<float>(static_cast<int>(s)) : 0.0f;
+			r[6] = s > 1.0f ? static_cast<float>(static_cast<int>(s)) : 0.0f;
 			r[7] = GetConfig().brightness / 100.0f;
 			ctx->Unmap(cb, 0);
 		}

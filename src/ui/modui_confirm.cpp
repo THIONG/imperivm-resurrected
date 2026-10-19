@@ -45,15 +45,20 @@ void PaintConfirm(Painter &p, const State &st)
 	ConfirmSize(st, cw, ch);
 	std::string title, text, yes;
 	if (st.confirmKind == kConfirmUninstall) {
-		std::string folder = st.selected >= 0 && st.selected < static_cast<int>(st.rows.size()) ? st.rows[st.selected].folder : "";
-		const ModInfo *m = FindModIn(st.mods, folder);
-		const std::string name = m ? m->name : folder;
+		const std::vector<std::string> &targets = st.uninstallTargets;
 		bool mounted = false;
 		for (const std::string &f : ModsMountedProfile().mods) {
-			if (f == folder) mounted = true;
+			if (std::find(targets.begin(), targets.end(), f) != targets.end()) mounted = true;
 		}
-		title = Tr("Uninstall ") + name;
-		text = Tr("Its folder will be deleted from disk (no recycle bin)") + std::string(mounted ? " when the game restarts (it is currently loaded)." : ".");
+		if (targets.size() == 1) {
+			const ModInfo *m = FindModIn(st.mods, targets[0]);
+			title = Tr("Uninstall ") + (m ? m->name : targets[0]);
+			text = Tr("Its folder will be deleted from disk (no recycle bin)") + std::string(mounted ? " when the game restarts (it is currently loaded)." : ".");
+		}
+		else {
+			title = TrFmt("Uninstall %s content packs", {std::to_string(targets.size())});
+			text = Tr("Their folders will be deleted from disk (no recycle bin)") + std::string(mounted ? " when the game restarts (some are loaded)." : ".");
+		}
 		yes = "Uninstall";
 	}
 	else if (st.confirmKind == kConfirmDelete) {

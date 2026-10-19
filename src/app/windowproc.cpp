@@ -10,6 +10,7 @@
 #include "game/autosave.h"
 #include "game/cheats.h"
 #include "game/controls.h"
+#include "game/zoomview.h"
 #include "hooks/audio.h"
 #include "hooks/displaymode.h"
 #include "net/rejoin.h"
@@ -45,6 +46,11 @@ LRESULT GameWindowHandler(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			ModUiHandleCornerMessage(msg, wp, lp) || SavesUiHandleMessage(msg, wp, lp) || ModUiHandleMessage(msg, wp, lp) || MpUiHandleMessage(msg, wp, lp);
 	});
 	if (uiHandled) return 0;
+	if (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) {
+		bool zoomHandled = false;
+		Guard("zoom map", [&] { zoomHandled = ZoomViewHandleMouse(hwnd, msg, wp, lp); });
+		if (zoomHandled) return 0;
+	}
 	if (SpectatorHandleKey(msg, static_cast<unsigned>(wp), static_cast<long>(lp))) return 0;
 	if (CheatsHandleKey(msg, static_cast<unsigned>(wp), static_cast<long>(lp))) return 0;
 	if (OverlayHandleKey(msg, wp, lp)) return 0;

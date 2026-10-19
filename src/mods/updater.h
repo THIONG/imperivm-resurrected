@@ -5,6 +5,8 @@
 #include <string>
 
 void InstallUpdater();
+int UpdaterModeGet();
+void UpdaterModeSet(int mode);
 void UpdaterMenuReached();
 
 struct UpdaterInfo {

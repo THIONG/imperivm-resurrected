@@ -2,6 +2,20 @@
 
 Versión del SDK y qué mods se pueden hacer con cada una. La versión de la API de scripts (`Mod_ApiVersion()`) va aparte: ahora es la 7.
 
+## 1.6
+
+Necesita Imperivm Resurrected 0.32.24 o posterior.
+
+- Una variante que sustituye a su base (`"replacesBase": true`) puede cambiar con `letter` y `template` la letra y las plantillas de
+  ciudad y aldea de esa base durante toda la partida, también las de los poblados neutrales del mapa aleatorio. Así se sustituye una
+  civilización entera del juego ([Civilizaciones](civilizaciones.md#variantes)). El validador busca las plantillas también en el
+  `packs\randommapsettlements.bfhp` del mod.
+- `modes\<nombre>.json` fija los ajustes de la sala y las civilizaciones de un modo de victoria ([Modos de victoria](victoria.md)).
+- `rules\game.json` fija reglas del motor para todas las partidas del mod: el ejército no se separa del héroe en las murallas, los
+  centinelas no se pueden seleccionar y hay clases que no se pueden atacar ([Opciones](opciones.md)).
+- Un script de bonificación numerado del `004` al `099` en `data\BonusScripts` aparece en la sala, con el nombre y la descripción de sus líneas `//@` ([Bonificaciones iniciales](bonificaciones.md)).
+- El validador conoce `Mod_PlayerCiv` y `Mod_CanExecCmd`.
+
 ## 1.5
 
 Necesita Imperivm Resurrected 0.32.20 o posterior.

@@ -33,11 +33,6 @@ void LoadConfig()
 
 	g_config.renderEnabled = GetPrivateProfileIntA("Render", "Enabled", 1, path) != 0;
 	g_config.vsync = GetPrivateProfileIntA("Render", "VSync", 1, path) != 0;
-	GetPrivateProfileStringA("Render", "Filter", "point", buf, sizeof(buf), path);
-	const int legacy = _stricmp(buf, "linear") == 0 ? 1 : 0;
-	GetPrivateProfileStringA("Render", "Scaling", "", buf, sizeof(buf), path);
-	g_config.scaleMode = _stricmp(buf, "pixel") == 0 ? 0 : _stricmp(buf, "smooth") == 0 ? 1
-		: _stricmp(buf, "sharp") == 0 ? 2 : _stricmp(buf, "integer") == 0 ? 3 : legacy;
 	g_config.movieVolume = static_cast<int>(GetPrivateProfileIntA("Sound", "MovieVolume", 50, path));
 	if (g_config.movieVolume < 0 || g_config.movieVolume > 100) g_config.movieVolume = 50;
 	g_config.movieMute = GetPrivateProfileIntA("Sound", "MovieMute", 0, path) != 0;
@@ -53,6 +48,7 @@ void LoadConfig()
 	g_config.windowW = GetPrivateProfileIntA("Display", "WindowWidth", 1600, path);
 	g_config.windowH = GetPrivateProfileIntA("Display", "WindowHeight", 900, path);
 	g_config.trapMouse = GetPrivateProfileIntA("Display", "TrapMouse", 1, path) != 0;
+	g_config.monitor = (std::max)(0, (std::min)(15, static_cast<int>(GetPrivateProfileIntA("Display", "Monitor", 0, path))));
 	g_config.allResolutions = GetPrivateProfileIntA("Display", "AllResolutions", 1, path) != 0;
 	g_config.extendedView = GetPrivateProfileIntA("Display", "ExtendedView", 1, path) != 0;
 	g_config.showPerf = GetPrivateProfileIntA("Display", "ShowPerformance", 0, path) != 0;
@@ -77,7 +73,7 @@ void LoadConfig()
 	if (g_config.autosaveMinutes < 1 || g_config.autosaveMinutes > 240) {
 		g_config.autosaveMinutes = 10;
 	}
-	g_config.autosaveOnExit = GetPrivateProfileIntA("Game", "AutosaveOnExit", 1, path) != 0;
+	g_config.autosaveOnExit = GetPrivateProfileIntA("Game", "AutosaveOnExit", 0, path) != 0;
 	g_config.autosaveSlots = GetPrivateProfileIntA("Game", "AutosaveSlots", 3, path);
 	if (g_config.autosaveSlots < 1 || g_config.autosaveSlots > 20) {
 		g_config.autosaveSlots = 3;
@@ -97,9 +93,9 @@ void LoadConfig()
 	GetPrivateProfileStringA("Debug", "DumpAtStartup", "", dumpStart, sizeof(dumpStart), path);
 	g_config.dumpAtStartup = dumpStart;
 
-	LogI("boot", "config: Render(Enabled=%d VSync=%d Scaling=%d Brightness=%d FakeModeChange=%d) Display(Mode=%s "
+	LogI("boot", "config: Render(Enabled=%d VSync=%d Brightness=%d FakeModeChange=%d) Display(Mode=%s "
 		"%dx%d TrapMouse=%d AllResolutions=%d) Game(ScrollSpeed=%.2f Autosave=%d every %d min, %d slots) Online(RejoinMode=%s)",
-		g_config.renderEnabled, g_config.vsync, g_config.scaleMode, g_config.brightness, g_config.fakeModeChange,
+		g_config.renderEnabled, g_config.vsync, g_config.brightness, g_config.fakeModeChange,
 		g_config.windowed ? "windowed" : "fullscreen", g_config.windowW, g_config.windowH, g_config.trapMouse,
 		g_config.allResolutions, g_config.scrollSpeed, g_config.autosave, g_config.autosaveMinutes,
 		g_config.autosaveSlots, g_config.rejoinReload ? "reload" : "hot");
@@ -120,9 +116,10 @@ void SaveConfig()
 	}
 	WritePrivateProfileStringA("Display", "Mode", g_config.windowed ? "windowed" : "fullscreen", path);
 	WritePrivateProfileStringA("Display", "TrapMouse", g_config.trapMouse ? "1" : "0", path);
+	WritePrivateProfileStringA("Display", "Monitor", std::to_string(g_config.monitor).c_str(), path);
 	WritePrivateProfileStringA("Render", "VSync", g_config.vsync ? "1" : "0", path);
-	static const char *kScale[] = {"pixel", "smooth", "sharp", "integer"};
-	WritePrivateProfileStringA("Render", "Scaling", kScale[g_config.scaleMode & 3], path);
+	WritePrivateProfileStringA("Render", "Scaling", nullptr, path);
+	WritePrivateProfileStringA("Render", "Filter", nullptr, path);
 	WritePrivateProfileStringA("Render", "Brightness", std::to_string(g_config.brightness).c_str(), path);
 	WritePrivateProfileStringA("Sound", "MovieVolume", std::to_string(g_config.movieVolume).c_str(), path);
 	WritePrivateProfileStringA("Sound", "MovieMute", g_config.movieMute ? "1" : "0", path);

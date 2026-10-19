@@ -1325,6 +1325,7 @@ void PaintPanel(Painter &p, State &st)
 {
 	const int mx = st.mouseX, my = st.mouseY;
 	PaintWindowFrame(p, kDesignW, kDesignH);
+	p.noHover = st.confirm != 0;
 	const View v = BuildView(st);
 
 	const bool save = st.mode == 1;

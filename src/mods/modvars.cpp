@@ -23,6 +23,9 @@ std::mutex g_lock;
 std::map<std::string, int> g_vars;
 bool g_pendingValid = false;
 Json g_pending;
+bool g_savedRulesValid = false;
+unsigned g_savedRules = 0;
+unsigned long g_savedRulesTick = 0;
 
 std::string GameDir()
 {
@@ -107,12 +110,26 @@ void ModVarsFromJson(const Json &obj)
 	}
 }
 
+bool ModRulesFromSaveTake(unsigned &rules, unsigned long &tick)
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	if (!g_savedRulesValid) return false;
+	g_savedRulesValid = false;
+	rules = g_savedRules;
+	tick = g_savedRulesTick;
+	return true;
+}
+
 void ModVarsPendingFromSave(const std::string &gamePath)
 {
 	Json j;
 	const Json *vars = nullptr;
-	if (ReadJsonFile(GameDir() + "\\" + gamePath + ".mods.json", j)) vars = j.Get("variables");
+	const bool read = ReadJsonFile(GameDir() + "\\" + gamePath + ".mods.json", j);
+	if (read) vars = j.Get("variables");
 	std::lock_guard<std::mutex> lock(g_lock);
+	g_savedRulesValid = read;
+	g_savedRules = read ? static_cast<unsigned>(j.GetNumber("rules", 0)) : 0;
+	g_savedRulesTick = GetTickCount() | 1;
 	g_pendingValid = vars && vars->type == Json::Object;
 	g_pending = g_pendingValid ? *vars : Json();
 }

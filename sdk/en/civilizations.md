@@ -94,7 +94,7 @@ where Rome chooses at the start between republican, imperial and punic can offer
 
 With `"variant": true`:
 
-- It plays with the base's classes and commands. It has no classes of its own and no `letter`.
+- It plays with the base's classes and commands. It has no classes of its own and no `letter`, unless it replaces the whole base (see below).
 - `GetPlayerRace` returns the base, so the game's and other mods' scripts treat it like the base (ships, sentries, AI).
 - `Mod_PlayerCiv(player)` returns the civilization chosen in the lobby (21 in the example). What sets it apart goes in a
   [script patch](patches.md), for example researching the right Rome at the start:
@@ -109,6 +109,13 @@ With `"variant": true`:
 - With `"replacesBase": true` the base no longer shows in the lobby and its variants take its place. In the random draw, the base's
   share is split among them. A player who had the base chosen moves to the first variant. Maps and saved games that fix the base still
   use it.
+- A variant with `"replacesBase": true` can also change its base's letter and templates for the whole game. With `letter`, the game
+  builds the names of the base's classes and commands with that letter (`GetRaceStrPref`, peasant training, barracks, sentries, hero
+  hiring). With `template`, the base's towns and villages, including the neutral ones of the random map, come from your
+  `<template> Town N` and `<template> Village N` templates. This is what replacing a whole civilization takes. For example, Greece takes
+  the place of Imperial Rome with `"base": "ImperialRome"`, `"letter": "H"` and `"template": "Greek"`, and its classes have
+  `race="ImperialRome"` and the letter `H` (`HTownhall`, `HHoplite`). If two active variants give the same base different letters or
+  templates, the first one counts and the manager warns on the other.
 
 ## Cloning a civilization
 

@@ -9,11 +9,14 @@
 #include "net/spectator.h"
 
 #include "ui/mpui_internal.h"
+#include "game/gamemodes.h"
 
 using namespace mpui_impl;
 
 namespace mpui_impl {
 namespace {
+const int kRaceX = 262, kRaceW = 122, kBonusX = 388, kBonusW = 92, kTeamX = 484, kTeamW = 34, kBadgeX = 524, kBadgeW = 70, kPlayersW = 600;
+
 void PaintGameRoom(Painter &p, const State &st)
 {
 	const int mx = st.mouseX, my = st.mouseY;
@@ -22,7 +25,7 @@ void PaintGameRoom(Painter &p, const State &st)
 	const COLORREF panel = pal::wellRaised, line = pal::line, rowAlt = pal::dialog;
 
 	const int rowH = g.online ? 37 : 50;
-	const int px = 16, pw = 580, py = 78, ph = 52 + 8 * rowH + 8;
+	const int px = 16, pw = kPlayersW, py = 78, ph = 52 + 8 * rowH + 8;
 	p.Fill(px, py, pw, ph, panel);
 	p.Frame(px, py, pw, ph, line);
 	p.Font(1);
@@ -41,9 +44,9 @@ void PaintGameRoom(Painter &p, const State &st)
 	if (g.online) headInfo += (headInfo.empty() ? "" : "  ·  ") + std::to_string(readyCount) + Tr(" of ") + std::to_string(humans) + Tr(" ready");
 	p.Text(px + pw - 320, py + 6, 306, 24, headInfo, kDim, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 	p.Text(px + 48, py + 30, 180, 18, "Player", kDim);
-	p.Text(px + 262, py + 30, 130, 18, "Nation", kDim);
-	p.Text(px + 396, py + 30, 56, 18, "Bonus", kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-	p.Text(px + 452, py + 30, 50, 18, "Team", kDim);
+	p.Text(px + kRaceX, py + 30, kRaceW, 18, "Nation", kDim);
+	p.Text(px + kBonusX + 8, py + 30, kBonusW - 8, 18, "Bonus", kDim, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+	p.Text(px + kTeamX - 6, py + 30, 50, 18, "Team", kDim);
 	std::string arriving[8];
 	for (uint64_t &id : g_flow.arrivingIds) id = 0;
 	if (g.online) {
@@ -195,27 +198,31 @@ void PaintGameRoom(Painter &p, const State &st)
 			: s.race >= 0 && s.race < static_cast<int>(s.raceNames.size()) ? (RaceSeparator(s.raceNames) && s.race == 9 ? "—" : s.raceNames[s.race]) : "?";
 		p.Font(0);
 		if (raceEditable) {
-			Combo(p, st, px + 262, y + 6, 130, 24, race, kDropRace, i, true);
+			Combo(p, st, px + kRaceX, y + 6, kRaceW, 24, race, kDropRace, i, true);
 		}
 		else {
-			p.Text(px + 262, y, 130, 36, race, hidden ? kDim : kText, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+			p.Text(px + kRaceX, y, kRaceW, 36, race, hidden ? kDim : kText, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 		}
 		{
-			static const char *const kBonus[] = {"—", "2000 gold", "5000 gold", "Hero 12"};
 			const bool off = BonusesDisabled(g);
-			const std::string bonus = off || s.bonus <= 0 || s.bonus > 3 ? "—" : kBonus[s.bonus];
+			const bool known = s.bonus > 0 && s.bonus < static_cast<int>(g.bonuses.size());
+			const std::string bonus = off || s.bonus <= 0 ? "—" : known ? g.bonuses[s.bonus].name : "?";
 			p.Font(3);
-			if (!load && !off && (s.local || (g.host && s.type == 1))) p.Button(px + 396, y + 6, 56, 24, bonus, kGBonus, i, mx, my, true, false, 3);
-			else p.Text(px + 396, y, 56, 36, bonus, off ? kDim : kText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+			if (!load && !off && g.bonuses.size() > 1 && !GameModeLocksOption(GameModeFor(g.mode.c_str()), 0x10a7) && (s.local || (g.host && s.type == 1))) {
+				Combo(p, st, px + kBonusX, y + 6, kBonusW, 24, bonus, kDropBonus, i, true);
+			}
+			else {
+				p.Text(px + kBonusX + 8, y, kBonusW - 8, 36, bonus, off || s.bonus <= 0 ? kDim : kText, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+			}
 			p.Font(0);
 		}
 		const std::string team = s.team <= 0 || s.team > 4 ? "—" : std::to_string(s.team);
-		if (!load && (s.local || (g.host && s.type == 1))) p.Button(px + 458, y + 6, 38, 24, team, kGTeam, i, mx, my);
-		else p.Text(px + 458, y, 38, 36, team, kText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-		if (s.type == 1) PaintBadge(p, px + 504, y + 8, 64, 20, "AI", RGB(60, 52, 80), RGB(210, 200, 240));
-		else if (!g.online) PaintBadge(p, px + 504, y + 8, 64, 20, "You", RGB(56, 44, 28), kGold);
-		else if (s.ready) PaintBadge(p, px + 504, y + 8, 64, 20, "Ready", RGB(40, 80, 40), RGB(200, 240, 190));
-		else PaintBadge(p, px + 504, y + 8, 64, 20, "Waiting", RGB(70, 56, 38), kDim);
+		if (!load && (s.local || (g.host && s.type == 1))) p.Button(px + kTeamX, y + 6, kTeamW, 24, team, kGTeam, i, mx, my);
+		else p.Text(px + kTeamX, y, kTeamW, 36, team, kText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		if (s.type == 1) PaintBadge(p, px + kBadgeX, y + 8, kBadgeW, 20, "AI", RGB(60, 52, 80), RGB(210, 200, 240));
+		else if (!g.online) PaintBadge(p, px + kBadgeX, y + 8, kBadgeW, 20, "You", RGB(56, 44, 28), kGold);
+		else if (s.ready) PaintBadge(p, px + kBadgeX, y + 8, kBadgeW, 20, "Ready", RGB(40, 80, 40), RGB(200, 240, 190));
+		else PaintBadge(p, px + kBadgeX, y + 8, kBadgeW, 20, "Waiting", RGB(70, 56, 38), kDim);
 	}
 
 	{
@@ -233,7 +240,7 @@ void PaintGameRoom(Painter &p, const State &st)
 			const GameRoomSlot &s = g.slots[i];
 			const int rowY = py + 52 + i * rowH, y = rowY + (rowH - 37) / 2;
 			if (!arriving[i].empty()) continue;
-			if (s.used && s.type == 3 && !s.exists) PaintBadge(p, px + 504, y + 8, 64, 20, "No slot", RGB(90, 36, 30), RGB(255, 200, 190));
+			if (s.used && s.type == 3 && !s.exists) PaintBadge(p, px + kBadgeX, y + 8, kBadgeW, 20, "No slot", RGB(90, 36, 30), RGB(255, 200, 190));
 			p.Font(3);
 			if (moving) {
 				if (i == st.moveFrom) {
@@ -257,7 +264,7 @@ void PaintGameRoom(Painter &p, const State &st)
 	}
 
 	const GameRoomSlot &me = g.slots[g.localSlot & 7];
-	const int ox = 612, ow = kW - ox - 16, oy = py, oh = ph;
+	const int ox = kPlayersW + 16, ow = kW - ox - 16, oy = py, oh = ph;
 	p.Fill(ox, oy, ow, oh, panel);
 	p.Frame(ox, oy, ow, oh, line);
 	{
@@ -386,7 +393,7 @@ void PaintGameRoom(Painter &p, const State &st)
 						if (o.checkbox) v = o.value ? "yes" : "no";
 						else if (o.sel >= 0 && o.sel < static_cast<int>(o.items.size()) && !o.items[o.sel].empty()) v = o.items[o.sel];
 						const bool mapByHand = id == 0x1000 && st.saveMapStep >= 2 && st.saveMap.empty() && !st.saveMapRandom;
-						enabled = (o.checkbox || o.items.size() > 1) && (!load || mapByHand);
+						enabled = (o.checkbox || o.items.size() > 1) && (!load || mapByHand) && !GameModeLocksOption(GameModeFor(g.mode.c_str()), id);
 					}
 				}
 				else {
@@ -528,7 +535,7 @@ void PaintGameRoom(Painter &p, const State &st)
 		p.Button(kW - 16 - 372, by, 372, 52, "Start the game", kGStart, 0, mx, my, true, true);
 		return;
 	}
-	const int cx = 16, cw = 580, cy = py + ph + 12, ch = kH - 16 - cy;
+	const int cx = 16, cw = kPlayersW, cy = py + ph + 12, ch = kH - 16 - cy;
 	p.Fill(cx, cy, cw, ch, pal::well);
 	p.Frame(cx, cy, cw, ch, line);
 	p.Font(3);
@@ -539,23 +546,25 @@ void PaintGameRoom(Painter &p, const State &st)
 
 	const bool saveReady = g.host || st.room.info.saveName.empty() || st.save.ready;
 	const bool mapReady = st.map.state == 0 && saveReady;
-	const int ax = ox, aw = ow;
+	const int ax = ox + 12, aw = ow - 12;
 	const int hostBh = std::min(42, (ch - 3 * 8) / 4), gap = (ch - 4 * hostBh) / 3;
 	const int count = g.host ? 4 : 3, bh = (ch - (count - 1) * gap) / count;
-	int by = cy;
+	int step = 0;
+	auto yAt = [&](int k) { return cy + (ch - bh) * k / (count - 1); };
+	int by = yAt(step++);
 	p.Button(ax, by, aw, bh, !saveReady ? "Waiting for the saved game..." : !mapReady ? "Waiting for the scenario..." : me.ready ? "Not ready" : "Ready", kGReady, 0, mx,
 		my, mapReady || me.ready, !me.ready && mapReady);
-	by += bh + gap;
 	if (g.host) {
 		const bool allReady = humans > 0 && readyCount == humans;
 		const StartBlock block = StartBlocker(st, g);
 		const bool canStart = allReady && block.toast.empty();
+		by = yAt(step++);
 		p.Button(ax, by, aw, bh, block.label.empty() ? "Start" : block.label, kGStart, 0, mx, my, canStart, canStart);
-		by += bh + gap;
 	}
 	const bool canInvite = !RoomHasNoSeat(st);
+	by = yAt(step++);
 	p.Button(ax, by, aw, bh, canInvite ? "Invite" : "No free slots to invite", kInvite, 0, mx, my, canInvite);
-	by += bh + gap;
+	by = yAt(step++);
 	p.Button(ax, by, aw, bh, "Leave", kGCancel, 0, mx, my);
 
 	if (st.dropAsk) {
@@ -636,11 +645,14 @@ namespace mpui_impl {
 void PaintScreen(Painter &p, const State &st)
 {
 	PaintWindowFrame(p, kW, kH);
+	p.noHover = st.dropOpen || st.passPrompt || st.syncConfirm || st.syncPhase || st.searching || st.connecting || st.recoverAsk ||
+		(st.recoverWaitHost && !st.room.id) || RejoinClientActive() || RejoinClientFailed() || (st.game.active && st.game.picker);
 	PaintHeader(p, st);
 	if (st.game.active) {
 		PaintGameRoom(p, st);
 		if (st.game.picker && !SaveMapPicking(st)) {
 			PaintScenarioPicker(p, st);
+			PaintDropList(p, st);
 			return;
 		}
 		PaintDropList(p, st);

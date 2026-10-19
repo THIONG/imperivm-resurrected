@@ -4,6 +4,7 @@
 #include "net/spectator.h"
 #include "net/nettune.h"
 #include "game/mapfog.h"
+#include "game/quickicons.h"
 #include "app/overlay.h"
 #include "i18n/tr.h"
 
@@ -696,6 +697,7 @@ void SaveSnapped(int ox, int oy)
 int __fastcall HookGameUpdate(void *game)
 {
 	g_updateTicks += ZoomFogGameThreadTick();
+	QuickIconsGameThreadTick();
 	ControlsGameTick();
 	if (g_updateDepth > 0 && g_updateDepth <= kUpdateMaxDepth) g_updateStack[g_updateDepth - 1].nested = true;
 	if (g_updateDepth >= kUpdateMaxDepth) return g_origGameUpdate(game);

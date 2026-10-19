@@ -41,6 +41,7 @@ struct Painter {
 	HFONT fonts[5] = {};
 	int pressAction = -1, pressArg = 0;
 	int focusAction = -1, focusArg = 0;
+	bool noHover = false;
 
 	int S(int v) const { return static_cast<int>(v * s + 0.5f); }
 	RECT R(int x, int y, int w, int h) const { return {S(x), S(y), S(x + w), S(y + h)}; }
@@ -200,6 +201,7 @@ struct Painter {
 	}
 	bool Hover(int x, int y, int w, int h, int mx, int my) const
 	{
+		if (noHover) return false;
 		RECT r = R(x, y, w, h);
 		OffsetRect(&r, ox, oy);
 		POINT p = {mx, my};

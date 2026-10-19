@@ -7,6 +7,7 @@
 #include "hooks/hookcount.h"
 #include "game/civs.h"
 #include "game/civroom.h"
+#include "game/gamemodes.h"
 #include "game/specials.h"
 #include "core/json.h"
 #include "core/log.h"
@@ -60,6 +61,24 @@ std::mutex g_lock;
 std::vector<const Civ *> g_civs;
 std::map<std::string, std::vector<std::string>> g_errors;
 bool g_ready = false;
+
+struct BaseOverride {
+	char letterUp[2] = {}, letterLow[2] = {};
+	char prefix[48] = {};
+	char neutralPrefix[48] = {};
+};
+BaseOverride g_baseOverride[8];
+uint32_t g_neutralPrefixOriginal[8] = {};
+bool g_neutralPrefixRead = false;
+bool g_hooked = false;
+
+struct GameString {
+	int allocator;
+	const char *text;
+	char unused[12];
+	unsigned size;
+	unsigned capacity;
+};
 
 std::string Lower(std::string s)
 {
@@ -127,6 +146,7 @@ const char *__cdecl HookGetRaceLetter(int race, int lower)
 	if (race >= 10) {
 		if (const Civ *c = FindByIndex(race)) return lower ? c->letterLow.c_str() : c->letterUp.c_str();
 	}
+	if (race >= 0 && race < 8 && g_baseOverride[race].letterUp[0]) return lower ? g_baseOverride[race].letterLow : g_baseOverride[race].letterUp;
 	return g_origLetter(race, lower);
 }
 
@@ -183,6 +203,11 @@ int __cdecl HookRaceLetterNative(int *pSP)
 			return 0;
 		}
 	}
+	if (race >= 0 && race < 8 && g_baseOverride[race].letterUp[0]) {
+		*pSP -= obj ? 8 : 4;
+		PushScriptString(pSP, lower ? g_baseOverride[race].letterLow : g_baseOverride[race].letterUp);
+		return 0;
+	}
 	Native_t orig = obj ? (lower ? g_origObjStrPrefLow : g_origObjStrPref) : (lower ? g_origGetStrPrefLow : g_origGetStrPref);
 	return orig(pSP);
 }
@@ -222,6 +247,14 @@ int __cdecl PickRandomRace(char *game, char *frame)
 	void *rng = game + 0x12a0;
 	void **vt = *reinterpret_cast<void ***>(rng);
 	auto rand = reinterpret_cast<int(__fastcall *)(void *, void *, int, int)>(vt[0x14 / 4]);
+	if (const GameMode *mode = GameModeOfSettings(gs)) {
+		const std::vector<int> allowed = GameModeRandomPool(*mode, isAi);
+		if (!allowed.empty()) {
+			const int race = allowed[rand(rng, nullptr, 0, static_cast<int>(allowed.size()) - 1)];
+			LogD("civilizations", "random civilization of player %d%s in the mode \"%s\" -> %d", slot, isAi ? " (AI)" : "", mode->key.c_str(), race);
+			return race;
+		}
+	}
 	const int r = rand(rng, nullptr, 0, 7 + static_cast<int>(pool.size()));
 	const Civ *civ = nullptr;
 	if (r < 8) {
@@ -476,18 +509,71 @@ void *__fastcall HookPlaceTown(void *self, void *edx, void *grid, float scale, u
 	return r;
 }
 
+int FindByOverride(void *lib, int base, const char *kind)
+{
+	if (base < 0 || base >= 8 || !g_baseOverride[base].prefix[0]) return -1;
+	const std::string name = std::string(g_baseOverride[base].prefix) + kind;
+	GameString s = {};
+	s.text = name.c_str();
+	s.size = static_cast<unsigned>(name.size());
+	s.capacity = 0x1f;
+	const int r = reinterpret_cast<int(__fastcall *)(void *, void *, GameString *, int)>(addr::kFindTemplateByPrefix)(lib, nullptr, &s, -1);
+	static int logged = 0;
+	if (logged++ < 8) LogD("civilizations", "settlement template of %s -> \"%s\" (%d)", kGameNames[base], name.c_str(), r);
+	return r;
+}
+
 int __fastcall HookTown(void *lib, void *edx, int race, int extra)
 {
 	if (g_templateLogged < 8 && race >= 10) {
 		g_templateLogged++;
 		LogD("civilizations", "city template of civilization %d -> its base's (%d)", race, BaseOf(race));
 	}
+	const int own = FindByOverride(lib, BaseOf(race), " Town");
+	if (own >= 0) return own;
 	return g_origTown(lib, edx, BaseOf(race), extra);
 }
 
 int __fastcall HookVillage(void *lib, void *edx, int race, int extra)
 {
+	const int own = FindByOverride(lib, BaseOf(race), " Village");
+	if (own >= 0) return own;
 	return g_origVillage(lib, edx, BaseOf(race), extra);
+}
+
+void ApplyNeutralPrefixes()
+{
+	if (!g_hooked) return;
+	auto first = reinterpret_cast<unsigned char *>(addr::kRandomMapRacePrefixes);
+	if (!g_neutralPrefixRead) {
+		for (int i = 0; i < 8; i++) {
+			const unsigned char *ins = first + i * 8;
+			if (ins[0] != 0xc7 || ins[1] != 0x44 || ins[2] != 0x24) {
+				LogW("civilizations", "the random map's settlement names are not the expected code: base civilization templates stay as they are");
+				return;
+			}
+			memcpy(&g_neutralPrefixOriginal[i], ins + 4, 4);
+		}
+		g_neutralPrefixRead = true;
+	}
+	for (int i = 0; i < 8; i++) {
+		const char *text = reinterpret_cast<const char *>(static_cast<uintptr_t>(g_neutralPrefixOriginal[i]));
+		uint32_t want = g_neutralPrefixOriginal[i];
+		for (int b = 0; b < 8; b++) {
+			if (!g_baseOverride[b].neutralPrefix[0]) continue;
+			if (strcmp(text, (std::string(kTemplatePrefix[b]) + " ").c_str()) == 0) want = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(g_baseOverride[b].neutralPrefix));
+		}
+		unsigned char *imm = first + i * 8 + 4;
+		uint32_t now = 0;
+		memcpy(&now, imm, 4);
+		if (now == want) continue;
+		DWORD old = 0;
+		if (!VirtualProtect(imm, 4, PAGE_EXECUTE_READWRITE, &old)) continue;
+		memcpy(imm, &want, 4);
+		VirtualProtect(imm, 4, old, &old);
+		FlushInstructionCache(GetCurrentProcess(), imm, 4);
+		LogD("civilizations", "random map settlements of \"%s\" -> \"%s\"", text, reinterpret_cast<const char *>(static_cast<uintptr_t>(want)));
+	}
 }
 
 void *__cdecl HookRandomName(void *out, int race)
@@ -599,6 +685,7 @@ void LoadCivFile(const std::string &folder, const std::string &path, const std::
 		AddError(folder, TrFmt("%s: \"letter\" is a single letter", {fileName}));
 		return;
 	}
+	civ->ownLetter = !letter.empty() && tolower(static_cast<unsigned char>(letter[0])) != kGameLetters[civ->base];
 	if (letter.empty()) letter = std::string(1, kGameLetters[civ->base]);
 	civ->letterLow = std::string(1, static_cast<char>(tolower(static_cast<unsigned char>(letter[0]))));
 	civ->letterUp = std::string(1, static_cast<char>(toupper(static_cast<unsigned char>(letter[0]))));
@@ -709,11 +796,48 @@ void CivsRebuild()
 		}
 		if (!dup) unique.push_back(c);
 	}
+	BaseOverride overrides[8];
+	const Civ *letterFrom[8] = {}, *prefixFrom[8] = {};
+	for (const Civ *c : unique) {
+		if (!c->replacesBase) continue;
+		BaseOverride &o = overrides[c->base];
+		if (c->ownLetter) {
+			if (letterFrom[c->base] && letterFrom[c->base]->letterUp != c->letterUp) {
+				AddError(c->modFolder, TrFmt("\"%s\" gives %s the letter %s, but \"%s\" from content pack %s gives it %s: the letter of %s is not changed",
+					{c->id, kGameNames[c->base], c->letterUp, letterFrom[c->base]->id, letterFrom[c->base]->modFolder, letterFrom[c->base]->letterUp, c->id}));
+			}
+			else if (!letterFrom[c->base]) {
+				letterFrom[c->base] = c;
+				o.letterUp[0] = c->letterUp[0];
+				o.letterLow[0] = c->letterLow[0];
+			}
+		}
+		if (!c->templatePrefix.empty()) {
+			if (c->templatePrefix.size() >= sizeof(o.prefix) - 1) {
+				AddError(c->modFolder, TrFmt("%s: \"template\" is too long (up to %s characters)", {c->id, std::to_string(sizeof(o.prefix) - 2)}));
+			}
+			else if (prefixFrom[c->base] && prefixFrom[c->base]->templatePrefix != c->templatePrefix) {
+				AddError(c->modFolder, TrFmt("\"%s\" gives %s the templates \"%s\", but \"%s\" from content pack %s gives it \"%s\": the templates of %s are not used for the base",
+					{c->id, kGameNames[c->base], c->templatePrefix, prefixFrom[c->base]->id, prefixFrom[c->base]->modFolder, prefixFrom[c->base]->templatePrefix, c->id}));
+			}
+			else if (!prefixFrom[c->base]) {
+				prefixFrom[c->base] = c;
+				snprintf(o.prefix, sizeof(o.prefix), "%s", c->templatePrefix.c_str());
+				snprintf(o.neutralPrefix, sizeof(o.neutralPrefix), "%s ", c->templatePrefix.c_str());
+			}
+		}
+	}
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
 		g_civs = unique;
 		g_ready = true;
+		for (int b = 0; b < 8; b++) g_baseOverride[b] = overrides[b];
 	}
+	for (int b = 0; b < 8; b++) {
+		if (letterFrom[b]) LogI("civilizations", "%s: the letter of %s is now %s (it replaces the base)", letterFrom[b]->id.c_str(), kGameNames[b], letterFrom[b]->letterUp.c_str());
+		if (prefixFrom[b]) LogI("civilizations", "%s: the settlements of %s use the templates \"%s\"", prefixFrom[b]->id.c_str(), kGameNames[b], prefixFrom[b]->templatePrefix.c_str());
+	}
+	ApplyNeutralPrefixes();
 	for (const Civ *c : unique) {
 		LogI("civilizations", "%s (index %d, base %s, letter %s, mod %s)", c->id.c_str(), c->index, kGameNames[c->base], c->letterUp.c_str(),
 			c->modFolder.empty() ? "mod\\civs" : c->modFolder.c_str());
@@ -822,6 +946,24 @@ int CivsRoomReplacement(int item, int items)
 	return CivRoomReplacement(RoomCivs(), item, items);
 }
 
+int CivsRaceOfRoomItem(int item)
+{
+	if (item < 10) return CivRoomBaseOfItem(item);
+	const std::vector<const Civ *> civs = SortedCivs();
+	const size_t pos = static_cast<size_t>(item - 10);
+	return pos < civs.size() ? civs[pos]->index : -1;
+}
+
+int CivsRoomItemOfRace(int race)
+{
+	if (race < 10) return CivRoomItemOfBase(race);
+	const std::vector<const Civ *> civs = SortedCivs();
+	for (size_t i = 0; i < civs.size(); i++) {
+		if (civs[i]->index == race) return 10 + static_cast<int>(i);
+	}
+	return -1;
+}
+
 void CivsOnRoomShown(void *dlg)
 {
 	AddCivsToRoomCombos(dlg);
@@ -906,6 +1048,8 @@ void InstallCivs(bool knownExe)
 		}
 	}
 	if (!PatchRandomDraw()) LogW("civilizations", "could not change the random civilization draw (the code is not the expected one)");
+	g_hooked = true;
+	ApplyNeutralPrefixes();
 	LogI("civilizations", "hooked");
 }
 

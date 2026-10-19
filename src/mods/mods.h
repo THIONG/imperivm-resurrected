@@ -70,6 +70,8 @@ struct ModInfo {
 	int kind = kModCosmetic;
 	int declaredKind = -1;
 	uint64_t totalBytes = 0;
+	uint64_t installedTime = 0;
+	bool newSinceStart = false;
 	unsigned fileCount = 0;
 	std::string hash;
 	std::string gameplayHash;
@@ -97,7 +99,18 @@ struct ModProfile {
 	std::vector<ModChoice> choices;
 };
 
+enum MapOriginKind { kMapBase, kMapLoose, kMapReceived, kMapMod };
+struct MapOrigin {
+	int kind = kMapBase;
+	std::string modName;
+	std::string modFolder;
+};
+MapOrigin ModsMapOrigin(const std::string &scenarioPath);
+bool ModsDeleteMap(const std::string &scenarioPath, std::string &message);
 void ModsScan();
+uint64_t ModsListSerial();
+void ModsWatchStart();
+void ModsWatchStop();
 bool ModsHashProgress(uint64_t &done, uint64_t &total);
 std::vector<ModInfo> ModsList();
 std::vector<ModInfo> ModsSummaries();

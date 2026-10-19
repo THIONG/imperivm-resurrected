@@ -80,6 +80,26 @@ Genera `options\<id>.json` y, con `--script`, `data\mod\<id>.vs`. Dice cuántos 
 - **Solo funcionan con sala.** Las opciones se fijan al empezar una partida desde la sala (o al volver a una online). En aventuras, campañas y tutoriales no hay sala: `Mod_GetOption` da siempre 0 y la lista vale 0, aunque pongas `"default": true`.
 - Los preajustes de la sala (Clásico, Competitivo) no tocan las opciones de los mods.
 
+## Reglas fijas del mod
+
+Algunas reglas del motor no son opciones de la sala: las fija el mod para todas sus partidas en `rules\game.json`:
+
+```json
+{
+  "armyStaysWithHero": true,
+  "sentriesUnselectable": true,
+  "protectedClasses": ["Peasant", "PeasantAmbient", "Trader", "Tradecar_Donkey", "Camel", "CartTrader"]
+}
+```
+
+| Campo | Qué hace |
+|---|---|
+| `armyStaysWithHero` | Con `true`, las unidades de un ejército no se separan de su héroe cuando uno está dentro de las murallas y el otro fuera. El camino se recalcula igual. |
+| `sentriesUnselectable` | Con `true`, los centinelas de las murallas no se pueden seleccionar (al pulsar en uno se selecciona la puerta) y no entran en los ejércitos de la IA. |
+| `protectedClasses` | Clases que no reciben daño ni se pueden atacar, con todas las que heredan de ellas. Son nombres de clase (`Peasant`), no de unidad. |
+
+Cambian la partida, así que en multijugador todos tienen que llevar el mod. Si varios mods activos traen reglas, se suman.
+
 ## Online
 
 Es jugabilidad: todos los jugadores deben llevar el mismo mod. La opción viaja con las demás reglas de la sala y se guarda con la partida.

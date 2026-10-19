@@ -292,6 +292,90 @@ void ModsNoteReceivedMap(const std::string &fullPath)
 	WriteReceived(list);
 }
 
+namespace mods_impl {
+namespace {
+std::string MapRel(const std::string &scenarioPath)
+{
+	std::string p = scenarioPath;
+	for (char &c : p) c = c == '\\' ? '/' : static_cast<char>(tolower(static_cast<unsigned char>(c)));
+	if (p.size() < 5 || p.compare(p.size() - 5, 5, ".bfhp") != 0) p += ".bfhp";
+	if (p.find('/') == std::string::npos) p = "scenarios/" + p;
+	return p;
+}
+
+std::string MapFile(const std::string &rel)
+{
+	std::string p = rel;
+	for (char &c : p) {
+		if (c == '/') c = '\\';
+	}
+	return GameDir() + "\\" + p;
+}
+
+bool ToRecycleBin(const std::string &file)
+{
+	std::string from = file;
+	from.push_back('\0');
+	SHFILEOPSTRUCTA op = {};
+	op.wFunc = FO_DELETE;
+	op.pFrom = from.c_str();
+	op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
+	return SHFileOperationA(&op) == 0 && !op.fAnyOperationsAborted;
+}
+}
+}
+
+MapOrigin ModsMapOrigin(const std::string &scenarioPath)
+{
+	MapOrigin out;
+	const std::string rel = MapRel(scenarioPath);
+	for (const ModInfo &m : ModsList()) {
+		if (std::binary_search(m.loosePaths.begin(), m.loosePaths.end(), rel) || std::binary_search(m.paths.begin(), m.paths.end(), rel)) {
+			out.kind = kMapMod;
+			out.modName = m.name;
+			out.modFolder = m.folder;
+			return out;
+		}
+	}
+	const std::string file = MapFile(rel);
+	if (GetFileAttributesA(file.c_str()) == INVALID_FILE_ATTRIBUTES) return out;
+	out.kind = kMapLoose;
+	for (const std::string &l : ReadReceived()) {
+		if (_stricmp(l.c_str(), file.c_str()) == 0) out.kind = kMapReceived;
+	}
+	return out;
+}
+
+bool ModsDeleteMap(const std::string &scenarioPath, std::string &message)
+{
+	const MapOrigin origin = ModsMapOrigin(scenarioPath);
+	if (origin.kind == kMapMod) {
+		message = TrFmt("This map comes from the content pack %s: uninstall that pack to remove it", {origin.modName});
+		return false;
+	}
+	if (origin.kind == kMapBase) {
+		message = Tr("This map is part of the game and cannot be deleted");
+		return false;
+	}
+	const std::string file = MapFile(MapRel(scenarioPath));
+	if (!ToRecycleBin(file)) {
+		message = Tr("The map could not be deleted");
+		return false;
+	}
+	const std::string sidecar = file + ".mods.json";
+	if (GetFileAttributesA(sidecar.c_str()) != INVALID_FILE_ATTRIBUTES) ToRecycleBin(sidecar);
+	if (origin.kind == kMapReceived) {
+		std::vector<std::string> keep;
+		for (const std::string &l : ReadReceived()) {
+			if (_stricmp(l.c_str(), file.c_str()) != 0) keep.push_back(l);
+		}
+		WriteReceived(keep);
+	}
+	LogI("content", "map %s moved to the recycle bin", file.c_str());
+	message = Tr("Map moved to the recycle bin");
+	return true;
+}
+
 std::string ModsUninstall(const std::string &folder)
 {
 	if (folder.empty() || folder.find_first_of("\\/") != std::string::npos || folder[0] == '_' || folder[0] == '.') {

@@ -108,7 +108,12 @@ void ModsOpenFolder(const std::string &folder)
 		LogI("content", "minimizing the game to open the folder");
 		ShowWindow(game, SW_MINIMIZE);
 	}
-	ShellExecuteA(nullptr, "open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+	if (folder.empty()) {
+		ShellExecuteA(nullptr, "open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+		return;
+	}
+	const std::string args = "/select,\"" + path + "\"";
+	ShellExecuteA(nullptr, "open", "explorer.exe", args.c_str(), nullptr, SW_SHOWNORMAL);
 }
 
 void ModsOnSaveWritten(const std::string &gamePath, bool online)

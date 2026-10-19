@@ -49,6 +49,34 @@ El ejemplo lo hace con un parche INI en `patches\data\const.ini`:
 
 Si no pones entradas, el desplegable sale vacío y no hay límite que elegir. Qué recibe entonces `param` no se ha visto en partida: el ejemplo cae a 3 si `Str2Int(param)` da menos de 2.
 
+## Ajustes fijos y civilizaciones del modo
+
+Un modo puede fijar ajustes de la sala y las civilizaciones que se pueden elegir con él. Va en `modes\<nombre>.json`:
+
+```json
+{
+  "mode": "2 LIGA",
+  "gold": 5000,
+  "population": 100,
+  "noFog": false,
+  "explored": false,
+  "bonus": 1,
+  "civilizations": ["RomeImperial", "Gaul", "Iberia", "CarthageNumidian"]
+}
+```
+
+| Campo | Qué es |
+|---|---|
+| `mode` | El nombre del script del modo en `data\GameScripts`, sin `.vs` (`2 LIGA` para `2 LIGA.vs`), hasta 31 caracteres. Si no lo pones, el nombre del archivo json. Vale también para los modos del juego. |
+| `gold` | (Opcional) El oro inicial: uno de los valores del desplegable (`5000`, `10000`…). |
+| `population` | (Opcional) La población: `50`, `100` o `150` (`LowPop`, `NormalPop` y `HighPop` de `CONST.INI`). |
+| `noFog` | (Opcional) `true` quita la niebla, `false` la deja. |
+| `explored` | (Opcional) `true` empieza con el mapa explorado. |
+| `bonus` | (Opcional) El bono de todos los jugadores, del 0 (ninguno) al 3, el mismo número que el botón de bono de la sala. Desactivar bonos deja de poder marcarse. |
+| `civilizations` | (Opcional) Las civilizaciones que se pueden jugar en ese modo: las del juego (`Gaul`, `RepublicanRome`…) o el `id` de una del mod. Una base del juego deja jugar todas sus variantes; una variante, solo esa. |
+
+Mientras ese modo está elegido, la sala no deja cambiar lo que fija: el anfitrión ve esas filas sin poder tocarlas. Un jugador con una civilización que el modo no permite pasa a la primera de la lista, y la civilización aleatoria se sortea solo entre las permitidas. Lo aplica el anfitrión al crear la partida, así que todos juegan con lo mismo. Las partidas guardadas y los escenarios con civilizaciones fijas no cambian.
+
 ## Online
 
 Un modo nuevo cambia la jugabilidad: todos los jugadores tienen que llevar el mismo mod.

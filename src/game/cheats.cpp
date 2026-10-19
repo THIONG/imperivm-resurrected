@@ -105,6 +105,8 @@ std::vector<std::string> TechScripts(int player)
 	const std::string p = std::to_string(player);
 	const std::string head = "ObjList ol; Building b; Settlement s; int i; ol = ClassPlayerObjs(\"BaseBuilding\", " + p +
 		").GetObjList(); for (i = 0; i < ol.count; i += 1) { b = ol[i].AsBuilding(); if (b.IsValid()) { s = b.settlement; if (s.IsValid()) { ";
+	const std::string headLab = "ObjList ol; Building b; Building lab; Settlement s; int i; ol = ClassPlayerObjs(\"BaseBuilding\", " + p +
+		").GetObjList(); for (i = 0; i < ol.count; i += 1) { b = ol[i].AsBuilding(); if (b.IsValid()) { s = b.settlement; if (s.IsValid()) { ";
 	std::vector<std::string> out;
 	std::string batch;
 	int inBatch = 0;
@@ -114,6 +116,24 @@ std::vector<std::string> TechScripts(int player)
 		batch.clear();
 		inBatch = 0;
 	};
+	for (const TechStep &step : steps) {
+		bool safe = ScriptSafe(step.command) && ScriptSafe(step.name);
+		for (const TechCondition &c : step.choices) safe = safe && ScriptSafe(c.var) && (c.value.empty() || ScriptSafe(c.value));
+		if (!safe) continue;
+		const std::string scope = step.playerName ? p : "s";
+		batch += "if (IsResearching(" + scope + ", \"" + step.name + "\")) { lab = s.FindResearchLab(\"" + step.name + "\"); if (Mod_OffersCmd(b, \"" + step.command +
+			"\")) { b.Research(\"" + step.command + "\"); if (lab.IsValid()) lab.KillCommand(); } } ";
+		if (++inBatch == 4) {
+			out.push_back(headLab + batch + "} } }");
+			batch.clear();
+			inBatch = 0;
+		}
+	}
+	if (inBatch) {
+		out.push_back(headLab + batch + "} } }");
+		batch.clear();
+		inBatch = 0;
+	}
 	int usable = 0;
 	for (int pass = 0; pass < 2; pass++) {
 		for (const TechStep &step : steps) {
@@ -122,12 +142,12 @@ std::vector<std::string> TechScripts(int player)
 			if (!safe) continue;
 			if (pass == 0) usable++;
 			const std::string scope = step.playerName ? p : "s";
-			batch += "if (!IsResearched(" + scope + ", \"" + step.name + "\")) if (!IsResearching(" + scope + ", \"" + step.name + "\")) ";
+			batch += "if (!IsResearched(" + scope + ", \"" + step.name + "\")) ";
 			for (const TechCondition &c : step.choices) {
 				batch += "if (EnvReadString(" + (c.player ? p : std::string("s")) + ", \"" + c.var + "\") != \"" + c.value + "\") ";
 			}
 			batch += "if (Mod_CanExecCmd(b, \"" + step.command + "\")) b.Research(\"" + step.command + "\"); ";
-			if (++inBatch == 8) flush();
+			if (++inBatch == 4) flush();
 		}
 		flush();
 	}

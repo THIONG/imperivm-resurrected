@@ -2,6 +2,20 @@
 
 The SDK version and which mods you can make with each one. The script API version (`Mod_ApiVersion()`) is separate: it's currently 7.
 
+## 1.6
+
+Needs Imperivm Resurrected 0.32.24 or later.
+
+- A variant that replaces its base (`"replacesBase": true`) can change with `letter` and `template` the letter and the town and
+  village templates of that base for the whole game, also those of the neutral settlements of the random map. This is how a whole
+  civilization of the game is replaced ([Civilizations](civilizations.md#variants)). The validator also looks for the templates in
+  the mod's `packs\randommapsettlements.bfhp`.
+- `modes\<name>.json` fixes the room settings and the civilizations of a victory mode ([Victory modes](victory-modes.md)).
+- `rules\game.json` fixes engine rules for all the games of the mod: the army stays with its hero at the walls, sentries can't be
+  selected and some classes can't be attacked ([Options](options.md)).
+- A bonus script numbered `004` to `099` in `data\BonusScripts` appears in the lobby, with the name and description from its `//@` lines ([Starting bonuses](bonuses.md)).
+- The validator knows `Mod_PlayerCiv` and `Mod_CanExecCmd`.
+
 ## 1.5
 
 Needs Imperivm Resurrected 0.32.20 or later.

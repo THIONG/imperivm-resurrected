@@ -13,7 +13,11 @@
 #include "hooks/hookcount.h"
 #include "game/civs.h"
 #include "game/gameroom.h"
+#include "game/gamemodes.h"
+#include "hooks/gamefiles.h"
+#include "mods/mods.h"
 #include "mods/modoptions.h"
+#include "mods/modvars.h"
 #include "game/netlink.h"
 #include "core/log.h"
 #include "core/names.h"
@@ -251,6 +255,80 @@ std::vector<std::string> PickerPaths(void *picker)
 	return out;
 }
 
+const int kBonusEntrySize = 0x200, kBonusMax = 64;
+
+int BonusCount(void *dlg)
+{
+	__try {
+		const char *begin = *reinterpret_cast<char *const *>(static_cast<char *>(dlg) + 0x68);
+		const char *end = *reinterpret_cast<char *const *>(static_cast<char *>(dlg) + 0x6c);
+		if (!begin || end < begin) return 0;
+		const size_t bytes = static_cast<size_t>(end - begin);
+		if (bytes % kBonusEntrySize || bytes / kBonusEntrySize > kBonusMax) return 0;
+		return static_cast<int>(bytes / kBonusEntrySize);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return 0;
+	}
+}
+
+bool BonusEntry(void *dlg, int index, char *name, char *path)
+{
+	__try {
+		const char *entry = *reinterpret_cast<char *const *>(static_cast<char *>(dlg) + 0x68) + index * kBonusEntrySize;
+		strncpy_s(name, 256, entry, _TRUNCATE);
+		strncpy_s(path, 256, entry + 0x100, _TRUNCATE);
+		return true;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		name[0] = path[0] = 0;
+		return false;
+	}
+}
+
+std::string BonusLanguageCode()
+{
+	const std::string &language = ModsLanguage();
+	if (language == "italian") return "it";
+	if (language == "spanish" || language.empty()) return "es";
+	return "en";
+}
+
+std::vector<BonusDef> g_bonusDefs;
+void *g_bonusFor = nullptr;
+int g_bonusCount = 0;
+std::string g_bonusLanguage;
+
+const std::vector<BonusDef> &RoomBonuses(void *dlg)
+{
+	const int count = BonusCount(dlg);
+	const std::string language = BonusLanguageCode();
+	if (dlg == g_bonusFor && count == g_bonusCount && language == g_bonusLanguage) return g_bonusDefs;
+	g_bonusFor = dlg;
+	g_bonusCount = count;
+	g_bonusLanguage = language;
+	g_bonusDefs.clear();
+	std::vector<int> numbers;
+	for (int i = 0; i < count; i++) {
+		char name[256], path[256];
+		if (!BonusEntry(dlg, i, name, path)) break;
+		const int number = BonusFileNumber(path);
+		if (number < 0 || number >= kBonusRoomLimit) break;
+		std::vector<char> bytes;
+		std::string script;
+		if (path[0] && ReadGameFile(path, 1, bytes)) script.assign(bytes.begin(), bytes.end());
+		g_bonusDefs.push_back(BonusDefine(name, path, script, language));
+		numbers.push_back(number);
+	}
+	for (size_t i = 0; i < g_bonusDefs.size(); i++) {
+		bool repeated = false;
+		for (size_t k = 0; k < g_bonusDefs.size(); k++) repeated = repeated || (k != i && g_bonusDefs[k].name == g_bonusDefs[i].name);
+		if (repeated) g_bonusDefs[i].name += " (" + std::to_string(numbers[i]) + ")";
+	}
+	LogD("room", "bonuses: %d", static_cast<int>(g_bonusDefs.size()));
+	return g_bonusDefs;
+}
+
 bool SlotHandshaking(int row)
 {
 	if (!g_dlg || row < 0 || row > 7) return false;
@@ -276,6 +354,7 @@ void TakeSnapshot()
 			}
 		}
 		s.online = *reinterpret_cast<void **>(static_cast<char *>(g_dlg) + 0x8228) != nullptr;
+		s.bonuses = RoomBonuses(g_dlg);
 		s.localSlot = reinterpret_cast<IntThis_t>(addr::kGetLocalSlot)(g_dlg);
 		memcpy(s.colors, reinterpret_cast<const void *>(addr::kPlayerColorTable), sizeof(s.colors));
 		for (int i = 0; i < 8; i++) {
@@ -384,6 +463,12 @@ void TakeSnapshot()
 			s.siteFlags = bits & kSiteMask;
 			s.rules = (s.host ? g_ruleFlags : bits) & kRuleMask;
 			s.randomMap = ro ? *reinterpret_cast<const int *>(ro + 0x18) != 0 : *reinterpret_cast<int *>(static_cast<char *>(g_dlg) + 0x9c) != 0;
+			if (ro) s.mode.assign(ro + 0x60, strnlen(ro + 0x60, 0x20));
+			if (const GameMode *mode = GameModeFor(s.mode.c_str())) {
+				if (mode->bonus >= 0) {
+					for (GameRoomSlot &slot : s.slots) slot.bonus = mode->bonus;
+				}
+			}
 		}
 		if (s.host && s.randomMap) {
 			static const struct {
@@ -494,6 +579,7 @@ int __fastcall HookApplyToGame(void *self, void *edx, char *opts)
 		unsigned &flags = *reinterpret_cast<unsigned *>(opts + 0x34);
 		const bool random = *reinterpret_cast<int *>(opts + 0x18) != 0;
 		flags = (flags & ~(kSiteMask | kRuleMask)) | (random ? g_siteFlags : 0) | g_ruleFlags;
+		if (!NetMultiplayerSaveLoading()) GameModeApplyOptions(opts);
 	}
 	return r;
 }
@@ -510,6 +596,7 @@ void __fastcall HookBuildSettings(void *dlg, void *edx, void *settings)
 	CivsBuildBegin();
 	g_origBuildSettings(dlg, edx, settings);
 	CivsBuildEnd(settings);
+	if (!NetMultiplayerSaveLoading()) GameModeApplySettings(static_cast<char *>(settings));
 	const char *opts = reinterpret_cast<const char *>(reinterpret_cast<GetGameOptions_t>(addr::kGetGameOptions)(dlg));
 	const unsigned rules = opts ? *reinterpret_cast<const unsigned *>(opts + 0x34) & kRuleMask : 0;
 	g_pendingRules = rules;
@@ -583,6 +670,45 @@ int RaceIdToSlotChoice(int id)
 {
 	static const int kChoice[10] = {2, 0, 4, 3, 1, 7, 6, 5, 8, 9};
 	return id >= 0 && id < 10 ? kChoice[id] : id;
+}
+
+const GameMode *CurrentMode()
+{
+	if (!g_dlg) return nullptr;
+	const char *ro = reinterpret_cast<const char *>(reinterpret_cast<GetGameOptions_t>(addr::kGetGameOptions)(g_dlg));
+	if (!ro) return nullptr;
+	char key[0x21] = {};
+	memcpy(key, ro + 0x60, 0x20);
+	return GameModeFor(key);
+}
+
+bool LockedByMode(int id)
+{
+	const GameMode *mode = CurrentMode();
+	if (!GameModeLocksOption(mode, id)) return false;
+	LogD("room", "option 0x%x is fixed by the mode \"%s\"; not changed", id, mode->key.c_str());
+	return true;
+}
+
+void EnforceModeRaces()
+{
+	if (!g_dlg || *reinterpret_cast<int *>(static_cast<char *>(g_dlg) + 0x9c) == 0 || NetMultiplayerSaveLoading()) return;
+	if (!reinterpret_cast<IntThis_t>(addr::kIsHostOrOffline)(g_dlg)) return;
+	const GameMode *mode = CurrentMode();
+	if (!mode || mode->civs.empty()) return;
+	char *choice = static_cast<char *>(g_dlg) + 0xa8;
+	for (int i = 0; i < 8; i++) {
+		const char *name = nullptr;
+		int type = 0, color = 0, ready = 0, race = 0, team = 0xff, extra = 0;
+		if (!reinterpret_cast<GetSlotInfo_t>(addr::kGetSlotInfo)(g_dlg, nullptr, i, &name, &type, &color, &ready, &race, &team, &extra) || (type != 1 && type != 3)) continue;
+		const int now = CivsRaceOfRoomItem(static_cast<unsigned char>(choice[i]));
+		if (now < 0 || GameModeAllows(*mode, now)) continue;
+		const int item = CivsRoomItemOfRace(GameModeFirstAllowed(*mode, false));
+		if (item < 0) continue;
+		LogI("room", "slot %d: the mode \"%s\" does not allow civilization %d; it is changed to %d", i + 1, mode->key.c_str(), now, CivsRaceOfRoomItem(item));
+		choice[i] = static_cast<char>(item);
+		reinterpret_cast<UpdateRow_t>(addr::kUpdateSlotRow)(g_dlg, nullptr, static_cast<unsigned>(i));
+	}
 }
 
 void EnforceFixedRaces()
@@ -714,6 +840,7 @@ void GameRoomTick()
 	if (g_dlg) {
 		StepSlotTypes();
 		EnforceFixedRaces();
+		EnforceModeRaces();
 	}
 	else {
 		for (int &t : g_typeTarget) t = -1;
@@ -768,9 +895,28 @@ void GameRoomCycleTeam(int slot)
 	Queue([slot] { Click(Button(g_dlg, ((slot + 1) << 12) | 0x32)); });
 }
 
-void GameRoomCycleBonus(int slot)
+void GameRoomSetBonus(int slot, int index)
 {
-	Queue([slot] { Click(Button(g_dlg, ((slot + 1) << 12) | 0x42)); });
+	Queue([slot, index] {
+		typedef void(__fastcall * SendPlayerInfo_t)(void *, void *, int, unsigned, int);
+		typedef void(__fastcall * UpdateSlotRow_t)(void *, void *, unsigned);
+		if (!g_dlg || slot < 0 || slot > 7 || LockedByMode(0x10a7)) return;
+		if (index < 0 || index >= static_cast<int>(RoomBonuses(g_dlg).size())) return;
+		char *d = static_cast<char *>(g_dlg);
+		const int player = static_cast<int>(*reinterpret_cast<signed char *>(d + 0xa0 + slot));
+		char *shell = *reinterpret_cast<char **>(d + 0x8228);
+		if (!shell) {
+			*reinterpret_cast<int *>(player * 0x34 + *reinterpret_cast<char **>(d + 0x174) + 0x30) = index;
+		}
+		else {
+			char *rec = *reinterpret_cast<char **>(shell + 8) + player * 0x21;
+			*reinterpret_cast<int *>(rec + 8) = 1;
+			*reinterpret_cast<int *>(*reinterpret_cast<char **>(rec) + 0x6c) = index;
+			reinterpret_cast<SendPlayerInfo_t>(addr::kSendPlayerInfo)(shell, nullptr, player, 0xffff, 0);
+		}
+		reinterpret_cast<ThisOnly_t>(addr::kUpdatePlayerCounts)(g_dlg);
+		reinterpret_cast<UpdateSlotRow_t>(addr::kUpdateSlotRow)(g_dlg, nullptr, static_cast<unsigned>(slot));
+	});
 }
 
 void GameRoomToggleReady()
@@ -815,6 +961,7 @@ void GameRoomRefreshChoices()
 void GameRoomSetOption(int id, int index)
 {
 	Queue([id, index] {
+		if (LockedByMode(id)) return;
 		void *opts = *reinterpret_cast<void **>(addr::kGameOptionsDialog);
 		void *combo = Combo(opts, id);
 		const std::vector<int> order = DisplayOrder(id, ComboItems(combo));
@@ -854,7 +1001,14 @@ void GameRulesOnGameStart()
 	g_gameRunning = true;
 	const char *source = "none";
 	unsigned rules = 0;
-	if (g_pendingRulesTick && static_cast<int>(GetTickCount() - g_pendingRulesTick) < 120000) {
+	unsigned savedRules = 0;
+	unsigned long savedTick = 0;
+	const bool haveSaved = ModRulesFromSaveTake(savedRules, savedTick) && static_cast<int>(GetTickCount() - savedTick) < 120000;
+	if (haveSaved && (!g_pendingRulesTick || static_cast<int>(savedTick - g_pendingRulesTick) > 0)) {
+		rules = savedRules & kRuleMask;
+		source = "the saved game";
+	}
+	else if (g_pendingRulesTick && static_cast<int>(GetTickCount() - g_pendingRulesTick) < 120000) {
 		rules = g_pendingRules;
 		source = "room";
 	}
@@ -877,6 +1031,7 @@ void GameRulesOnGameEnd()
 void GameRoomToggleOption(int id)
 {
 	Queue([id] {
+		if (LockedByMode(id)) return;
 		void *opts = *reinterpret_cast<void **>(addr::kGameOptionsDialog);
 		ToggleCheck(Button(opts, id));
 	});

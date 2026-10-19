@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "game/bonuses.h"
+
 const unsigned kSiteCaves = 0x2;
 const unsigned kSiteRuins = 0x10;
 const unsigned kSiteStrongholds = 0x80;
@@ -62,10 +64,12 @@ struct GameRoomSnapshot {
 	uint32_t colors[12] = {};
 	std::string optionsText;
 	std::string scenario;
+	std::string mode;
 	bool picker = false;
 	std::vector<std::string> pickerItems;
 	std::string pickerDescription;
 	std::vector<std::string> pickerPaths;
+	std::vector<BonusDef> bonuses;
 };
 
 void GameRoomInstall(bool knownExe);
@@ -85,7 +89,7 @@ void GameRoomRefreshChoices();
 void GameRulesOnGameStart();
 void GameRulesOnGameEnd();
 void GameRoomCycleTeam(int slot);
-void GameRoomCycleBonus(int slot);
+void GameRoomSetBonus(int slot, int index);
 void GameRoomToggleReady();
 void GameRoomStart();
 void GameRoomCancel();

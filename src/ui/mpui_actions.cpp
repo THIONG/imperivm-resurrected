@@ -7,6 +7,7 @@
 #include "MinHook.h"
 #include "core/log.h"
 #include "core/names.h"
+#include "game/mappreview.h"
 #include "ui/modui.h"
 #include "mods/modoptions.h"
 #include "net/rejoin.h"
@@ -196,7 +197,11 @@ void DoAction(int action, int arg)
 	case kGDropPick: {
 		g_s.dropOpen = false;
 		const int idx = g_s.dropIndex;
-		if (g_s.dropKind == kDropFilter) {
+		if (g_s.dropKind == kDropPickSort) {
+			g_s.pickSort = std::max(0, std::min(2, arg));
+			g_s.pick.scroll = 0;
+		}
+		else if (g_s.dropKind == kDropFilter) {
 			g_s.filter = arg;
 			g_s.selected = 0;
 		}
@@ -232,6 +237,10 @@ void DoAction(int action, int arg)
 			g_s.game.slots[idx & 7].color = arg;
 			Predict(kPredColor, idx & 7, arg);
 			GameRoomSetColor(idx & 7, arg);
+		}
+		else if (g_s.dropKind == kDropBonus) {
+			g_s.game.slots[idx & 7].bonus = arg;
+			GameRoomSetBonus(idx & 7, arg);
 		}
 		else if (g_s.dropKind == kDropRace) {
 			GameRoomSlot &s = g_s.game.slots[idx & 7];
@@ -385,7 +394,6 @@ void DoAction(int action, int arg)
 	case kGKickJoining:
 		if (arg >= 0 && arg < 8 && g_flow.arrivingIds[arg]) SteamKick(g_flow.arrivingIds[arg]);
 		break;
-	case kGBonus: GameRoomCycleBonus(arg); break;
 	case kGMove:
 		g_s.moveFrom = g_s.moveFrom == arg ? -1 : arg;
 		break;
@@ -534,10 +542,40 @@ void DoAction(int action, int arg)
 		g_s.recoverWaitHost = 0;
 		ClearOnlineGame();
 		break;
-	case kPickRow:
+	case kPickRow: {
+		const DWORD now = GetTickCount();
+		const bool twice = arg == g_s.pickLastIndex && now - g_s.pickLastClick < 450;
 		g_s.pickSel = arg;
 		GameRoomPickerSelect(arg);
+		g_s.pickLastIndex = arg;
+		g_s.pickLastClick = now;
+		g_s.focus = kNoField;
+		if (twice) GameRoomPickerAccept();
 		break;
+	}
+	case kFieldPickSearch: FocusField(kPickSearchField); break;
+	case kPickDelete:
+		if (g_s.pickSel >= 0 && g_s.pickSel < static_cast<int>(g_s.game.pickerPaths.size()) && !PickInUse(g_s, g_s.pickSel)) g_s.pickDelete = g_s.pickSel;
+		break;
+	case kPickDeleteNo: g_s.pickDelete = -1; break;
+	case kPickDeleteYes: {
+		const int index = g_s.pickDelete;
+		g_s.pickDelete = -1;
+		if (index < 0 || index >= static_cast<int>(g_s.game.pickerPaths.size())) break;
+		std::string message;
+		const bool ok = ModsDeleteMap(g_s.game.pickerPaths[index], message);
+		if (ok) {
+			std::string key = g_s.game.pickerPaths[index];
+			for (char &c : key) c = c == '\\' ? '/' : static_cast<char>(tolower(static_cast<unsigned char>(c)));
+			if (key.size() > 5 && key.compare(key.size() - 5, 5, ".bfhp") == 0) key.resize(key.size() - 5);
+			g_s.pickGone.insert(key);
+			g_s.pickSel = -1;
+			MapPreviewReset();
+		}
+		g_s.pickNote = message;
+		g_s.pickNoteUntil = GetTickCount() + 6000;
+		break;
+	}
 	case kPickOk:
 		if (g_s.pickSel >= 0) GameRoomPickerAccept();
 		break;
@@ -656,6 +694,7 @@ std::string &FocusedText()
 	case kNameField: return g_s.nameInput;
 	case kJoinPassField: return g_s.joinPassInput;
 	case kSearchField: return g_s.searchInput;
+	case kPickSearchField: return g_s.pickSearch;
 	default: return g_s.passInput;
 	}
 }
@@ -663,13 +702,15 @@ std::string &FocusedText()
 int FieldOfAction(int action)
 {
 	return action == kChatFocus ? kChatField : action == kFieldName ? kNameField : action == kFieldPass ? kPassField
-		: action == kFieldJoinPass ? kJoinPassField : action == kFieldSearch ? kSearchField : kNoField;
+		: action == kFieldJoinPass ? kJoinPassField : action == kFieldSearch ? kSearchField
+		: action == kFieldPickSearch ? kPickSearchField : kNoField;
 }
 
 int ActionOfField(int field)
 {
 	return field == kChatField ? kChatFocus : field == kNameField ? kFieldName : field == kPassField ? kFieldPass
-		: field == kJoinPassField ? kFieldJoinPass : field == kSearchField ? kFieldSearch : -1;
+		: field == kJoinPassField ? kFieldJoinPass : field == kSearchField ? kFieldSearch
+		: field == kPickSearchField ? kFieldPickSearch : -1;
 }
 
 void FocusField(int field)
@@ -711,18 +752,28 @@ void FieldKey(UINT msg, WPARAM wp)
 {
 	std::string &text = FocusedText();
 	if (msg == WM_CHAR) {
-		EditChar(text, g_s.edit, wp, 200);
+		if (EditChar(text, g_s.edit, wp, 200) && g_s.focus == kPickSearchField) g_s.pick.scroll = 0;
+	}
+	else if (g_s.focus == kPickSearchField && (wp == VK_UP || wp == VK_DOWN || wp == VK_PRIOR || wp == VK_NEXT)) {
+		PickMove(wp);
 	}
 	else if (wp == VK_RETURN) {
-		if (g_s.focus == kChatField) DoAction(kChatSend, 0);
+		if (g_s.focus == kPickSearchField) DoAction(kPickOk, 0);
+		else if (g_s.focus == kChatField) DoAction(kChatSend, 0);
 		else if (g_s.focus == kJoinPassField) DoAction(kPassOk, 0);
 		else g_s.focus = kNoField;
 	}
 	else if (wp == VK_ESCAPE) {
-		g_s.focus = kNoField;
+		if (g_s.focus == kPickSearchField && !g_s.pickSearch.empty()) {
+			g_s.pickSearch.clear();
+			g_s.edit = EditState();
+		}
+		else {
+			g_s.focus = kNoField;
+		}
 	}
 	else {
-		EditKey(text, g_s.edit, wp, 200);
+		if (EditKey(text, g_s.edit, wp, 200) == 2 && g_s.focus == kPickSearchField) g_s.pick.scroll = 0;
 	}
 }
 

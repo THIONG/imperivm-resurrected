@@ -12,6 +12,7 @@
 #include "net/spectator.h"
 #include "addr/state.h"
 
+#include "game/mappreview.h"
 #include "ui/mpui_internal.h"
 
 using namespace mpui_impl;
@@ -288,6 +289,17 @@ void MpUiDraw(uint32_t *buf, int w, int h)
 		if (!g_s.game.picker) {
 			g_s.pickSel = -1;
 			g_s.pick.scroll = 0;
+			g_s.pickOpened = false;
+			g_s.pickSearch.clear();
+			g_s.pickDelete = -1;
+			g_s.pickGone.clear();
+			g_s.pickNote.clear();
+			if (g_s.focus == kPickSearchField) g_s.focus = kNoField;
+		}
+		else if (!g_s.pickOpened) {
+			g_s.pickOpened = true;
+			MapPreviewReset();
+			MapPreviewWanted(g_s.game.pickerPaths, 0);
 		}
 		const std::string name = SteamOnlinePlayerName();
 		g_s.player = name.empty() ? "Player" : name;

@@ -49,6 +49,34 @@ The example does it with an INI patch in `patches\data\const.ini`:
 
 With no entries, the dropdown comes up empty and there's no limit to pick. What `param` receives then hasn't been seen in game: the example falls back to 3 if `Str2Int(param)` gives less than 2.
 
+## Fixed settings and civilizations of a mode
+
+A mode can fix room settings and the civilizations that can be chosen with it. It goes in `modes\<name>.json`:
+
+```json
+{
+  "mode": "2 LIGA",
+  "gold": 5000,
+  "population": 100,
+  "noFog": false,
+  "explored": false,
+  "bonus": 1,
+  "civilizations": ["RomeImperial", "Gaul", "Iberia", "CarthageNumidian"]
+}
+```
+
+| Field | What it is |
+|---|---|
+| `mode` | The name of the mode's script in `data\GameScripts`, without `.vs` (`2 LIGA` for `2 LIGA.vs`), up to 31 characters. If you leave it out, the name of the json file. It also works for the game's modes. |
+| `gold` | (Optional) The starting gold: one of the values of the dropdown (`5000`, `10000`…). |
+| `population` | (Optional) The population: `50`, `100` or `150` (`LowPop`, `NormalPop` and `HighPop` of `CONST.INI`). |
+| `noFog` | (Optional) `true` removes the fog, `false` keeps it. |
+| `explored` | (Optional) `true` starts with the map explored. |
+| `bonus` | (Optional) The bonus of every player, from 0 (none) to 3, the same number as the room's bonus button. Disable bonuses can no longer be ticked. |
+| `civilizations` | (Optional) The civilizations that can be played in that mode: the game's (`Gaul`, `RepublicanRome`…) or the `id` of one of the mod's. A game base allows all its variants; a variant, only that one. |
+
+While that mode is chosen, the room doesn't let anyone change what it fixes: the host sees those rows but can't change them. A player with a civilization the mode doesn't allow moves to the first one of the list, and the random civilization is drawn only among the allowed ones. The host applies it when the game is created, so everyone plays with the same. Saved games and scenarios with fixed civilizations don't change.
+
 ## Online
 
 A new mode changes gameplay: every player must have the same mod.

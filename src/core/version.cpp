@@ -5,7 +5,7 @@
 
 namespace {
 
-const char kVersion[] = "0.32.22";
+const char kVersion[] = "0.32.40";
 
 }
 

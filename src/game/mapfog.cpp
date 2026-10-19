@@ -302,3 +302,32 @@ void InstallZoomFog(bool knownExe)
 	LogAt(okCenter ? kLogInfo : kLogError, "game", "camera: CenterOn protection without zoom map %s", okCenter ? "ready" : "NOT available");
 	LogAt(ok ? kLogInfo : kLogError, "game", "zoom map fog: %s", ok ? (g_enabled ? "ready" : "disabled in the .ini") : "NOT available");
 }
+
+bool ZoomBitmapSize(int *width, int *height)
+{
+	void *zoom = g_zoomThis;
+	if (!zoom) return false;
+	__try {
+		char *bitmap = At<char *>(zoom, 0x14);
+		if (!bitmap) return false;
+		*width = At<int>(bitmap, 8);
+		*height = At<int>(bitmap, 0xc);
+		return *width > 0 && *height > 0 && *width < 16384 && *height < 16384;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return false;
+	}
+}
+
+bool ZoomPixelToWorld(int px, int py, int *world)
+{
+	void *zoom = g_zoomThis;
+	if (!zoom) return false;
+	__try {
+		PixelToWorld(zoom, px, py, world);
+		return true;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return false;
+	}
+}

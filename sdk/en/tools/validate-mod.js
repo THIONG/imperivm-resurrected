@@ -61,7 +61,7 @@ const EVENTS = {
 	OnAttackResolved: ['void', 'Obj', 'Obj', 'int'],
 };
 const MOD_FUNCTIONS = ['Mod_Log', 'Mod_LogInt', 'Mod_IsActive', 'Mod_ApiVersion', 'Mod_SetInt', 'Mod_GetInt', 'Mod_AddInt', 'Mod_HasKey',
-	'Mod_AttackDamage', 'Mod_SetAttackDamage', 'Mod_HasSpecial', 'Mod_SetSpecial', 'Mod_TrueRace', 'Mod_GetOption', 'Mod_GetOptionValue'];
+	'Mod_AttackDamage', 'Mod_SetAttackDamage', 'Mod_HasSpecial', 'Mod_SetSpecial', 'Mod_TrueRace', 'Mod_GetOption', 'Mod_GetOptionValue', 'Mod_PlayerCiv', 'Mod_CanExecCmd'];
 const ID_RE = /^[A-Za-z][A-Za-z0-9_]{0,23}$/;
 
 // --- report -----------------------------------------------------------------------------------------------------------
@@ -334,8 +334,8 @@ for (const f of files) {
 	if (f.includes('..') || /^[a-z]:/i.test(f)) error(f, 0, T('ruta no permitida', 'path not allowed', 'percorso non consentito'));
 }
 
-// --- maps: the kind the .bfhp itself states (game_type 0 scenario, 1 adventure, 2 conquest; adventure="1" in old ones) -----
-// The Scenarios list only shows type 0; the Adventures list shows everything in adventures\ (also type-0 missions).
+// --- maps: the type the .bfhp itself states (game_type 0 scenario, 1 adventure, 2 conquest; adventure="1" in the old ones) -----
+// The Scenarios list only shows type 0; the Adventures list shows everything in adventures\ (type 0 missions too).
 const kMapFolders = ['scenarios', 'adventures', 'conquests'];
 const kMapKinds = [T('un escenario', 'a scenario', 'uno scenario'), T('una aventura', 'an adventure', "un'avventura"), T('una conquista', 'a conquest', 'una conquista')];
 const mapKind = head => {
@@ -436,7 +436,7 @@ if (optionBits > 8) warn('options', 0, T(
 }
 
 // --- civilizations ----------------------------------------------------------------------------------------------------
-const myCivs = new Set(), civIndexes = new Map();
+const myCivs = new Set(), civIndexes = new Map(), baseOverrides = new Map();
 for (const f of files.filter(f => /^civs\/[^/]+\.json$/i.test(f))) {
 	let j;
 	try { j = modernKeys(JSON.parse(read(f))); } catch (e) { error(f, 0, T('no es JSON válido: ', 'not valid JSON: ', 'JSON non valido: ') + e.message); continue; }
@@ -465,7 +465,8 @@ for (const f of files.filter(f => /^civs\/[^/]+\.json$/i.test(f))) {
 		`unknown "bioma": ${biome} (${GAME_CIVS.join(', ')})`,
 		`"bioma" sconosciuto: ${biome} (${GAME_CIVS.join(', ')})`));
 	// Own city and village templates: "plantilla": "Dacian" looks for "Dacian Town N" and "Dacian Village N" in the patch at
-	// patches/randommapsettlements/maps/1/map.obj.xml; whatever is missing is filled in from the base template
+	// patches/randommapsettlements/maps/1/map.obj.xml or in the mod's packs/randommapsettlements.bfhp; whatever is missing is filled in
+	// from the base template
 	const tpl = j.template;
 	if (tpl !== undefined) {
 		if (typeof tpl !== 'string' || !/^[A-Za-z][A-Za-z ]{1,30}$/.test(tpl)) error(f, 0, T(
@@ -473,13 +474,14 @@ for (const f of files.filter(f => /^civs\/[^/]+\.json$/i.test(f))) {
 			'"plantilla" is a string (letters and spaces, e.g. "Dacian")',
 			'"plantilla" è una stringa (lettere e spazi, es. "Dacian")'));
 		else {
-			const tf = files.find(x => lower(x) === 'patches/randommapsettlements/maps/1/map.obj.xml');
+			const tf = files.find(x => lower(x) === 'patches/randommapsettlements/maps/1/map.obj.xml') ||
+				files.find(x => lower(x) === 'packs/randommapsettlements.bfhp');
 			if (!tf) warn(f, 0, T(
 				`"plantilla": "${tpl}" pero el mod no trae patches/randommapsettlements/maps/1/map.obj.xml: se usarán las de la base`,
 				`"plantilla": "${tpl}" but the mod has no patches/randommapsettlements/maps/1/map.obj.xml: the base ones will be used`,
 				`"plantilla": "${tpl}" ma la mod non ha patches/randommapsettlements/maps/1/map.obj.xml: si useranno quelle della base`));
 			else {
-				const text = read(tf);
+				const text = /\.bfhp$/i.test(tf) ? fs.readFileSync(path.join(modDir, tf)).toString('latin1') : read(tf);
 				for (const kind of ['Town', 'Village']) {
 					if (!text.includes(`name="${tpl} ${kind}`)) warn(tf, 0, T(
 						`no hay ninguna plantilla "${tpl} ${kind} N": las ${kind === 'Town' ? 'ciudades' : 'aldeas'} de esa civilización usarán las de la base`,
@@ -490,7 +492,92 @@ for (const f of files.filter(f => /^civs\/[^/]+\.json$/i.test(f))) {
 		}
 	}
 	const letter = j.letter;
-	if (letter !== undefined && String(letter).length !== 1) error(f, 0, T('"letra" es una sola letra', '"letra" is a single letter', '"letra" è una sola lettera'));
+	if (letter !== undefined && !/^[A-Za-z]$/.test(String(letter))) error(f, 0, T('"letra" es una sola letra', '"letra" is a single letter', '"letra" è una sola lettera'));
+	// With "sustituyeBase", the letter and the template become those of the game's base civilization for the whole game
+	if (j.replacesBase === true && GAME_CIVS.includes(j.base || 'Gaul')) {
+		const b = j.base || 'Gaul';
+		const prev = baseOverrides.get(b);
+		if (prev && letter !== undefined && prev.letter !== undefined && lower(String(prev.letter)) !== lower(String(letter))) error(f, 0, T(
+			`da a ${b} la letra ${letter}, pero ${prev.file} le da ${prev.letter}`,
+			`gives ${b} the letter ${letter}, but ${prev.file} gives it ${prev.letter}`,
+			`assegna a ${b} la lettera ${letter}, ma ${prev.file} le assegna ${prev.letter}`));
+		else if (prev && tpl !== undefined && prev.tpl !== undefined && prev.tpl !== tpl) error(f, 0, T(
+			`da a ${b} las plantillas "${tpl}", pero ${prev.file} le da "${prev.tpl}"`,
+			`gives ${b} the templates "${tpl}", but ${prev.file} gives it "${prev.tpl}"`,
+			`assegna a ${b} i modelli "${tpl}", ma ${prev.file} le assegna "${prev.tpl}"`));
+		else if (!prev || (prev.letter === undefined && letter !== undefined) || (prev.tpl === undefined && tpl !== undefined))
+			baseOverrides.set(b, { file: f, letter: letter !== undefined ? letter : prev && prev.letter, tpl: tpl !== undefined ? tpl : prev && prev.tpl });
+	}
+}
+
+// --- game rules (rules/game.json) ------------------------------------------------------------------------------------
+for (const f of files.filter(f => /^rules\//i.test(f))) {
+	if (lower(f) !== 'rules/game.json') {
+		warn(f, 0, T('el juego solo lee rules/game.json', 'the game only reads rules/game.json', 'il gioco legge solo rules/game.json'));
+		continue;
+	}
+	let j;
+	try { j = JSON.parse(read(f)); } catch (e) { error(f, 0, T('no es JSON válido: ', 'not valid JSON: ', 'JSON non valido: ') + e.message); continue; }
+	if (!j || typeof j !== 'object' || Array.isArray(j)) { error(f, 0, T('no es un objeto', 'not an object', 'non è un oggetto')); continue; }
+	for (const k of Object.keys(j)) {
+		if (!['armyStaysWithHero', 'sentriesUnselectable', 'protectedClasses'].includes(k)) error(f, 0, T(
+			`"${k}" no es una regla del juego`, `"${k}" is not a rule of the game`, `"${k}" non è una regola del gioco`));
+	}
+	for (const k of ['armyStaysWithHero', 'sentriesUnselectable']) {
+		if (j[k] !== undefined && typeof j[k] !== 'boolean') error(f, 0, T(`"${k}" es true o false`, `"${k}" is true or false`, `"${k}" è true o false`));
+	}
+	if (j.protectedClasses !== undefined) {
+		if (!Array.isArray(j.protectedClasses)) error(f, 0, T(
+			'"protectedClasses" es una lista de nombres de clase', '"protectedClasses" is a list of class names', '"protectedClasses" è un elenco di nomi di classe'));
+		else for (const c of j.protectedClasses) {
+			if (typeof c !== 'string' || !/^[A-Za-z0-9_]{1,64}$/.test(c)) error(f, 0, T(
+				`"${c}" en "protectedClasses" no es un nombre de clase`, `"${c}" in "protectedClasses" is not a class name`, `"${c}" in "protectedClasses" non è un nome di classe`));
+		}
+	}
+}
+
+// --- game modes (modes/*.json) ---------------------------------------------------------------------------------------
+const modeKeys = new Map();
+for (const f of files.filter(f => /^modes\/[^/]+\.json$/i.test(f))) {
+	let j;
+	try { j = JSON.parse(read(f)); } catch (e) { error(f, 0, T('no es JSON válido: ', 'not valid JSON: ', 'JSON non valido: ') + e.message); continue; }
+	if (!j || typeof j !== 'object' || Array.isArray(j)) { error(f, 0, T('no es un objeto', 'not an object', 'non è un oggetto')); continue; }
+	const key = j.mode !== undefined ? j.mode : path.basename(f).replace(/\.json$/i, '');
+	if (typeof key !== 'string' || key.length < 1 || key.length > 31) error(f, 0, T(
+		'"mode" es el nombre del script del modo en data\\GameScripts sin .vs (hasta 31 caracteres)',
+		'"mode" is the name of the mode\'s script in data\\GameScripts without .vs (up to 31 characters)',
+		'"mode" è il nome dello script della modalità in data\\GameScripts senza .vs (fino a 31 caratteri)'));
+	else {
+		if (modeKeys.has(lower(key))) error(f, 0, T(`el modo "${key}" ya lo fija ${modeKeys.get(lower(key))}`, `the mode "${key}" is already set by ${modeKeys.get(lower(key))}`, `la modalità "${key}" è già fissata da ${modeKeys.get(lower(key))}`));
+		modeKeys.set(lower(key), f);
+		const script = 'data/gamescripts/' + lower(key) + '.vs';
+		if (!files.some(x => lower(x) === script)) warn(f, 0, T(
+			`el mod no trae data/GameScripts/${key}.vs: si el modo no es del juego, no se aplica nunca`,
+			`the mod has no data/GameScripts/${key}.vs: if the mode is not one of the game's, it never applies`,
+			`la mod non ha data/GameScripts/${key}.vs: se la modalità non è del gioco, non si applica mai`));
+	}
+	for (const k of Object.keys(j)) {
+		if (!['mode', 'gold', 'population', 'noFog', 'explored', 'bonus', 'civilizations'].includes(k)) error(f, 0, T(
+			`"${k}" no es un ajuste de un modo`, `"${k}" is not a setting of a mode`, `"${k}" non è un'impostazione di una modalità`));
+	}
+	for (const [k, lo, hi] of [['gold', 0, 10000000], ['population', 1, 100000], ['bonus', 0, 99]]) {
+		if (j[k] !== undefined && !(Number.isInteger(j[k]) && j[k] >= lo && j[k] <= hi)) error(f, 0, T(
+			`"${k}" es un número entero entre ${lo} y ${hi}`, `"${k}" is a whole number between ${lo} and ${hi}`, `"${k}" è un numero intero tra ${lo} e ${hi}`));
+	}
+	for (const k of ['noFog', 'explored']) {
+		if (j[k] !== undefined && typeof j[k] !== 'boolean') error(f, 0, T(`"${k}" es true o false`, `"${k}" is true or false`, `"${k}" è true o false`));
+	}
+	if (j.civilizations !== undefined) {
+		if (!Array.isArray(j.civilizations)) error(f, 0, T(
+			'"civilizations" es una lista de civilizaciones', '"civilizations" is a list of civilizations', '"civilizations" è un elenco di civiltà'));
+		else for (const c of j.civilizations) {
+			const known = typeof c === 'string' && (GAME_CIVS.some(g => lower(g) === lower(c)) || ['rome', 'roman', 'briton'].includes(lower(c)) || myCivs.has(lower(c)));
+			if (!known) warn(f, 0, T(
+				`"${c}" no es una civilización del juego ni de este mod (si es de otro mod, ese tiene que estar activo)`,
+				`"${c}" is not a civilization of the game or of this mod (if it belongs to another mod, that one has to be active)`,
+				`"${c}" non è una civiltà del gioco né di questa mod (se è di un'altra mod, quella deve essere attiva)`));
+		}
+	}
 }
 
 // --- specialties ------------------------------------------------------------------------------------------------------
@@ -568,8 +655,8 @@ for (const f of files.filter(f => /^data\/commands\/[^/]+\.xml$/i.test(f))) {
 	const text = read(f);
 	const bad = checkXml(text);
 	if (bad) { error(f, bad.line, T('XML mal formado: ', 'malformed XML: ', 'XML malformato: ') + bad.msg); continue; }
-	// Two commands with the same name each work for the buildings of their <src>: the game binds them by position, not by name.
-	// Whatever asks for the command by its name (scripts, <defaultcmd>) gets the first one. They only clash on the same building
+	// Two commands with the same name each apply to the buildings of their <src>: the game binds them by position, not by name.
+	// Whatever asks for the command by its name (scripts, <defaultcmd>) gets the first one. They only clash if both are for the same building
 	const buildings = new Map();
 	for (const m of text.matchAll(/<cmd\b[^>]*?\bname\s*=\s*"([^"]*)"[^>]*?(?:\/>|>([\s\S]*?)<\/cmd>)/g)) {
 		const srcs = [...(m[2] || '').matchAll(/<src\b[^>]*?\bobj\s*=\s*"([^"]*)"/g)].map(s => lower(s[1]));
@@ -716,8 +803,8 @@ for (const f of files.filter(f => /^loc\/.+\.xml$/i.test(f))) {
 
 // --- scripts ----------------------------------------------------------------------------------------------------------
 const typesOf = sig => sig.split(',').map(s => s.trim().split(/\s+/)[0]).filter(Boolean);
-// A behavior script (<behavior script="..."> of a class) doesn't need the signature: the game always loads it as "void, Obj This"
-// Nor do the victory conditions (data\gamescripts) and item scripts (the *_script of data\items.xml): the game passes them their signature
+// A behavior script (<behavior script="..."> of a class) needs no signature: the game always loads it as "void, Obj This"
+// Neither do victory modes (data\gamescripts) and item scripts (the *_script of data\items.xml): the game passes them their signature
 const behaviorScripts = new Set();
 for (const f of files.filter(f => /^data\/classes\/.+\.sc\.xml$/i.test(f))) {
 	for (const m of read(f).matchAll(/<behavior\b[^>]*?\bscript\s*=\s*"([^"]+)"/gi)) behaviorScripts.add(lower(m[1].replace(/\\/g, '/')));

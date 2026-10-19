@@ -115,9 +115,6 @@ struct IniValue {
 const IniValue kIniValues[] = {
 	{"Display", "Mode", "completa", "fullscreen"},
 	{"Display", "Mode", "ventana", "windowed"},
-	{"Render", "Scaling", "suave", "smooth"},
-	{"Render", "Scaling", "nitido", "sharp"},
-	{"Render", "Scaling", "entero", "integer"},
 	{"Updates", "Mode", "avisar", "notify"},
 	{"Updates", "Mode", "no", "off"},
 	{"Mods", "Profile", "Sin perfil", "No profile"},

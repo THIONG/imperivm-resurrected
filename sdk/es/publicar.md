@@ -58,6 +58,8 @@ Para las categorías sin ejemplo (aventuras, conquistas, gráficos, sonido), bas
 
 **Mapas sueltos.** Si el `.zip` trae solo el `.bfhp`, sin carpetas, el juego lo coloca él solo al instalarlo según el tipo que dice el propio mapa (lo que eligió su autor en el editor): una aventura va a `adventures\` (con su `.bmp` del mismo nombre), una conquista a `conquests\` y un mapa de escaramuza a `scenarios\`, o a `adventures\` si la categoría es Adventures (misiones de un jugador hechas como mapa normal). Aun así, lo recomendable es subirlo ya dentro de su carpeta; el [validador](validar.md) avisa si un mapa está en la que no le toca, por ejemplo una aventura en `scenarios\`, que la lista de Escenarios no enseña.
 
+**Vista previa de un escenario.** Al elegir un escenario en la sala, el juego dibuja una vista previa con el terreno del propio mapa, los jugadores que tiene y su civilización, y de dónde viene: no hace falta que subas ninguna imagen. Los colores salen de las losetas del minimapa del juego, así que un terreno nuevo se ve bien si trae su loseta en `minimapzoom8	errain`.
+
 **Nombres antiguos.** Escenarios, Aventuras y Conquistas se llaman como las carpetas del juego (`scenarios\`, `adventures\`, `conquests\`). Antes eran **Maps**, **Campaigns** y **Conquest**: un `mod.json` con esos nombres, o con `Interface` o `Total Conversions`, sigue funcionando, pero el validador te pide el nombre nuevo.
 
 ## Etiquetas

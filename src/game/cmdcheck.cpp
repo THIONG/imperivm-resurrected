@@ -137,6 +137,14 @@ std::vector<GameCommand> GameCommands()
 	return out;
 }
 
+bool OffersCommand(unsigned handle, const char *command)
+{
+	const uint16_t index = static_cast<uint16_t>(handle & 0xffff);
+	char *obj = reinterpret_cast<char **>(addr::kHandleTable)[index];
+	char *desc = obj ? FindDesc(command) : nullptr;
+	return desc && Offered(obj, desc);
+}
+
 bool CanExecCommand(unsigned handle, const char *command)
 {
 	const uint16_t index = static_cast<uint16_t>(handle & 0xffff);

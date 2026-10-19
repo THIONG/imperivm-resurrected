@@ -58,6 +58,8 @@ Per le categorie senza esempio (avventure, conquiste, grafica, audio) basta copi
 
 **Mappe sciolte.** Se lo `.zip` contiene solo il `.bfhp`, senza cartelle, il gioco lo sistema da solo durante l'installazione secondo il tipo indicato dalla mappa stessa (quello scelto dal suo autore nell'editor): un'avventura va in `adventures\` (con la sua `.bmp` dello stesso nome), una conquista in `conquests\` e una mappa da schermaglia in `scenarios\`, oppure in `adventures\` se la categoria è Adventures (missioni per giocatore singolo fatte come mappa normale). In ogni caso è meglio caricarla già nella sua cartella; il [validatore](validare.md) avvisa se una mappa è in quella sbagliata, per esempio un'avventura in `scenarios\`, che la lista degli Scenari non mostra.
 
+**Anteprima di uno scenario.** Quando si sceglie uno scenario nella stanza, il gioco disegna un'anteprima con il terreno della mappa stessa, i suoi giocatori e le loro civiltà, e da dove viene: non serve caricare nessuna immagine. I colori vengono dalle tessere della minimappa del gioco, quindi un terreno nuovo si vede bene se porta la sua tessera in `minimapzoom8	errain`.
+
 **Nomi vecchi.** Scenari, Avventure e Conquiste si chiamano come le cartelle del gioco (`scenarios\`, `adventures\`, `conquests\`). Prima erano **Maps**, **Campaigns** e **Conquest**: un `mod.json` con quei nomi, o con `Interface` o `Total Conversions`, funziona ancora, ma il validatore ti chiede il nome nuovo.
 
 ## Tag

@@ -14,6 +14,7 @@ struct Civ {
 	int base = 0;
 	std::string internalName;
 	std::string letterUp, letterLow;
+	bool ownLetter = false;
 	int biome = -1;
 	std::string templatePrefix;
 	bool random = true;
@@ -55,6 +56,8 @@ void CivsOnRoomShown(void *dlg);
 const char *CivsRoomSeparator();
 std::vector<int> CivsRoomOrder(int items);
 int CivsRoomReplacement(int item, int items);
+int CivsRaceOfRoomItem(int item);
+int CivsRoomItemOfRace(int race);
 void CivsBuildBegin();
 void CivsBuildEnd(void *settings);
 

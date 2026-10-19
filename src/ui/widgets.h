@@ -118,6 +118,7 @@ struct DropItem {
 	std::string text;
 	COLORREF color = kText;
 	bool disabled = false;
+	std::string tip;
 };
 
 inline std::vector<DropItem> ToDropItems(const std::vector<std::string> &texts)
@@ -164,6 +165,7 @@ inline DropLayout PaintDropMenu(Painter &p, const RECT &anchor, const std::vecto
 	p.Frame(d.x, d.y, d.w, d.h, kGold);
 	p.Font(0);
 	const int textW = d.w - 26;
+	int tipRow = -1;
 	for (int r = 0; r < d.rows; r++) {
 		const int i = d.scroll + r;
 		const int ry = d.y + 2 + r * kMenuRowH;
@@ -174,6 +176,20 @@ inline DropLayout PaintDropMenu(Painter &p, const RECT &anchor, const std::vecto
 		const COLORREF c = it.disabled ? kDim : i == selected ? pal::focus : it.color;
 		p.Text(d.x + 10, ry, textW, kMenuRowH, it.text.empty() ? "—" : it.text, c);
 		if (!it.disabled) p.AddHit(d.x + 2, ry, d.w - 4, kMenuRowH, pickAction, i);
+		if (hov && !it.tip.empty()) tipRow = r;
+	}
+	if (tipRow >= 0) {
+		const DropItem &it = items[d.scroll + tipRow];
+		p.Font(3);
+		const int tw = 300, th = p.Measure(tw - 20, it.tip) + 14;
+		int tx = d.x + d.w + 8;
+		if (tx + tw > canvasW - 8) tx = d.x - 8 - tw;
+		const int ty = std::max(8, std::min(d.y + 2 + tipRow * kMenuRowH, canvasH - 8 - th));
+		p.Fill(tx + 3, ty + 3, tw, th, pal::shadow);
+		p.Fill(tx, ty, tw, th, pal::dialog);
+		p.Frame(tx, ty, tw, th, pal::edge);
+		p.TextWrapped(tx + 10, ty + 7, tw - 20, th - 10, it.tip, kText);
+		p.Font(0);
 	}
 	if (count > d.rows) {
 		const int bh = d.h - 4, th = std::max(16, bh * d.rows / count), ty = d.y + 2 + (bh - th) * d.scroll / (count - d.rows);
@@ -235,6 +251,7 @@ inline Dialog DialogBegin(Painter &p, int canvasW, int canvasH, int w, int h, co
 	d.x = (canvasW - w) / 2;
 	d.y = (canvasH - h) / 2;
 	p.hits->clear();
+	p.noHover = false;
 	p.Fill(d.x + 6, d.y + 6, w, h, pal::shadow);
 	p.Fill(d.x, d.y, w, h, pal::dialog);
 	p.Frame(d.x, d.y, w, h, kGold);

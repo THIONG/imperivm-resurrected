@@ -8,7 +8,6 @@
 struct Config {
 	bool renderEnabled = true;
 	bool vsync = true;
-	int scaleMode = 0;
 	int brightness = 100;
 	int movieVolume = 50;
 	bool movieMute = false;
@@ -19,6 +18,7 @@ struct Config {
 	int windowW = 1600;
 	int windowH = 900;
 	bool trapMouse = true;
+	int monitor = 0;
 	bool allResolutions = true;
 	bool extendedView = true;
 	bool showPerf = false;
@@ -37,7 +37,7 @@ struct Config {
 	float scrollSpeed = 1.0f;
 	bool autosave = true;
 	int autosaveMinutes = 10;
-	bool autosaveOnExit = true;
+	bool autosaveOnExit = false;
 	int autosaveSlots = 3;
 	bool crashFix = true;
 	bool smoothScroll = true;

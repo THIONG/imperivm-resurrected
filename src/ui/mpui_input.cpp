@@ -169,7 +169,7 @@ bool MpUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 		}
 		else if (g_s.game.picker && !SaveMapPicking(g_s)) {
 			const int count = static_cast<int>(g_s.game.pickerItems.size());
-			g_s.pick.scroll = std::max(0, std::min(g_s.pick.scroll - GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA * 3, count - 13));
+			g_s.pick.scroll = std::max(0, std::min(g_s.pick.scroll - GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA * 3, count - PickRowsShown()));
 		}
 		return true;
 	case WM_LBUTTONUP:
@@ -220,22 +220,20 @@ bool MpUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 			}
 			WakeGameThread();
 		}
+		else if (g_s.game.picker && !SaveMapPicking(g_s) && g_s.pickDelete >= 0) {
+			if (wp == VK_ESCAPE) DoAction(kPickDeleteNo, 0);
+			else if (wp == VK_RETURN) DoAction(kPickDeleteYes, 0);
+		}
 		else if (g_s.game.picker && !SaveMapPicking(g_s) && (wp == VK_UP || wp == VK_DOWN || wp == VK_PRIOR || wp == VK_NEXT || wp == VK_HOME || wp == VK_END)) {
-			const int count = static_cast<int>(g_s.game.pickerItems.size());
-			int sel = g_s.pickSel < 0 ? 0 : g_s.pickSel;
-			sel += wp == VK_UP ? -1 : wp == VK_DOWN ? 1 : wp == VK_PRIOR ? -kPickRows : wp == VK_NEXT ? kPickRows : wp == VK_HOME ? -count : count;
-			sel = std::max(0, std::min(count - 1, sel));
-			if (count) {
-				g_s.pickSel = sel;
-				GameRoomPickerSelect(sel);
-				if (sel < g_s.pick.scroll) g_s.pick.scroll = sel;
-				if (sel >= g_s.pick.scroll + kPickRows) g_s.pick.scroll = sel - kPickRows + 1;
-			}
+			PickMove(wp);
+		}
+		else if (g_s.game.picker && !SaveMapPicking(g_s) && wp == 'F' && (GetKeyState(VK_CONTROL) & 0x8000)) {
+			DoAction(kFieldPickSearch, 0);
 		}
 		else if (g_s.game.picker && !SaveMapPicking(g_s) && wp == VK_RETURN) {
 			DoAction(kPickOk, 0);
 		}
-		else if (wp == VK_ESCAPE && g_s.game.picker && !SaveMapPicking(g_s)) {
+		else if (wp == VK_ESCAPE && g_s.game.picker && !SaveMapPicking(g_s) && !g_s.dropOpen) {
 			DoAction(kPickCancel, 0);
 		}
 		else if (wp == VK_ESCAPE && g_s.dropOpen) {

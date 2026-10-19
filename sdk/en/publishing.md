@@ -58,6 +58,8 @@ For the categories without an example (adventures, conquests, graphics, sound), 
 
 **Loose maps.** If the `.zip` only holds the `.bfhp`, with no folders, the game places it by itself when installing, by the kind the map itself states (what its author chose in the editor): an adventure goes to `adventures\` (with its `.bmp` of the same name), a conquest to `conquests\` and a skirmish map to `scenarios\`, or to `adventures\` if the category is Adventures (single-player missions made as a normal map). Even so, it is better to upload it already inside its folder; the [validator](validating.md) warns when a map is in the wrong one, for example an adventure in `scenarios\`, which the Scenarios list doesn't show.
 
+**Scenario preview.** When a scenario is chosen in the room, the game draws a preview from the map's own terrain, with its players and their civilizations, and where it comes from: you don't need to upload any image. The colors come from the game's minimap tiles, so a new terrain looks right if it brings its tile in `minimapzoom8	errain`.
+
 **Old names.** Scenarios, Adventures and Conquests are named after the game's folders (`scenarios\`, `adventures\`, `conquests\`). They used to be **Maps**, **Campaigns** and **Conquest**: a `mod.json` with those names, or with `Interface` or `Total Conversions`, still works, but the validator asks for the new name.
 
 ## Tags

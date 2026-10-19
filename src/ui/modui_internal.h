@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <string>
 #include <vector>
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -36,6 +37,7 @@ const int kListW = 520;
 
 const int kListH = 422;
 const int kInstalledListH = kListH + 32;
+const int kSelectionBarY = 554;
 
 const int kDetailX = kListX + kListW + 16;
 
@@ -56,11 +58,12 @@ enum Action {
 	kRichLink, kShowProblems, kUpdateAll,
 	kIoFilterOpen, kIoFilterClose, kIoFilterToggle, kIoFilterClear,
 	kUseFiles,
+	kRowClick, kMark, kStateFilter, kCatChip, kCatPanel, kCatClear, kBulkOn, kBulkOff, kBulkUninstall, kClearMarks, kSetActive,
 };
 
 enum Field { kNoField, kSearchField, kNameField, kIoSearchField };
 
-enum Drop { kDropNone, kDropProfile, kDropMenu, kDropFilter, kDropIoSort, kDropVersions, kDropClashFiles };
+enum Drop { kDropNone, kDropProfile, kDropMenu, kDropSort, kDropIoSort, kDropVersions, kDropClashFiles, kDropModMenu, kDropRowMenu };
 
 const int kIoFilterTypes = 0;
 const int kIoFilterPlayers = 1;
@@ -76,7 +79,9 @@ enum NameMode { kNameNone, kNameSaveAs, kNameRename, kNameNew };
 
 enum Confirm { kConfirmRestart, kConfirmUninstall, kConfirmDelete };
 
-const char *const kFilterNames[] = {"All", "Active", "Disabled", "Gameplay", "Maps", "Cosmetics", "With errors"};
+const char *const kSortNames[] = {"Name", "Active first", "Recently installed", "Size"};
+const int kSortCount = 4;
+enum StateFilter { kStateAll, kStateActive, kStateDisabled, kStateProblems, kStateCount };
 
 struct Row {
 	std::string folder;
@@ -119,7 +124,16 @@ struct State {
 	int nameMode = kNameNone;
 	std::string nameText;
 	std::string searchText;
-	int filter = 0;
+	int stateFilter = kStateAll;
+	CatalogFilter catFilter;
+	bool catOpen = false;
+	int sort = 0;
+	std::vector<std::string> marked;
+	std::vector<std::string> uninstallTargets;
+	int anchor = -1;
+	int menuRow = -1;
+	int menuX = 0, menuY = 0;
+	uint64_t listSerial = 0;
 
 	int tab = 0;
 	int focus = kNoField;
@@ -147,6 +161,7 @@ struct State {
 extern std::mutex g_lock;
 extern State g_s;
 extern ListGeom g_listGeomOut;
+extern std::atomic<int> g_installedRows;
 struct RichTextState {
 	std::mutex mx;
 	std::string src;
@@ -167,6 +182,18 @@ std::string OverlapText(const ModOverlap &ov);
 const ModIssues *SelectedIssues(const State &st);
 bool Pending(const State &st, const std::string &folder);
 std::vector<int> VisibleRows(const State &st);
+std::vector<int> VisibleRows(const State &st, int state, const CatalogFilter &filter);
+CatalogFacts ModFactsOf(const ModInfo &m);
+uint32_t ModCategoriesOf(const ModInfo &m);
+int ModMainCategory(const ModInfo &m);
+bool RowHasProblems(const State &st, const Row &r);
+bool IsMarked(const State &st, const std::string &folder);
+std::vector<std::string> Targets(const State &st);
+CatalogCounts InstalledCounts(const State &st);
+void SetActive(const std::vector<std::string> &folders, bool on);
+void AskUninstall(const std::vector<std::string> &folders);
+std::vector<std::string> RowMenuItems(const State &st);
+void RunRowMenu(int index);
 void BuildRows();
 void BuildUsage();
 void Reload();
@@ -194,7 +221,9 @@ struct DropListState {
 };
 extern DropListState g_drop;
 int DropCurrent(const State &st);
+void PaintFacetPanel(Painter &p, const CatalogFilter &f, const CatalogCounts &counts, int toggleAction, int clearAction, int closeAction, int mx, int my);
 void PaintFilterPanel(Painter &p, const State &st);
+void PaintInstalledFilterPanel(Painter &p, const State &st);
 void PaintPanel(Painter &p, const State &st);
 void PaintInstalled(Painter &p, const State &st);
 void PaintField(Painter &p, const State &st, int x, int y, int w, int h, const std::string &text, const std::string &placeholder,

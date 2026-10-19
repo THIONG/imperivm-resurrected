@@ -7,7 +7,9 @@
 namespace addr {
 
 inline constexpr uintptr_t kFindClassByName = 0x00409e40;
+inline constexpr uintptr_t kScriptFnSquadEvalAttach = 0x00424550;
 inline constexpr uintptr_t kScriptFnSettlementTSResearch = 0x00426ab0;
+inline constexpr uintptr_t kScriptFnHeroTSAdvHeroSkills = 0x00426c00;
 inline constexpr uintptr_t kScriptFnSettlementMaxAffordCount = 0x00428a10;
 inline constexpr uintptr_t kScriptFnSettlementCanAfford = 0x00428ba0;
 inline constexpr uintptr_t kScriptFnSettlementCanAffordN = 0x00428d40;
@@ -36,7 +38,10 @@ inline constexpr uintptr_t kScriptObjRaceStrPrefLow = 0x005aac90;
 inline constexpr uintptr_t kScriptFnObjPlayer = 0x005ab290;
 inline constexpr uintptr_t kObjRace = 0x005ada20;
 inline constexpr uintptr_t kScriptFnObjCmdCount = 0x005ae4d0;
+inline constexpr uintptr_t kScriptCommandDefQueueRead = 0x005ae717;
+inline constexpr uintptr_t kScriptCommandDefNone = 0x005ae74a;
 inline constexpr uintptr_t kScriptFnObjExecCmd = 0x005b5470;
+inline constexpr uintptr_t kScriptFnUnitHasFreedom = 0x005d7d30;
 inline constexpr uintptr_t kReportError = 0x0068f3b0;
 inline constexpr uintptr_t kAllocScriptString = 0x00695e10;
 inline constexpr uintptr_t kScriptStringRelease = 0x00695e70;

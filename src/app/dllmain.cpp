@@ -43,11 +43,15 @@
 #include "net/lobbygates.h"
 #include "hooks/selectionguard.h"
 #include "hooks/curseguard.h"
+#include "hooks/handleguard.h"
+#include "game/packrules.h"
 #include "hooks/builtinfixes.h"
 #include "net/nettune.h"
 #include "net/rejoin.h"
 #include "net/spectator.h"
 #include "game/mapfog.h"
+#include "game/quickicons.h"
+#include "game/zoomview.h"
 #include "game/cheats.h"
 #include "net/onlinesaves.h"
 #include "ui/savesui.h"
@@ -197,11 +201,15 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 		InstallLobbyGates(knownExe);
 		InstallSelectionGuard(knownExe);
 		InstallCurseGuard(knownExe);
+		InstallHandleGuard(knownExe);
+		InstallPackRules(knownExe);
 		InstallRejoin(knownExe);
 		InstallNetTune(knownExe);
 		InstallSpectator(knownExe);
 		InstallCheats(knownExe);
 		InstallZoomFog(knownExe);
+		InstallQuickIcons(knownExe);
+		InstallZoomView(knownExe);
 		InstallSavesUi(knownExe);
 		if (knownExe && GetConfig().largeAddress && !ModsExeIsLargeAddressAware()) ModsPatchExeAtExit(1);
 		InstallMpUi(knownExe);

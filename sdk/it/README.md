@@ -75,6 +75,7 @@ Non inserire eseguibili né script di sistema (`.exe .dll .asi .bat .cmd .com .s
 - [Formazioni nuove](formazioni.md): formazioni da eroe con i loro bonus e il loro pulsante.
 - [Avamposti ed edifici](avamposti.md): avamposti neutrali nuovi nelle mappe casuali (`crea-avamposto.js`) e classi di torri, mura e porte.
 - [Modalità di vittoria](modalita-vittoria.md): uno script in `data\GameScripts` aggiunge una modalità al menu a tendina "Modalità" della stanza.
+- [Bonus iniziali](bonus.md): script in `data\BonusScripts` aggiungono scelte alla colonna "Bonus" della stanza.
 - [Opzioni di partita proprie](opzioni.md): interruttori nuovi nelle regole della stanza, che gli script leggono con `Mod_GetOption`.
 - [Tipi di mappa casuale](mappe-casuali.md): un disegno a quattro colori diventa un nuovo tipo di mappa (`crea-mappa-casuale.js`).
 - [Immagini proprie](immagini.md): pulsanti dei comandi e icone delle unità a partire da un PNG.
@@ -116,7 +117,7 @@ Lascia `data.pak` in `<cartella di output>\DATA`. È la cartella che chiedono `c
 
 ## Cosa conta come gameplay?
 
-Nel multiplayer, tutti devono avere le stesse mod se cambiano ciò che succede in partita. Il gioco lo calcola dalle cartelle che la tua mod tocca: `data/`, `scenarios/`, `adventures/`, `conquests/`, `civs/`, `specials/`, `events/`, `options/`, `randommap/`, `randommapsettlements/`, i `.xml` e `.pass` di `units/`, `buildings/` e `mapobjects/`, gli `.xml` di `visuals/`, le mappe `.bfhp` di `packs/` e le patch (in base al file che correggono).
+Nel multiplayer, tutti devono avere le stesse mod se cambiano ciò che succede in partita. Il gioco lo calcola dalle cartelle che la tua mod tocca: `data/`, `scenarios/`, `adventures/`, `conquests/`, `civs/`, `specials/`, `events/`, `options/`, `rules/`, `modes/`, `randommap/`, `randommapsettlements/`, i `.xml` e `.pass` di `units/`, `buildings/` e `mapobjects/`, gli `.xml` di `visuals/`, le mappe `.bfhp` di `packs/` e le patch (in base al file che correggono).
 
 Grafica, suoni, testi (`loc/`) e lingue non contano: ogni giocatore può avere i suoi.
 

@@ -44,3 +44,16 @@ int CivRoomReplacement(const std::vector<RoomCiv> &civs, int item, int items)
 	}
 	return -1;
 }
+
+int CivRoomBaseOfItem(int item)
+{
+	return item >= 0 && item < 9 ? kComboRace[item] : -1;
+}
+
+int CivRoomItemOfBase(int race)
+{
+	for (int item = 0; item < 9; item++) {
+		if (kComboRace[item] == race) return item;
+	}
+	return -1;
+}

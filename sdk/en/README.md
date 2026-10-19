@@ -73,6 +73,7 @@ Don't include executables or system scripts (`.exe .dll .asi .bat .cmd .com .scr
 - [New formations](formations.md): hero formations with their bonuses and button.
 - [Outposts and buildings](outposts.md): new neutral outposts on random maps (`create-outpost.js`) and tower, wall and gate classes.
 - [Victory modes](victory-modes.md): a script in `data\GameScripts` adds a mode to the lobby's "Mode" dropdown.
+- [Starting bonuses](bonuses.md): scripts in `data\BonusScripts` add choices to the "Bonus" column of the lobby.
 - [Custom game options](options.md): new switches in the lobby rules, which scripts read with `Mod_GetOption`.
 - [Random map types](random-maps.md): a four-color drawing becomes a new map type (`create-random-map.js`).
 - [Custom images](images.md): command buttons and unit icons from a PNG.
@@ -114,7 +115,7 @@ It leaves `data.pak` in `<output folder>\DATA`. That's the folder that `clone-ci
 
 ## What counts as gameplay?
 
-In multiplayer, everyone must run the same mods if they change what happens in the game. The game works this out from the folders your mod touches: `data/`, `scenarios/`, `adventures/`, `conquests/`, `civs/`, `specials/`, `events/`, `options/`, `randommap/`, `randommapsettlements/`, the `.xml` and `.pass` files in `units/`, `buildings/` and `mapobjects/`, the `.xml` files in `visuals/`, the `.bfhp` maps in `packs/`, and patches (depending on the file they patch).
+In multiplayer, everyone must run the same mods if they change what happens in the game. The game works this out from the folders your mod touches: `data/`, `scenarios/`, `adventures/`, `conquests/`, `civs/`, `specials/`, `events/`, `options/`, `rules/`, `modes/`, `randommap/`, `randommapsettlements/`, the `.xml` and `.pass` files in `units/`, `buildings/` and `mapobjects/`, the `.xml` files in `visuals/`, the `.bfhp` maps in `packs/`, and patches (depending on the file they patch).
 
 Graphics, sounds, texts (`loc/`) and languages don't count: each player can use their own.
 

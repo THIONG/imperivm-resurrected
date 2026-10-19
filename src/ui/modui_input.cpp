@@ -16,7 +16,7 @@ using namespace modui_impl;
 
 bool TabSkip(int a)
 {
-	return a == kNone || a == kDropClose || a == kSelect || a == kToggle || a == kRichLink ||
+	return a == kNone || a == kDropClose || a == kSelect || a == kToggle || a == kRichLink || a == kRowClick || a == kMark ||
 		a == kIoFilterClose;
 }
 
@@ -273,7 +273,7 @@ bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 		g_s.tabAction = -1;
 		g_s.mouseDown = true;
 		if (g_s.confirm && ListDown(g_s.confirmList, g_s.confirmGeom, pt)) return true;
-		if (!g_s.confirm && g_s.drop == kDropNone && !g_s.ioFilterOpen && g_s.ioShot < 0) {
+		if (!g_s.confirm && g_s.drop == kDropNone && !g_s.ioFilterOpen && !g_s.catOpen && g_s.ioShot < 0) {
 			if (ListDown(g_s.list, g_s.listGeom, pt)) return true;
 			std::lock_guard<std::mutex> rich(g_rich.mx);
 			if (ListDown(g_rich.list, g_rich.geom, pt)) return true;
@@ -321,7 +321,29 @@ bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 			ListUp(g_rich.list);
 		}
 		return true;
-	case WM_RBUTTONDOWN:
+	case WM_RBUTTONDOWN: {
+		const POINT pt = {static_cast<short>(LOWORD(lp)), static_cast<short>(HIWORD(lp))};
+		const bool menuOpen = g_s.drop == kDropRowMenu || g_s.drop == kDropModMenu;
+		if (g_s.tab != 0 || g_s.confirm || g_s.catOpen || (g_s.drop != kDropNone && !menuOpen)) return true;
+		if (menuOpen) g_s.drop = kDropNone;
+		for (auto it = g_s.hits.rbegin(); it != g_s.hits.rend(); ++it) {
+			if (!PtInRect(&it->r, pt)) continue;
+			if (menuOpen && (it->action == kDropClose || it->action == kDropPick)) continue;
+			if (it->action != kRowClick && it->action != kMark && it->action != kToggle) break;
+			const int row = it->arg;
+			if (row < 0 || row >= static_cast<int>(g_s.rows.size())) break;
+			if (!IsMarked(g_s, g_s.rows[row].folder)) g_s.marked.clear();
+			g_s.selected = row;
+			g_s.menuRow = row;
+			g_s.menuX = pt.x;
+			g_s.menuY = pt.y;
+			g_s.drop = kDropRowMenu;
+			g_s.dropScroll = 0;
+			g_s.focus = kNoField;
+			break;
+		}
+		return true;
+	}
 	case WM_RBUTTONUP:
 	case WM_RBUTTONDBLCLK:
 	case WM_MBUTTONDOWN:
@@ -337,7 +359,7 @@ bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 			g_s.dropScroll = std::max(0, std::min(g_s.dropScroll - GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA * 3, DropMaxScroll(g_drop.count, g_drop.rows)));
 			return true;
 		}
-		if (g_s.ioFilterOpen) return true;
+		if (g_s.ioFilterOpen || g_s.catOpen) return true;
 		{
 			std::lock_guard<std::mutex> lock(g_rich.mx);
 			const POINT pt = {g_s.mouseX, g_s.mouseY};
@@ -422,8 +444,13 @@ bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 			else if (wp == VK_RIGHT || wp == VK_NEXT) DoAction(kIoNext, 0);
 			return true;
 		}
+		if (g_s.catOpen && !g_s.confirm) {
+			if (wp == VK_ESCAPE) g_s.catOpen = false;
+			return true;
+		}
 		if (wp == VK_ESCAPE) {
-			DoAction(g_s.confirm ? kConfirmNo : kClose, 0);
+			if (!g_s.confirm && !g_s.marked.empty()) DoAction(kClearMarks, 0);
+			else DoAction(g_s.confirm ? kConfirmNo : kClose, 0);
 			return true;
 		}
 		if (wp == VK_RETURN && g_s.confirm) {
@@ -436,13 +463,27 @@ bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 		for (size_t i = 0; i < view.size(); i++) {
 			if (view[i] == g_s.selected) pos = static_cast<int>(i);
 		}
+		const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
 		if (wp == VK_UP && !view.empty()) g_s.selected = view[std::max(0, pos - 1)];
 		else if (wp == VK_DOWN && !view.empty()) g_s.selected = view[std::min(static_cast<int>(view.size()) - 1, pos + 1)];
-		else if (wp == VK_SPACE) DoAction(kToggle, g_s.selected);
+		else if (wp == 'A' && ctrl) {
+			g_s.marked.clear();
+			for (int row : view) g_s.marked.push_back(g_s.rows[row].folder);
+		}
+		else if (wp == VK_DELETE) AskUninstall(Targets(g_s));
+		else if (wp == VK_SPACE) {
+			const std::vector<std::string> targets = Targets(g_s);
+			bool allOn = !targets.empty();
+			for (const Row &r : g_s.rows) {
+				if (std::find(targets.begin(), targets.end(), r.folder) != targets.end() && !r.active) allOn = false;
+			}
+			SetActive(targets, !allOn);
+			g_s.restartNeeded = ModsRestartNeeded();
+		}
 		for (size_t i = 0; i < view.size(); i++) {
 			if (view[i] == g_s.selected) pos = static_cast<int>(i);
 		}
-		const int visible = kInstalledListH / kRowH;
+		const int visible = g_installedRows.load();
 		if (pos < g_s.list.scroll) g_s.list.scroll = pos;
 		if (pos >= g_s.list.scroll + visible) g_s.list.scroll = pos - visible + 1;
 		return true;

@@ -53,11 +53,13 @@ static void ModsScanUnguarded()
 			}
 			std::vector<ScanFile> f;
 			mods.push_back(ScanMod(name, f));
+			mods.back().installedTime = static_cast<uint64_t>(fd.ftCreationTime.dwHighDateTime) << 32 | fd.ftCreationTime.dwLowDateTime;
 			files[name] = std::move(f);
 		} while (FindNextFileA(h, &fd));
 		FindClose(h);
 	}
 	std::sort(mods.begin(), mods.end(), [](const ModInfo &a, const ModInfo &b) { return Lower(a.name) < Lower(b.name); });
+	ModsNoteScan(mods);
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
 		for (ModInfo &m : mods) {
@@ -71,6 +73,7 @@ static void ModsScanUnguarded()
 		g_mods = std::move(mods);
 		g_scanFiles = std::move(files);
 	}
+	ModsBumpSerial();
 	LogI("content", "%u mods in the mods folder", static_cast<unsigned>(g_mods.size()));
 	for (const ModInfo &m : g_mods) LogI("content", "  %s -> %s", m.folder.c_str(), ModsKindId(m.kind));
 	StartHashing();

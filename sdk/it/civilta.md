@@ -94,7 +94,7 @@ Roma sceglie all'inizio tra repubblicana, imperiale e punica può offrire tutte 
 
 Con `"variant": true`:
 
-- Gioca con le classi e i comandi della base. Non ha classi proprie né `letter`.
+- Gioca con le classi e i comandi della base. Non ha classi proprie né `letter`, a meno che sostituisca tutta la base (vedi sotto).
 - `GetPlayerRace` restituisce la base, quindi gli script del gioco e di altre mod la trattano come la base (navi, sentinelle, IA).
 - `Mod_PlayerCiv(giocatore)` restituisce la civiltà scelta nella lobby (21 nell'esempio). Quello che la distingue va in una
   [patch di script](patch.md), per esempio ricercare all'inizio la Roma giusta:
@@ -109,6 +109,13 @@ Con `"variant": true`:
 - Con `"replacesBase": true` la base non compare più nella lobby e le sue varianti prendono il suo posto. Nel sorteggio casuale, la
   quota della base si divide tra loro. Un giocatore che aveva scelto la base passa alla prima variante. Le mappe e le partite salvate
   che fissano la base continuano a usarla.
+- Una variante con `"replacesBase": true` può cambiare anche la lettera e i modelli della sua base per tutta la partita. Con `letter`, il
+  gioco costruisce con quella lettera i nomi delle classi e dei comandi della base (`GetRaceStrPref`, l'addestramento dei contadini, le
+  caserme, le sentinelle, l'ingaggio degli eroi). Con `template`, le città e i villaggi della base, anche quelli neutrali della mappa
+  casuale, vengono dai tuoi modelli `<template> Town N` e `<template> Village N`. È quello che serve per sostituire una civiltà intera.
+  Per esempio, la Grecia prende il posto di Roma imperiale con `"base": "ImperialRome"`, `"letter": "H"` e `"template": "Greek"`, e le
+  sue classi hanno `race="ImperialRome"` e la lettera `H` (`HTownhall`, `HHoplite`). Se due varianti attive danno alla stessa base
+  lettere o modelli diversi, vale la prima e il gestore avvisa sull'altra.
 
 ## Clonare una civiltà
 

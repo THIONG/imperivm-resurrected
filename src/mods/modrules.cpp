@@ -93,7 +93,7 @@ bool IsGameplayPath(const std::string &p)
 	if (StartsWith(p, "data/")) {
 		return true;
 	}
-	if (StartsWith(p, "civs/") || StartsWith(p, "specials/") || StartsWith(p, "events/")) {
+	if (StartsWith(p, "civs/") || StartsWith(p, "specials/") || StartsWith(p, "events/") || StartsWith(p, "rules/") || StartsWith(p, "modes/")) {
 		return true;
 	}
 	if (StartsWith(p, "options/") || StartsWith(p, "randommap/")) {

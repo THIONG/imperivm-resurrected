@@ -80,6 +80,26 @@ It generates `options\<id>.json` and, with `--script`, `data\mod\<id>.vs`. It te
 - **They only work with a lobby.** Options are fixed when a game starts from the lobby (or when you rejoin an online one). Adventures, campaigns and tutorials have no lobby: `Mod_GetOption` always returns 0 and a list is 0, even with `"default": true`.
 - The lobby presets (Classic, Competitive) don't touch mod options.
 
+## Fixed rules of a mod
+
+Some engine rules are not room options: the mod fixes them for all its games in `rules\game.json`:
+
+```json
+{
+  "armyStaysWithHero": true,
+  "sentriesUnselectable": true,
+  "protectedClasses": ["Peasant", "PeasantAmbient", "Trader", "Tradecar_Donkey", "Camel", "CartTrader"]
+}
+```
+
+| Field | What it does |
+|---|---|
+| `armyStaysWithHero` | With `true`, the units of an army don't leave their hero when one is inside the walls and the other outside. The path is worked out again all the same. |
+| `sentriesUnselectable` | With `true`, wall sentries can't be selected (clicking one selects the gate) and don't join AI armies. |
+| `protectedClasses` | Classes that take no damage and can't be attacked, with all the ones that inherit from them. They are class names (`Peasant`), not unit names. |
+
+They change the game, so in multiplayer everyone must run the mod. If several active mods bring rules, they add up.
+
 ## Online
 
 This is gameplay: every player must have the same mod. The option travels with the other lobby rules and is saved with the game.

@@ -14,6 +14,7 @@
 #include "mods/lang.h"
 #include "core/log.h"
 #include "mods/mods.h"
+#include "mods/updater.h"
 #include "hooks/tweaks.h"
 #include "i18n/tr.h"
 
@@ -37,11 +38,12 @@ const int kIdApply = 0x1114;
 const int kIdReset = 0x1115;
 const int kIdControls = 0x111B;
 const int kIdLanguage = 0x111C;
+const int kIdMonitor = 0x111D;
+const int kIdUpdate = 0x111E;
 std::vector<std::string> g_langCodes;
 const int kGameDefaults[13] = {0, 0, 0, 1, 1, 1, 1, 1, 14, 50, 50, 50, 50};
 int g_brightOriginal = 100;
 bool g_useDefaults = false;
-const int kIdScaleCombo = 0x110b;
 const int kIdBrightCombo = 0x110c;
 const int kIdMovieScroll = 0x1110;
 const int kIdMovieMute = 0x1111;
@@ -52,7 +54,7 @@ const char *kAutosaveLabels[] = {"5 minutes", "10 minutes", "15 minutes", "20 mi
 	"60 minutes"};
 const int kAutosaveSlotValues[] = {1, 2, 3, 5, 10};
 const char *kAutosaveSlotLabels[] = {"1 copy", "2 copies", "3 copies", "5 copies", "10 copies"};
-const char *kScaleLabels[] = {"Pixel", "Smooth", "Sharp", "Integer"};
+const char *kUpdateLabels[] = {"Notify", "Automatic", "Never"};
 const int kBrightMin = 80, kBrightMax = 130;
 
 typedef int(__fastcall *ComboGetSelected_t)(void *combo);
@@ -193,7 +195,11 @@ void __fastcall HookPopulateControls(void *dlg)
 	SetCheck(dlg, kIdLargeAddress, ModsExeIsLargeAddressAware());
 	FillCombo(dlg, kIdAutosaveCombo, Items(kAutosaveLabels), NearestIndex(kAutosaveMinutes, c.autosaveMinutes));
 	FillCombo(dlg, kIdAutosaveSlots, Items(kAutosaveSlotLabels), NearestIndex(kAutosaveSlotValues, c.autosaveSlots));
-	FillCombo(dlg, kIdScaleCombo, Items(kScaleLabels), c.scaleMode & 3);
+	FillCombo(dlg, kIdUpdate, Items(kUpdateLabels), UpdaterModeGet());
+	{
+		const std::vector<std::string> monitors = DisplayMonitorLabels();
+		FillCombo(dlg, kIdMonitor, monitors, c.monitor < static_cast<int>(monitors.size()) ? c.monitor : 0);
+	}
 	SetScrollRange(dlg, kIdBrightCombo, kBrightMin, kBrightMax, c.brightness);
 	SetScroll(dlg, kIdMovieScroll, c.movieVolume);
 	SetCheck(dlg, kIdMovieMute, !c.movieMute);
@@ -226,6 +232,7 @@ void ApplyModOptions(void *dlg)
 {
 	Config &c = MutableConfig();
 	const bool wasWindowed = c.windowed;
+	const int wasMonitor = c.monitor;
 	c.windowed = GetCheck(dlg, kIdWindowed, c.windowed);
 	c.vsync = GetCheck(dlg, kIdVSync, c.vsync);
 	c.trapMouse = GetCheck(dlg, kIdTrapMouse, c.trapMouse);
@@ -243,17 +250,17 @@ void ApplyModOptions(void *dlg)
 	if (sel >= 0 && sel < static_cast<int>(sizeof(kAutosaveSlotValues) / sizeof(kAutosaveSlotValues[0]))) {
 		c.autosaveSlots = kAutosaveSlotValues[sel];
 	}
-	sel = GetComboIndex(dlg, kIdScaleCombo);
-	if (sel >= 0 && sel < 4) {
-		c.scaleMode = sel;
-	}
+	sel = GetComboIndex(dlg, kIdUpdate);
+	if (sel >= 0 && sel < 3) UpdaterModeSet(sel);
+	sel = GetComboIndex(dlg, kIdMonitor);
+	if (sel >= 0 && sel < static_cast<int>(DisplayMonitorLabels().size())) c.monitor = sel;
 	c.brightness = (std::max)(kBrightMin, (std::min)(kBrightMax, (GetScroll(dlg, kIdBrightCombo, c.brightness) + 2) / 5 * 5));
 	c.movieVolume = GetScroll(dlg, kIdMovieScroll, c.movieVolume);
 	c.movieMute = !GetCheck(dlg, kIdMovieMute, !c.movieMute);
 	SaveConfig();
-	LogI("options", "mod options: window=%d vsync=%d scaling=%d brightness=%d trap=%d autosave=%d every %d min",
-		c.windowed, c.vsync, c.scaleMode, c.brightness, c.trapMouse, c.autosave, c.autosaveMinutes);
-	DisplayApplySettings(wasWindowed != c.windowed);
+	LogI("options", "mod options: window=%d vsync=%d brightness=%d trap=%d autosave=%d every %d min",
+		c.windowed, c.vsync, c.brightness, c.trapMouse, c.autosave, c.autosaveMinutes);
+	DisplayApplySettings(wasWindowed != c.windowed || wasMonitor != c.monitor);
 	TweaksApplySmoothScroll();
 	g_brightOriginal = c.brightness;
 	sel = GetComboIndex(dlg, kIdLanguage);

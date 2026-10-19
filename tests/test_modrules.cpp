@@ -73,6 +73,8 @@ static void Classification()
 	CHECK(IsGameplayPath("civs/dacia.json"));
 	CHECK(IsGameplayPath("specials/x.json"));
 	CHECK(IsGameplayPath("events/e.xml"));
+	CHECK(IsGameplayPath("rules/game.json"));
+	CHECK(IsGameplayPath("modes/2 liga.json"));
 	CHECK(IsGameplayPath("options/o.json"));
 	CHECK(IsGameplayPath("randommap/a.ini"));
 	CHECK(IsGameplayPath("randommapsettlements/a.ini"));

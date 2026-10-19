@@ -49,6 +49,34 @@ L'esempio lo fa con una patch INI in `patches\data\const.ini`:
 
 Se non metti voci, il menu a tendina resta vuoto e non c'è nessun limite da scegliere. Cosa riceva allora `param` non si è visto in partita: l'esempio ripiega su 3 se `Str2Int(param)` dà meno di 2.
 
+## Impostazioni fisse e civiltà di una modalità
+
+Una modalità può fissare impostazioni della stanza e le civiltà che si possono scegliere con essa. Va in `modes\<nome>.json`:
+
+```json
+{
+  "mode": "2 LIGA",
+  "gold": 5000,
+  "population": 100,
+  "noFog": false,
+  "explored": false,
+  "bonus": 1,
+  "civilizations": ["RomeImperial", "Gaul", "Iberia", "CarthageNumidian"]
+}
+```
+
+| Campo | Cos'è |
+|---|---|
+| `mode` | Il nome dello script della modalità in `data\GameScripts`, senza `.vs` (`2 LIGA` per `2 LIGA.vs`), fino a 31 caratteri. Se non lo metti, il nome del file json. Vale anche per le modalità del gioco. |
+| `gold` | (Facoltativo) L'oro iniziale: uno dei valori del menu a tendina (`5000`, `10000`…). |
+| `population` | (Facoltativo) La popolazione: `50`, `100` o `150` (`LowPop`, `NormalPop` e `HighPop` di `CONST.INI`). |
+| `noFog` | (Facoltativo) `true` toglie la nebbia, `false` la lascia. |
+| `explored` | (Facoltativo) `true` inizia con la mappa esplorata. |
+| `bonus` | (Facoltativo) Il bonus di tutti i giocatori, da 0 (nessuno) a 3, lo stesso numero del pulsante del bonus della stanza. Disattiva bonus non si può più spuntare. |
+| `civilizations` | (Facoltativo) Le civiltà che si possono giocare in quella modalità: quelle del gioco (`Gaul`, `RepublicanRome`…) o l'`id` di una della mod. Una base del gioco permette tutte le sue varianti; una variante, solo quella. |
+
+Mentre quella modalità è scelta, la stanza non lascia cambiare quello che fissa: l'host vede quelle righe senza poterle toccare. Un giocatore con una civiltà che la modalità non permette passa alla prima dell'elenco, e la civiltà casuale si sorteggia solo tra quelle permesse. Lo applica l'host quando crea la partita, quindi tutti giocano con le stesse cose. Le partite salvate e gli scenari con civiltà fisse non cambiano.
+
 ## Online
 
 Una modalità nuova cambia il gameplay: tutti i giocatori devono avere la stessa mod.

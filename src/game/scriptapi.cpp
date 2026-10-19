@@ -250,6 +250,18 @@ int __cdecl Mod_CanExecCmd(int *pSP)
 	return 0;
 }
 
+int __cdecl Mod_OffersCmd(int *pSP)
+{
+	const int text = PopText(pSP);
+	unsigned handle;
+	int offset;
+	PopObj(pSP, &handle, &offset);
+	const bool ok = OffersCommand(handle, TextOf(text));
+	ReleaseText(text);
+	PushBool(pSP, ok);
+	return 0;
+}
+
 int __cdecl Mod_PlayerCiv(int *pSP)
 {
 	PushInt(pSP, CivsPlayerCiv(PopInt(pSP)));
@@ -285,6 +297,7 @@ const Native kNatives[] = {
 	{Mod_GetOptionValue, "Mod_GetOptionValue", "int, str id"},
 	{Mod_PlayerCiv, "Mod_PlayerCiv", "int, int player"},
 	{Mod_CanExecCmd, "Mod_CanExecCmd", "bool, Obj obj, str command"},
+	{Mod_OffersCmd, "Mod_OffersCmd", "bool, Obj obj, str command"},
 };
 
 int __cdecl RegisterModNatives(void *engine)

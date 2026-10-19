@@ -5,3 +5,5 @@
 void InstallZoomFog(bool knownExe);
 long long ZoomFogGameThreadTick();
 void ZoomFogNoteImage();
+bool ZoomPixelToWorld(int px, int py, int *world);
+bool ZoomBitmapSize(int *width, int *height);

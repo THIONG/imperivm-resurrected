@@ -12,3 +12,4 @@ struct GameCommand {
 std::string GameStringAt(const void *at);
 std::vector<GameCommand> GameCommands();
 bool CanExecCommand(unsigned handle, const char *command);
+bool OffersCommand(unsigned handle, const char *command);

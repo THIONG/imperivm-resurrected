@@ -3,6 +3,7 @@
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #include <windows.h>
 
+#include <algorithm>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -13,6 +14,7 @@
 #include "core/config.h"
 #include "hooks/displaymode.h"
 #include "core/log.h"
+#include "i18n/tr.h"
 
 namespace {
 
@@ -51,6 +53,66 @@ const LONG kWindowedStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN |
 
 int DesktopW() { return g_origMetrics ? g_origMetrics(SM_CXSCREEN) : GetSystemMetrics(SM_CXSCREEN); }
 int DesktopH() { return g_origMetrics ? g_origMetrics(SM_CYSCREEN) : GetSystemMetrics(SM_CYSCREEN); }
+
+struct MonitorEntry {
+	RECT rect;
+	bool primary;
+	std::wstring device;
+};
+
+BOOL CALLBACK EnumMonitor(HMONITOR monitor, HDC, LPRECT, LPARAM param)
+{
+	MONITORINFOEXW mi = {};
+	mi.cbSize = sizeof(mi);
+	if (GetMonitorInfoW(monitor, &mi)) reinterpret_cast<std::vector<MonitorEntry> *>(param)->push_back({mi.rcMonitor, (mi.dwFlags & MONITORINFOF_PRIMARY) != 0, mi.szDevice});
+	return TRUE;
+}
+
+std::string FriendlyName(const std::wstring &device)
+{
+	UINT32 pathCount = 0, modeCount = 0;
+	if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &pathCount, &modeCount) != ERROR_SUCCESS || !pathCount) return "";
+	std::vector<DISPLAYCONFIG_PATH_INFO> paths(pathCount);
+	std::vector<DISPLAYCONFIG_MODE_INFO> modes(modeCount);
+	if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &pathCount, paths.data(), &modeCount, modes.data(), nullptr) != ERROR_SUCCESS) return "";
+	for (UINT32 i = 0; i < pathCount; i++) {
+		DISPLAYCONFIG_SOURCE_DEVICE_NAME source = {};
+		source.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+		source.header.size = sizeof(source);
+		source.header.adapterId = paths[i].sourceInfo.adapterId;
+		source.header.id = paths[i].sourceInfo.id;
+		if (DisplayConfigGetDeviceInfo(&source.header) != ERROR_SUCCESS || device != source.viewGdiDeviceName) continue;
+		DISPLAYCONFIG_TARGET_DEVICE_NAME target = {};
+		target.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
+		target.header.size = sizeof(target);
+		target.header.adapterId = paths[i].targetInfo.adapterId;
+		target.header.id = paths[i].targetInfo.id;
+		if (DisplayConfigGetDeviceInfo(&target.header) != ERROR_SUCCESS || !target.monitorFriendlyDeviceName[0]) return "";
+		char utf8[160] = {};
+		WideCharToMultiByte(CP_UTF8, 0, target.monitorFriendlyDeviceName, -1, utf8, sizeof(utf8), nullptr, nullptr);
+		return utf8;
+	}
+	return "";
+}
+
+std::vector<MonitorEntry> Monitors()
+{
+	std::vector<MonitorEntry> list;
+	EnumDisplayMonitors(nullptr, nullptr, &EnumMonitor, reinterpret_cast<LPARAM>(&list));
+	std::stable_sort(list.begin(), list.end(), [](const MonitorEntry &a, const MonitorEntry &b) {
+		if (a.primary != b.primary) return a.primary;
+		return a.rect.left != b.rect.left ? a.rect.left < b.rect.left : a.rect.top < b.rect.top;
+	});
+	return list;
+}
+
+RECT TargetMonitor()
+{
+	const std::vector<MonitorEntry> list = Monitors();
+	if (list.empty()) return RECT{0, 0, DesktopW(), DesktopH()};
+	const int index = GetConfig().monitor;
+	return list[index >= 0 && index < static_cast<int>(list.size()) ? index : 0].rect;
+}
 
 bool Enabled() { return GetConfig().fakeModeChange && GetConfig().renderEnabled; }
 bool Windowed() { return Enabled() && GetConfig().windowed; }
@@ -141,11 +203,13 @@ void PlaceWindow()
 		RECT r = {0, 0, GetConfig().windowW, GetConfig().windowH};
 		AdjustWindowRectEx(&r, kWindowedStyle, FALSE, 0);
 		int w = r.right - r.left, h = r.bottom - r.top;
-		g_origSetWindowPos(g_gameWnd, HWND_NOTOPMOST, (DesktopW() - w) / 2, (DesktopH() - h) / 2, w, h,
+		const RECT mr = TargetMonitor();
+		g_origSetWindowPos(g_gameWnd, HWND_NOTOPMOST, mr.left + (mr.right - mr.left - w) / 2, mr.top + (mr.bottom - mr.top - h) / 2, w, h,
 			SWP_NOACTIVATE | SWP_FRAMECHANGED);
 	}
 	else {
-		g_origSetWindowPos(g_gameWnd, nullptr, 0, 0, DesktopW(), DesktopH(), SWP_NOZORDER | SWP_NOACTIVATE);
+		const RECT mr = TargetMonitor();
+		g_origSetWindowPos(g_gameWnd, nullptr, mr.left, mr.top, mr.right - mr.left, mr.bottom - mr.top, SWP_NOZORDER | SWP_NOACTIVATE);
 	}
 	LogGeometry(Windowed() ? "windowed" : "full screen");
 }
@@ -449,4 +513,18 @@ LRESULT DisplayForwardMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 bool DisplayIsWindowed()
 {
 	return Windowed();
+}
+
+std::vector<std::string> DisplayMonitorLabels()
+{
+	std::vector<std::string> labels;
+	const std::vector<MonitorEntry> list = Monitors();
+	for (size_t i = 0; i < list.size(); i++) {
+		std::string name = FriendlyName(list[i].device);
+		if (name.empty() || name == "Generic PnP Monitor") name = Tr("Monitor") + " " + std::to_string(i + 1);
+		labels.push_back(std::to_string(i + 1) + " - " + name + " " + std::to_string(list[i].rect.right - list[i].rect.left) + "x" +
+			std::to_string(list[i].rect.bottom - list[i].rect.top) + (list[i].primary ? " (" + Tr("main") + ")" : ""));
+	}
+	if (labels.empty()) labels.push_back("1");
+	return labels;
 }

@@ -322,6 +322,17 @@ void CheckNow()
 
 }
 
+int UpdaterModeGet()
+{
+	const std::string mode = IniGet("Mode", "notify");
+	return _stricmp(mode.c_str(), "auto") == 0 ? 1 : _stricmp(mode.c_str(), "off") == 0 ? 2 : 0;
+}
+
+void UpdaterModeSet(int mode)
+{
+	IniSet("Mode", mode == 1 ? "auto" : mode == 2 ? "off" : "notify");
+}
+
 void InstallUpdater()
 {
 	const std::string testing = IniGet("Testing");

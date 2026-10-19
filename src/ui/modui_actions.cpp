@@ -11,6 +11,67 @@
 using namespace modui_impl;
 
 namespace modui_impl {
+void SetActive(const std::vector<std::string> &folders, bool on)
+{
+	auto &mods = g_s.profile.mods;
+	std::vector<std::string> changed;
+	for (const std::string &folder : folders) {
+		if (Pending(g_s, folder)) continue;
+		const bool active = std::find(mods.begin(), mods.end(), folder) != mods.end();
+		if (active == on || (on && !FindMod(folder))) continue;
+		if (on) mods.push_back(folder);
+		else mods.erase(std::remove(mods.begin(), mods.end(), folder), mods.end());
+		changed.push_back(folder);
+	}
+	if (changed.empty()) return;
+	CommitProfile();
+	if (changed.size() > 1) {
+		SetStatus(TrFmt(on ? "%s content packs enabled" : "%s content packs disabled", {std::to_string(changed.size())}));
+		return;
+	}
+	if (!on) return;
+	const auto found = g_s.issues->find(changed[0]);
+	if (found == g_s.issues->end()) return;
+	const ModIssues &is = found->second;
+	const ModInfo *m = FindMod(changed[0]);
+	const std::string name = m ? m->name : changed[0];
+	if (!is.problems.empty()) SetStatus(name + ": " + is.problems[0]);
+	else if (!is.overlaps.empty()) SetStatus(name + ": " + OverlapText(is.overlaps[0]));
+	else if (!is.notices.empty()) SetStatus(name + ": " + is.notices[0]);
+}
+
+void AskUninstall(const std::vector<std::string> &folders)
+{
+	std::vector<std::string> targets;
+	for (const std::string &folder : folders) {
+		if (!Pending(g_s, folder) && FindMod(folder)) targets.push_back(folder);
+	}
+	if (targets.empty()) return;
+	g_s.uninstallTargets = targets;
+	g_s.confirm = true;
+	g_s.confirmKind = kConfirmUninstall;
+	g_s.confirmItems.clear();
+	g_s.confirmItemsTitle.clear();
+	g_s.confirmList = ListState();
+	std::vector<std::string> profiles;
+	for (const std::string &folder : targets) {
+		if (targets.size() > 1) {
+			const ModInfo *m = FindMod(folder);
+			g_s.confirmItems.push_back(m ? m->name : folder);
+		}
+		const auto used = g_s.usedBy.find(folder);
+		if (used == g_s.usedBy.end()) continue;
+		for (const std::string &n : used->second) {
+			if (std::find(profiles.begin(), profiles.end(), n) == profiles.end()) profiles.push_back(n);
+		}
+	}
+	if (!profiles.empty()) {
+		if (targets.size() > 1) g_s.confirmItems.push_back("##They will be removed from these profiles:");
+		else g_s.confirmItemsTitle = "It will be removed from these profiles:";
+		for (const std::string &n : profiles) g_s.confirmItems.push_back(ModsProfileLabel(n));
+	}
+}
+
 void DoAction(int action, int arg)
 {
 	switch (action) {
@@ -58,36 +119,81 @@ void DoAction(int action, int arg)
 		}
 		break;
 	case kSelect: g_s.selected = arg; break;
-	case kToggle: {
-		g_s.selected = arg;
+	case kRowClick: {
 		if (arg < 0 || arg >= static_cast<int>(g_s.rows.size())) break;
-		const Row r = g_s.rows[arg];
-		if (Pending(g_s, r.folder)) break;
-		auto &mods = g_s.profile.mods;
-		if (r.active) {
-			mods.erase(std::remove(mods.begin(), mods.end(), r.folder), mods.end());
+		const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0, shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+		const std::string folder = g_s.rows[arg].folder;
+		if (shift && g_s.anchor >= 0 && g_s.anchor < static_cast<int>(g_s.rows.size())) {
+			const std::vector<int> view = VisibleRows(g_s);
+			const auto at = [&](int row) { return static_cast<int>(std::find(view.begin(), view.end(), row) - view.begin()); };
+			int a = at(g_s.anchor), b = at(arg);
+			if (a >= static_cast<int>(view.size())) a = b;
+			if (a > b) std::swap(a, b);
+			if (!ctrl) g_s.marked.clear();
+			for (int k = a; k <= b && k < static_cast<int>(view.size()); k++) {
+				const std::string &f = g_s.rows[view[k]].folder;
+				if (!IsMarked(g_s, f)) g_s.marked.push_back(f);
+			}
+		}
+		else if (ctrl) {
+			if (g_s.marked.empty() && g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size()) && g_s.selected != arg) {
+				g_s.marked.push_back(g_s.rows[g_s.selected].folder);
+			}
+			const auto it = std::find(g_s.marked.begin(), g_s.marked.end(), folder);
+			if (it == g_s.marked.end()) g_s.marked.push_back(folder);
+			else g_s.marked.erase(it);
+			g_s.anchor = arg;
 		}
 		else {
-			mods.push_back(r.folder);
+			g_s.marked.clear();
+			g_s.anchor = arg;
 		}
-		CommitProfile();
-		SelectFolder(r.folder);
-		if (!r.active) {
-			static const ModIssues kNoIssues;
-			const auto found = g_s.issues->find(r.folder);
-			const ModIssues &is = found == g_s.issues->end() ? kNoIssues : found->second;
-			const ModInfo *m = FindMod(r.folder);
-			const std::string name = m ? m->name : r.folder;
-			if (!is.problems.empty()) {
-				SetStatus(name + ": " + is.problems[0]);
-			}
-			else if (!is.overlaps.empty()) {
-				SetStatus(name + ": " + OverlapText(is.overlaps[0]));
-			}
-			else if (!is.notices.empty()) {
-				SetStatus(name + ": " + is.notices[0]);
-			}
+		g_s.selected = arg;
+		break;
+	}
+	case kMark: {
+		if (arg < 0 || arg >= static_cast<int>(g_s.rows.size())) break;
+		const std::string folder = g_s.rows[arg].folder;
+		const auto it = std::find(g_s.marked.begin(), g_s.marked.end(), folder);
+		if (it == g_s.marked.end()) g_s.marked.push_back(folder);
+		else g_s.marked.erase(it);
+		g_s.selected = arg;
+		g_s.anchor = arg;
+		break;
+	}
+	case kClearMarks: g_s.marked.clear(); break;
+	case kStateFilter:
+		g_s.stateFilter = std::max(0, std::min(kStateCount - 1, arg));
+		g_s.list.scroll = 0;
+		break;
+	case kCatPanel: g_s.catOpen = !g_s.catOpen; break;
+	case kCatClear:
+		g_s.catFilter = CatalogFilter();
+		g_s.list.scroll = 0;
+		break;
+	case kCatChip: {
+		const int group = arg / kIoFilterGroupStride, bit = arg % kIoFilterGroupStride;
+		if (arg < 0 || group > kIoFilterLanguages || bit >= 32) break;
+		uint32_t &mask = group == kIoFilterTypes ? g_s.catFilter.types : group == kIoFilterPlayers ? g_s.catFilter.players : g_s.catFilter.languages;
+		mask ^= 1u << bit;
+		g_s.catFilter = CatalogNormalize(g_s.catFilter);
+		g_s.list.scroll = 0;
+		break;
+	}
+	case kBulkOn: SetActive(g_s.marked, true); break;
+	case kBulkOff: SetActive(g_s.marked, false); break;
+	case kBulkUninstall: AskUninstall(g_s.marked); break;
+	case kSetActive:
+		if (g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size())) {
+			const Row r = g_s.rows[g_s.selected];
+			SetActive({r.folder}, !r.active);
 		}
+		break;
+	case kToggle: {
+		if (arg < 0 || arg >= static_cast<int>(g_s.rows.size())) break;
+		const Row r = g_s.rows[arg];
+		g_s.selected = arg;
+		SetActive({r.folder}, !r.active);
 		break;
 	}
 	case kUseFiles: {
@@ -105,29 +211,10 @@ void DoAction(int action, int arg)
 		break;
 	}
 	case kUninstall:
-		if (g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size())) {
-			g_s.confirm = true;
-			g_s.confirmKind = kConfirmUninstall;
-			g_s.confirmItems.clear();
-			g_s.confirmItemsTitle = "It will be removed from these profiles:";
-			g_s.confirmList = ListState();
-			const auto used = g_s.usedBy.find(g_s.rows[g_s.selected].folder);
-			if (used != g_s.usedBy.end()) {
-				for (const std::string &n : used->second) g_s.confirmItems.push_back(ModsProfileLabel(n));
-			}
-		}
+		if (g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size())) AskUninstall({g_s.rows[g_s.selected].folder});
 		break;
-	case kOpenMods: OpenFolderAsync(""); break;
 	case kOpenMod:
-		if (g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size())) {
-			OpenFolderAsync(g_s.rows[g_s.selected].folder);
-		}
-		break;
-	case kRescan:
-		ModsScan();
-		DlRefreshCatalogs();
-		Reload();
-		SetStatus(Tr("List updated: ") + std::to_string(g_s.mods.size()) + (g_s.mods.size() == 1 ? Tr(" content pack") : Tr(" content packs")));
+		OpenFolderAsync(g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size()) ? g_s.rows[g_s.selected].folder : "");
 		break;
 	case kApply:
 		if (ModsRestartNeeded()) {
@@ -140,19 +227,25 @@ void DoAction(int action, int arg)
 		break;
 	case kClose:
 		g_s.open = false;
+		g_s.catOpen = false;
 		break;
 	case kConfirmYes:
 		if (g_s.confirmKind == kConfirmUninstall) {
 			g_s.confirm = false, g_s.confirmItems.clear();
-			if (g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size())) {
-				const std::string folder = g_s.rows[g_s.selected].folder;
+			const std::vector<std::string> targets = g_s.uninstallTargets;
+			g_s.uninstallTargets.clear();
+			if (!targets.empty()) {
 				g_s.busy = true;
-				SafeThread([folder] {
-					const std::string msg = ModsUninstall(folder);
+				SafeThread([targets] {
+					std::string last;
+					for (const std::string &folder : targets) last = ModsUninstall(folder);
 					std::lock_guard<std::mutex> lock(g_lock);
+					for (const std::string &folder : targets) {
+						g_s.marked.erase(std::remove(g_s.marked.begin(), g_s.marked.end(), folder), g_s.marked.end());
+					}
 					Reload();
 					g_s.busy = false;
-					SetStatus(msg);
+					SetStatus(targets.size() == 1 ? last : TrFmt("%s content packs uninstalled", {std::to_string(targets.size())}));
 				}).detach();
 			}
 			break;
@@ -191,9 +284,11 @@ void DoAction(int action, int arg)
 		break;
 	case kTabInstalled:
 		g_s.tab = 0;
+		g_s.catOpen = false;
 		g_s.ioFilterOpen = false;
 		break;
 	case kTabExplore:
+		g_s.catOpen = false;
 		if (g_s.tab != 2) {
 			g_s.tab = 2;
 			IoSearch();
@@ -310,7 +405,7 @@ void DoAction(int action, int arg)
 	if (action != kDropOpen && action != kNone) {
 		if (action != kDropPick) g_s.drop = kDropNone;
 	}
-	const int maxScroll = std::max(0, static_cast<int>(VisibleRows(g_s).size()) - kInstalledListH / kRowH);
+	const int maxScroll = std::max(0, static_cast<int>(VisibleRows(g_s).size()) - g_installedRows.load());
 	g_s.list.scroll = std::max(0, std::min(g_s.list.scroll, maxScroll));
 	if (action != kNone && action != kSelect) {
 		g_s.restartNeeded = ModsRestartNeeded();

@@ -64,7 +64,7 @@ int main()
 	Touch(d + "\\winmm.dll.anterior");
 	LegacyMigrate();
 	LegacyMigrate();
-	Check(Ini(ini, "Render", "Scaling") == "smooth", "scaling value");
+	Check(Ini(ini, "Render", "Scaling") == "suave", "scaling key moved");
 	Check(Ini(ini, "Render", "Brightness") == "120", "brightness");
 	Check(Ini(ini, "Render", "Escalado") == "<none>", "old key removed");
 	Check(Ini(ini, "Display", "Mode") == "windowed", "mode value");

@@ -36,12 +36,6 @@ std::string IoTagsText(const GbMod &m)
 }
 
 namespace modui_impl {
-namespace {
-const int kFilterCount = 7;
-}
-}
-
-namespace modui_impl {
 std::mutex g_lock;
 State g_s;
 
@@ -101,7 +95,59 @@ bool Pending(const State &st, const std::string &folder)
 	return std::find(st.pendingUninstall.begin(), st.pendingUninstall.end(), folder) != st.pendingUninstall.end();
 }
 
-std::vector<int> VisibleRows(const State &st)
+CatalogFacts ModFactsOf(const ModInfo &m)
+{
+	CatalogFacts facts = CatalogFactsOf(m.category, m.tags);
+	if (!CatalogCategoriesOf(facts)) facts.category = m.gameplay ? kCatGameplay : m.kind == kModContent ? kCatScenarios : kCatGraphics;
+	return facts;
+}
+
+uint32_t ModCategoriesOf(const ModInfo &m)
+{
+	return CatalogCategoriesOf(ModFactsOf(m));
+}
+
+int ModMainCategory(const ModInfo &m)
+{
+	const CatalogFacts f = ModFactsOf(m);
+	if (f.category >= 0) return f.category;
+	const uint32_t cats = CatalogCategoriesOf(f);
+	for (int c = 0; c < kCatCount; c++) {
+		if ((cats >> c) & 1) return c;
+	}
+	return kCatGameplay;
+}
+
+bool RowHasProblems(const State &st, const Row &r)
+{
+	if (!FindModIn(st.mods, r.folder)) return true;
+	const auto it = st.issues->find(r.folder);
+	return it != st.issues->end() && !it->second.problems.empty();
+}
+
+bool RowInState(const State &st, const Row &r, int state)
+{
+	switch (state) {
+	case kStateActive: return r.active;
+	case kStateDisabled: return !r.active;
+	case kStateProblems: return RowHasProblems(st, r);
+	default: return true;
+	}
+}
+
+bool IsMarked(const State &st, const std::string &folder)
+{
+	return std::find(st.marked.begin(), st.marked.end(), folder) != st.marked.end();
+}
+
+std::vector<std::string> Targets(const State &st)
+{
+	if (!st.marked.empty()) return st.marked;
+	if (st.selected >= 0 && st.selected < static_cast<int>(st.rows.size())) return {st.rows[st.selected].folder};
+	return {};
+}
+
+std::vector<int> VisibleRows(const State &st, int state, const CatalogFilter &filter)
 {
 	std::vector<int> out;
 	const std::string q = LowerAscii(st.searchText);
@@ -109,23 +155,46 @@ std::vector<int> VisibleRows(const State &st)
 		const Row &r = st.rows[i];
 		const ModInfo *m = FindModIn(st.mods, r.folder);
 		if (!q.empty()) {
-			const std::string hay = LowerAscii((m ? m->name : "") + " " + r.folder);
-			if (hay.find(q) == std::string::npos) continue;
+			std::string hay = r.folder;
+			if (m) {
+				hay += " " + m->name + " " + m->description;
+				for (const std::string &a : m->authors) hay += " " + a;
+			}
+			if (LowerAscii(hay).find(q) == std::string::npos) continue;
 		}
-		const auto issues = st.issues->find(r.folder);
-		const bool bad = !m || (issues != st.issues->end() && !issues->second.problems.empty());
-		switch (st.filter) {
-		case 1: if (!r.active) continue; break;
-		case 2: if (r.active) continue; break;
-		case 3: if (!m || !m->gameplay) continue; break;
-		case 4: if (!m || m->kind != kModContent) continue; break;
-		case 5: if (!m || m->kind != kModCosmetic) continue; break;
-		case 6: if (!bad) continue; break;
-		default: break;
-		}
+		if (!RowInState(st, r, state)) continue;
+		if (!CatalogFilterEmpty(filter) && (!m || !CatalogMatches(ModFactsOf(*m), filter))) continue;
 		out.push_back(static_cast<int>(i));
 	}
+	const auto mod = [&](int i) { return FindModIn(st.mods, st.rows[i].folder); };
+	if (st.sort == 1) {
+		std::stable_sort(out.begin(), out.end(), [&](int a, int b) { return st.rows[a].active && !st.rows[b].active; });
+	}
+	else if (st.sort == 2) {
+		std::stable_sort(out.begin(), out.end(), [&](int a, int b) {
+			const ModInfo *ma = mod(a), *mb = mod(b);
+			return (ma ? ma->installedTime : 0) > (mb ? mb->installedTime : 0);
+		});
+	}
+	else if (st.sort == 3) {
+		std::stable_sort(out.begin(), out.end(), [&](int a, int b) {
+			const ModInfo *ma = mod(a), *mb = mod(b);
+			return (ma ? ma->totalBytes : 0) > (mb ? mb->totalBytes : 0);
+		});
+	}
 	return out;
+}
+
+std::vector<int> VisibleRows(const State &st)
+{
+	return VisibleRows(st, st.stateFilter, st.catFilter);
+}
+
+CatalogCounts InstalledCounts(const State &st)
+{
+	CatalogCounts counts;
+	for (const ModInfo &m : st.mods) CatalogCount(ModFactsOf(m), counts);
+	return counts;
 }
 
 void BuildRows()
@@ -176,6 +245,7 @@ void BuildUsage()
 
 void Reload()
 {
+	g_s.listSerial = ModsListSerial();
 	g_s.mods = ModsSummaries();
 	g_s.profileNames = ModsProfileNames();
 	g_s.profile = ModsLoadProfile(ModsActiveProfileName());
@@ -391,8 +461,11 @@ std::vector<std::string> DropItems(const State &st)
 	else if (st.drop == kDropMenu) {
 		items = {"Rename", "Remove"};
 	}
-	else if (st.drop == kDropFilter) {
-		for (int i = 0; i < kFilterCount; i++) items.push_back(kFilterNames[i]);
+	else if (st.drop == kDropSort) {
+		for (int i = 0; i < kSortCount; i++) items.push_back(kSortNames[i]);
+	}
+	else if (st.drop == kDropModMenu || st.drop == kDropRowMenu) {
+		items = RowMenuItems(st);
 	}
 	else if (st.drop == kDropIoSort) {
 		for (const char *s : kIoSortNames) items.push_back(s);
@@ -466,9 +539,13 @@ void PickDrop(int index)
 			g_s.confirmKind = kConfirmDelete;
 		}
 	}
-	else if (drop == kDropFilter) {
-		g_s.filter = std::max(0, std::min(kFilterCount - 1, index));
+	else if (drop == kDropSort) {
+		g_s.sort = std::max(0, std::min(kSortCount - 1, index));
 		g_s.list.scroll = 0;
+	}
+	else if (drop == kDropModMenu || drop == kDropRowMenu) {
+		g_s.drop = drop;
+		RunRowMenu(index);
 	}
 	else if (drop == kDropVersions) {
 		if (!g_s.verHas) return;
@@ -534,6 +611,7 @@ void ModUiOpen()
 		DlRefreshCatalogs();
 	}
 	g_s.restartReason.clear();
+	ModsWatchStart();
 	LogI("content", "mod manager: open (profile \"%s\", %u mods installed)", g_s.profile.name.c_str(),
 		static_cast<unsigned>(g_s.mods.size()));
 }
@@ -579,4 +657,92 @@ void ModUiToast(const std::string &text, bool error)
 	g_s.toastLen = error ? 10000 : 6000;
 	g_s.toastUntil = GetTickCount() + g_s.toastLen;
 	LogI("ui", "notice: %s", TrSource(text).c_str());
+}
+
+namespace modui_impl {
+namespace {
+enum MenuCode { kMenuOn, kMenuOff, kMenuFolder, kMenuPage, kMenuVersions, kMenuUninstall };
+
+std::vector<std::string> MenuTargets(const State &st)
+{
+	if (st.menuRow < 0 || st.menuRow >= static_cast<int>(st.rows.size())) return {};
+	const std::string &folder = st.rows[st.menuRow].folder;
+	if (IsMarked(st, folder)) return st.marked;
+	return {folder};
+}
+
+std::vector<std::pair<std::string, int>> RowMenu(const State &st)
+{
+	std::vector<std::pair<std::string, int>> out;
+	const std::vector<std::string> targets = MenuTargets(st);
+	if (targets.empty()) return out;
+	int on = 0;
+	for (const Row &r : st.rows) {
+		if (std::find(targets.begin(), targets.end(), r.folder) != targets.end() && r.active) on++;
+	}
+	const int n = static_cast<int>(targets.size());
+	if (on < n) out.push_back({n == 1 ? "Enable" : TrFmt("Enable (%s)", {std::to_string(n - on)}), kMenuOn});
+	if (on > 0) out.push_back({n == 1 ? "Disable" : TrFmt("Disable (%s)", {std::to_string(on)}), kMenuOff});
+	if (n == 1) {
+		out.push_back({"Open folder", kMenuFolder});
+		const ModInfo *m = FindModIn(st.mods, targets[0]);
+		if (m && m->gbId) out.push_back({"GameBanana page", kMenuPage});
+	}
+	out.push_back({n == 1 ? "Uninstall..." : TrFmt("Uninstall %s...", {std::to_string(n)}), kMenuUninstall});
+	return out;
+}
+
+std::vector<std::pair<std::string, int>> ModMenu(const State &st)
+{
+	std::vector<std::pair<std::string, int>> out;
+	if (st.selected < 0 || st.selected >= static_cast<int>(st.rows.size())) return out;
+	const ModInfo *m = FindModIn(st.mods, st.rows[st.selected].folder);
+	if (m && m->gbId) out.push_back({"Other versions...", kMenuVersions});
+	out.push_back({"Uninstall...", kMenuUninstall});
+	return out;
+}
+
+void RunMenu(int code, const std::vector<std::string> &targets)
+{
+	switch (code) {
+	case kMenuOn: SetActive(targets, true); break;
+	case kMenuOff: SetActive(targets, false); break;
+	case kMenuFolder:
+		if (targets.size() == 1) OpenFolderAsync(targets[0]);
+		break;
+	case kMenuPage:
+		if (targets.size() == 1) {
+			SelectFolder(targets[0]);
+			DoAction(kOpenSource, 0);
+		}
+		break;
+	case kMenuVersions:
+		g_s.drop = kDropNone;
+		DoAction(kDropOpen, kDropVersions);
+		break;
+	case kMenuUninstall: AskUninstall(targets); break;
+	}
+}
+}
+
+std::vector<std::string> RowMenuItems(const State &st)
+{
+	std::vector<std::string> out;
+	for (const auto &item : st.drop == kDropModMenu ? ModMenu(st) : RowMenu(st)) out.push_back(item.first);
+	return out;
+}
+
+void RunRowMenu(int index)
+{
+	const bool modMenu = g_s.drop == kDropModMenu;
+	const std::vector<std::pair<std::string, int>> items = modMenu ? ModMenu(g_s) : RowMenu(g_s);
+	std::vector<std::string> targets = MenuTargets(g_s);
+	if (modMenu) {
+		targets.clear();
+		if (g_s.selected >= 0 && g_s.selected < static_cast<int>(g_s.rows.size())) targets.push_back(g_s.rows[g_s.selected].folder);
+	}
+	g_s.drop = kDropNone;
+	if (index < 0 || index >= static_cast<int>(items.size())) return;
+	RunMenu(items[index].second, targets);
+}
 }

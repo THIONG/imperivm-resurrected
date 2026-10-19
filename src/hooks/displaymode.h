@@ -5,6 +5,9 @@
 
 #include <windows.h>
 
+#include <string>
+#include <vector>
+
 bool InstallDisplayModeHooks();
 
 bool DisplayFakeMode(int w, int h, DWORD bpp, bool testOnly);
@@ -24,3 +27,5 @@ void DisplaySetWindowHandler(DisplayWindowHandler handler);
 LRESULT DisplayForwardMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
 bool DisplayIsWindowed();
+
+std::vector<std::string> DisplayMonitorLabels();

@@ -80,6 +80,26 @@ Genera `options\<id>.json` e, con `--script`, `data\mod\<id>.vs`. Dice quanti de
 - **Funzionano solo con la lobby.** Le opzioni si fissano all'inizio di una partita dalla lobby (o quando si rientra in una online). Nelle avventure, nelle campagne e nei tutorial non c'è lobby: `Mod_GetOption` dà sempre 0 e la lista vale 0, anche se metti `"default": true`.
 - I preset della lobby (Classico, Competitivo) non toccano le opzioni delle mod.
 
+## Regole fisse di una mod
+
+Alcune regole del motore non sono opzioni della stanza: le fissa la mod per tutte le sue partite in `rules\game.json`:
+
+```json
+{
+  "armyStaysWithHero": true,
+  "sentriesUnselectable": true,
+  "protectedClasses": ["Peasant", "PeasantAmbient", "Trader", "Tradecar_Donkey", "Camel", "CartTrader"]
+}
+```
+
+| Campo | Cosa fa |
+|---|---|
+| `armyStaysWithHero` | Con `true`, le unità di un esercito non si separano dal loro eroe quando uno è dentro le mura e l'altro fuori. Il percorso si ricalcola comunque. |
+| `sentriesUnselectable` | Con `true`, le sentinelle delle mura non si possono selezionare (cliccandone una si seleziona la porta) e non entrano negli eserciti dell'IA. |
+| `protectedClasses` | Classi che non ricevono danni e non si possono attaccare, con tutte quelle che ereditano da esse. Sono nomi di classe (`Peasant`), non di unità. |
+
+Cambiano la partita, quindi nel multiplayer tutti devono avere la mod. Se più mod attive portano regole, si sommano.
+
 ## Online
 
 È gameplay: tutti i giocatori devono avere la stessa mod. L'opzione viaggia con le altre regole della lobby e viene salvata con la partita.

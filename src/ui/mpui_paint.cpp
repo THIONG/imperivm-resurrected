@@ -608,45 +608,6 @@ void PaintSyncProgress(Painter &p, const State &st)
 	DialogButtons(p, d, {{"Cancel", kSyncCancel}}, mx, my);
 }
 
-void PaintScenarioPicker(Painter &p, const State &st)
-{
-	const int mx = st.mouseX, my = st.mouseY;
-	const GameRoomSnapshot &g = st.game;
-	const Dialog dlg = DialogBegin(p, kW, kH, 860, 500, "Choose scenario");
-	const int w = dlg.w, h = dlg.h, x = dlg.x, y = dlg.y;
-	const int lx = x + 20, ly = y + 60, lw = 380, rowH = 28, rows = 13;
-	p.Fill(lx, ly, lw, rows * rowH + 4, pal::well);
-	p.Frame(lx, ly, lw, rows * rowH + 4, pal::line);
-	const int count = static_cast<int>(g.pickerItems.size());
-	const int scroll = std::max(0, std::min(st.pick.scroll, count - rows));
-	p.Font(0);
-	if (!count) p.Text(lx + 12, ly + 8, lw - 24, rowH, "There are no scenarios for multiplayer", kDim);
-	for (int r = 0; r < rows && scroll + r < count; r++) {
-		const int i = scroll + r, ry = ly + 2 + r * rowH;
-		const bool hov = p.Hover(lx + 2, ry, lw - 4, rowH, mx, my);
-		if (i == st.pickSel) p.Fill(lx + 2, ry, lw - 4, rowH, pal::rowSelected);
-		else if (hov) p.Fill(lx + 2, ry, lw - 4, rowH, pal::rowHover);
-		p.Text(lx + 12, ry, lw - 30, rowH, g.pickerItems[i].empty() ? "—" : g.pickerItems[i], i == st.pickSel ? pal::focus : kText);
-		p.AddHit(lx + 2, ry, lw - 4, rowH, kPickRow, i);
-	}
-	{
-		ListState view = st.pick;
-		view.scroll = scroll;
-		ListGeom geom;
-		ScrollbarPaint(p, lx + lw - 10, ly + 3, rows * rowH - 2, count, rows, view, geom, mx, my);
-		g_pickGeomOut = geom;
-	}
-	const int dx = lx + lw + 20, dw = x + w - 20 - dx;
-	p.Fill(dx, ly, dw, rows * rowH + 4, pal::wellRaised);
-	p.Frame(dx, ly, dw, rows * rowH + 4, pal::line);
-	p.Font(3);
-	p.TextWrapped(dx + 14, ly + 12, dw - 28, rows * rowH - 20,
-		st.pickSel < 0 ? "Pick a scenario from the list to see its description."
-					   : (g.pickerDescription.empty() ? "No description." : g.pickerDescription),
-		st.pickSel < 0 ? kDim : kText);
-	DialogButtons(p, dlg, {{"Choose this scenario", kPickOk, 0, true, st.pickSel >= 0}, {"Cancel", kPickCancel}}, mx, my);
-}
-
 void PaintRejoin(Painter &p, const State &st)
 {
 	const int mx = st.mouseX, my = st.mouseY;
@@ -737,6 +698,16 @@ std::vector<std::string> DropItems(const State &st, int &sel)
 {
 	sel = -1;
 	const int idx = st.dropIndex;
+	if (st.dropKind == kDropBonus) {
+		sel = st.game.slots[idx & 7].bonus;
+		std::vector<std::string> names;
+		for (const BonusDef &b : st.game.bonuses) names.push_back(b.name);
+		return names;
+	}
+	if (st.dropKind == kDropPickSort) {
+		sel = st.pickSort;
+		return {"Name", "Players", "Size"};
+	}
 	if (st.dropKind == kDropFilter) {
 		sel = st.filter;
 		return {"All rooms", "Friends'", "No password", "Password protected", "Original game", "With my content", "With open slots", "In progress"};
@@ -829,9 +800,15 @@ void Combo(Painter &p, const State &st, int x, int y, int w, int h, const std::s
 		kind | (index << 4), &g_dropAnchor);
 }
 
+void PaintPickCombo(Painter &p, const State &st, int x, int y, int w, int h, const std::string &text)
+{
+	Combo(p, st, x, y, w, h, text, kDropPickSort, 0, st.pickDelete < 0);
+}
+
 void PaintDropList(Painter &p, const State &st)
 {
 	if (!st.dropOpen) return;
+	p.noHover = false;
 	int sel = -1;
 	const std::vector<std::string> items = DropItems(st, sel);
 	const int count = static_cast<int>(items.size());
@@ -874,7 +851,11 @@ void PaintDropList(Painter &p, const State &st)
 		}
 		return;
 	}
-	PaintDropMenu(p, g_dropAnchor, ToDropItems(items), sel, st.dropScroll, kW, kH, kGDropPick, kGDropClose, st.mouseX, st.mouseY);
+	std::vector<DropItem> shown = ToDropItems(items);
+	if (st.dropKind == kDropBonus) {
+		for (size_t i = 0; i < shown.size() && i < st.game.bonuses.size(); i++) shown[i].tip = st.game.bonuses[i].description;
+	}
+	PaintDropMenu(p, g_dropAnchor, shown, sel, st.dropScroll, kW, kH, kGDropPick, kGDropClose, st.mouseX, st.mouseY, st.dropKind == kDropBonus ? 150 : 200);
 }
 }
 

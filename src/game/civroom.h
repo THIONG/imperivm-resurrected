@@ -11,3 +11,5 @@ struct RoomCiv {
 
 std::vector<int> CivRoomOrder(const std::vector<RoomCiv> &civs, int items);
 int CivRoomReplacement(const std::vector<RoomCiv> &civs, int item, int items);
+int CivRoomBaseOfItem(int item);
+int CivRoomItemOfBase(int race);
