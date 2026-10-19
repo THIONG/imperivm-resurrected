@@ -4,7 +4,7 @@ The SDK version and which mods you can make with each one. The script API versio
 
 ## 1.6
 
-Needs Imperivm Resurrected 0.32.24 or later.
+Needs Imperivm Resurrected 0.9.0 or later.
 
 - A variant that replaces its base (`"replacesBase": true`) can change with `letter` and `template` the letter and the town and
   village templates of that base for the whole game, also those of the neutral settlements of the random map. This is how a whole
@@ -18,7 +18,7 @@ Needs Imperivm Resurrected 0.32.24 or later.
 
 ## 1.5
 
-Needs Imperivm Resurrected 0.32.20 or later.
+Needs Imperivm Resurrected 0.9.0 or later.
 
 - `shrink-mod.js` also converts mods whose `rle.mmp` changes the game's graphics, not only those that append graphics at the
   end. The game's `rle.mmp` stays whole: what the mod changes or adds goes after it, in `rle.mmp.tail`, and its images are
@@ -31,7 +31,7 @@ Needs Imperivm Resurrected 0.32.20 or later.
 
 ## 1.4
 
-Needs Imperivm Resurrected 0.32.20 or later.
+Needs Imperivm Resurrected 0.9.0 or later.
 
 - A mod can show up in several categories of Browse content: the main one is its GameBanana category and the others are added
   with `Type` tags, for example `Type: Civilizations`.
@@ -42,7 +42,7 @@ Needs Imperivm Resurrected 0.32.20 or later.
 
 ## 1.3
 
-Needs Imperivm Resurrected 0.32.13 or later.
+Needs Imperivm Resurrected 0.9.0 or later.
 
 - The map categories are named after the game's folders: **Scenarios**, **Adventures** and **Conquests**, instead of Maps,
   Campaigns and Conquest. The previous names still work and the validator asks for the new one.
@@ -54,7 +54,7 @@ Needs Imperivm Resurrected 0.32.13 or later.
 
 ## 1.2
 
-Needs Imperivm Resurrected 0.32.10 or later.
+Needs Imperivm Resurrected 0.9.0 or later.
 
 - `Mod_CanExecCmd(object, command)` (API 7): the same check a command's button makes (the object has it, it isn't disabled and its
   verifier accepts it). The cheats menu lists the troops of the loaded classes, mods' included (`edittree_pos` under `Units/`), and
@@ -76,7 +76,7 @@ Needs Imperivm Resurrected 0.32.10 or later.
 
 ## 1.1
 
-Needs Imperivm Resurrected 0.31.58 or later.
+Needs Imperivm Resurrected 0.9.0 or later.
 
 - The field names of `mod.json`, `civs\*.json`, `specials\*.json` and `options\*.json` are now in English (`name`, `authors`, `description`, `tags`, `category`, `index`, `biome`, `template`, `letter`, `values`, `default`…). The Spanish names still work.
 - The directives of script patches (`.vs`) are now `@top`, `@bottom`, `@before`, `@after`, `@replace` and `@end`. The old ones still work.
@@ -85,7 +85,7 @@ Needs Imperivm Resurrected 0.31.58 or later.
 
 ## 1.0
 
-Needs Imperivm Resurrected 0.29.5 or later.
+Needs Imperivm Resurrected 0.9.0 or later.
 
 With files alone and nothing to compile, a mod can:
 

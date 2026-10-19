@@ -45,4 +45,4 @@ Senza queste righe il nome è quello del file e non c'è descrizione. I tre bonu
 
 Tutti i giocatori hanno bisogno degli stessi file: il contenuto della stanza viene confrontato prima della partita, e il valore del bonus è una posizione dell'elenco.
 
-Richiede Imperivm Resurrected 0.32.24 o successiva.
+Richiede Imperivm Resurrected 0.9.0 o successiva.

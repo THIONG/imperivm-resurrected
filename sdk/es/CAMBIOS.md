@@ -4,7 +4,7 @@ Versión del SDK y qué mods se pueden hacer con cada una. La versión de la API
 
 ## 1.6
 
-Necesita Imperivm Resurrected 0.32.24 o posterior.
+Necesita Imperivm Resurrected 0.9.0 o posterior.
 
 - Una variante que sustituye a su base (`"replacesBase": true`) puede cambiar con `letter` y `template` la letra y las plantillas de
   ciudad y aldea de esa base durante toda la partida, también las de los poblados neutrales del mapa aleatorio. Así se sustituye una
@@ -18,7 +18,7 @@ Necesita Imperivm Resurrected 0.32.24 o posterior.
 
 ## 1.5
 
-Necesita Imperivm Resurrected 0.32.20 o posterior.
+Necesita Imperivm Resurrected 0.9.0 o posterior.
 
 - `reducir-mod.js` convierte también los mods cuyo `rle.mmp` cambia gráficos del juego, no solo los que añaden gráficos al
   final. El `rle.mmp` del juego se queda entero: lo que el mod cambia o añade va detrás, en `rle.mmp.tail`, y sus imágenes se
@@ -31,7 +31,7 @@ Necesita Imperivm Resurrected 0.32.20 o posterior.
 
 ## 1.4
 
-Necesita Imperivm Resurrected 0.32.20 o posterior.
+Necesita Imperivm Resurrected 0.9.0 o posterior.
 
 - Un mod puede salir en varias categorías de Explorar contenido: la principal es la de GameBanana y las demás se añaden con
   etiquetas `Type`, por ejemplo `Type: Civilizations`.
@@ -42,7 +42,7 @@ Necesita Imperivm Resurrected 0.32.20 o posterior.
 
 ## 1.3
 
-Necesita Imperivm Resurrected 0.32.13 o posterior.
+Necesita Imperivm Resurrected 0.9.0 o posterior.
 
 - Las categorías de mapas se llaman como las carpetas del juego: **Scenarios** (Escenarios), **Adventures** (Aventuras) y **Conquests**
   (Conquistas), en lugar de Maps, Campaigns y Conquest. Los nombres anteriores siguen funcionando y el validador pide el nuevo.
@@ -54,7 +54,7 @@ Necesita Imperivm Resurrected 0.32.13 o posterior.
 
 ## 1.2
 
-Necesita Imperivm Resurrected 0.32.10 o posterior.
+Necesita Imperivm Resurrected 0.9.0 o posterior.
 
 - `Mod_CanExecCmd(objeto, orden)` (API 7): la misma comprobación que hace el botón de una orden (la tiene, no está deshabilitada y su
   verificador la acepta). El menú de trucos lista las tropas de las clases cargadas, también las de los mods (`edittree_pos` bajo
@@ -76,7 +76,7 @@ Necesita Imperivm Resurrected 0.32.10 o posterior.
 
 ## 1.1
 
-Necesita Imperivm Resurrected 0.31.58 o posterior.
+Necesita Imperivm Resurrected 0.9.0 o posterior.
 
 - Los nombres de los campos de `mod.json`, `civs\*.json`, `specials\*.json` y `options\*.json` pasan a inglés (`name`, `authors`, `description`, `tags`, `category`, `index`, `biome`, `template`, `letter`, `values`, `default`…). Los nombres en español siguen valiendo.
 - Las directivas de los parches de scripts (`.vs`) pasan a `@top`, `@bottom`, `@before`, `@after`, `@replace` y `@end`. Las antiguas siguen valiendo.
@@ -85,7 +85,7 @@ Necesita Imperivm Resurrected 0.31.58 o posterior.
 
 ## 1.0
 
-Necesita Imperivm Resurrected 0.29.5 o posterior.
+Necesita Imperivm Resurrected 0.9.0 o posterior.
 
 Un mod puede, solo con archivos y sin compilar nada:
 

@@ -4,7 +4,7 @@ Versione dell'SDK e quali mod si possono fare con ognuna. La versione dell'API d
 
 ## 1.6
 
-Richiede Imperivm Resurrected 0.32.24 o successiva.
+Richiede Imperivm Resurrected 0.9.0 o successiva.
 
 - Una variante che sostituisce la sua base (`"replacesBase": true`) può cambiare con `letter` e `template` la lettera e i modelli di
   città e villaggio di quella base per tutta la partita, anche quelli degli insediamenti neutrali della mappa casuale. Così si
@@ -18,7 +18,7 @@ Richiede Imperivm Resurrected 0.32.24 o successiva.
 
 ## 1.5
 
-Richiede Imperivm Resurrected 0.32.20 o successiva.
+Richiede Imperivm Resurrected 0.9.0 o successiva.
 
 - `riduci-mod.js` converte anche le mod il cui `rle.mmp` cambia la grafica del gioco, non solo quelle che aggiungono grafica
   in fondo. L'`rle.mmp` del gioco resta intero: ciò che la mod cambia o aggiunge va dopo, in `rle.mmp.tail`, e le sue immagini
@@ -32,7 +32,7 @@ Richiede Imperivm Resurrected 0.32.20 o successiva.
 
 ## 1.4
 
-Richiede Imperivm Resurrected 0.32.20 o successiva.
+Richiede Imperivm Resurrected 0.9.0 o successiva.
 
 - Una mod può comparire in più categorie di Sfoglia contenuti: quella principale è la sua categoria di GameBanana e le altre si
   aggiungono con tag `Type`, per esempio `Type: Civilizations`.
@@ -43,7 +43,7 @@ Richiede Imperivm Resurrected 0.32.20 o successiva.
 
 ## 1.3
 
-Richiede Imperivm Resurrected 0.32.13 o successiva.
+Richiede Imperivm Resurrected 0.9.0 o successiva.
 
 - Le categorie delle mappe si chiamano come le cartelle del gioco: **Scenarios** (Scenari), **Adventures** (Avventure) e **Conquests**
   (Conquiste), al posto di Maps, Campaigns e Conquest. I nomi precedenti funzionano ancora e il validatore chiede quello nuovo.
@@ -55,7 +55,7 @@ Richiede Imperivm Resurrected 0.32.13 o successiva.
 
 ## 1.2
 
-Richiede Imperivm Resurrected 0.32.10 o successiva.
+Richiede Imperivm Resurrected 0.9.0 o successiva.
 
 - `Mod_CanExecCmd(oggetto, comando)` (API 7): lo stesso controllo che fa il pulsante di un comando (l'oggetto lo ha, non è disattivato e
   il suo verificatore lo accetta). Il menu dei trucchi elenca le truppe delle classi caricate, anche quelle delle mod (`edittree_pos` sotto
@@ -77,7 +77,7 @@ Richiede Imperivm Resurrected 0.32.10 o successiva.
 
 ## 1.1
 
-Richiede Imperivm Resurrected 0.31.58 o successiva.
+Richiede Imperivm Resurrected 0.9.0 o successiva.
 
 - I nomi dei campi di `mod.json`, `civs\*.json`, `specials\*.json` e `options\*.json` passano all'inglese (`name`, `authors`, `description`, `tags`, `category`, `index`, `biome`, `template`, `letter`, `values`, `default`…). I nomi in spagnolo continuano a valere.
 - Le direttive delle patch degli script (`.vs`) diventano `@top`, `@bottom`, `@before`, `@after`, `@replace` e `@end`. Le vecchie continuano a valere.
@@ -86,7 +86,7 @@ Richiede Imperivm Resurrected 0.31.58 o successiva.
 
 ## 1.0
 
-Richiede Imperivm Resurrected 0.29.5 o successivo.
+Richiede Imperivm Resurrected 0.9.0 o successivo.
 
 Una mod può, solo con file e senza compilare nulla:
 

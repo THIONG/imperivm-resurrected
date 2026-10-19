@@ -45,4 +45,4 @@ Without these lines the name is the file's and there is no description. The thre
 
 All players need the same files: the content of the room is compared before the match, and the bonus value is a position in the list.
 
-Needs Imperivm Resurrected 0.32.24 or later.
+Needs Imperivm Resurrected 0.9.0 or later.
