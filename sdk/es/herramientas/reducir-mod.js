@@ -185,7 +185,11 @@ for (const lang of modLangs) {
 }
 
 fs.mkdirSync(outDir, {recursive: true});
+// Windows no distingue mayúsculas: una carpeta de primer nivel se escribe siempre igual (Currentlang\ de un archivo suelto y currentlang\ de un paquete de idioma van a la misma)
+const topCase = new Map();
 function write(rel, data) {
+	const seg = rel.split('\\');
+	if (seg.length > 1) rel = [topCase.get(seg[0].toLowerCase()) || (topCase.set(seg[0].toLowerCase(), seg[0]), seg[0]), ...seg.slice(1)].join('\\');
 	const full = J(outDir, rel);
 	fs.mkdirSync(path.dirname(full), {recursive: true});
 	fs.writeFileSync(full, moved(rel, data));
