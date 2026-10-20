@@ -9,7 +9,7 @@
 Mod no oficial para **Imperivm: Great Battles of Rome HD** (Steam). Le da al juego lo que le faltaba para seguir vivo:
 online sin abrir puertos, mods con un clic, controles a tu gusto y muchos arreglos.
 
-> **Estado:** en pruebas antes de la 1.0 (versiones 0.x). Si algo falla, mira [Si algo falla](#si-algo-falla).
+> **Estado:** versión 1.0. Probada en partidas online de dos jugadores; todavía sin probar con más jugadores. Si algo falla, mira [Si algo falla](#si-algo-falla).
 
 ## Qué trae
 
