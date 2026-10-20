@@ -15,6 +15,7 @@ project(imperivm_resurrected LANGUAGES C CXX)
 # Dependencies of the DLL, by default in the layout of the private workspace (..\tools) or in third_party\ (public repository):
 #   MINHOOK_DIR, MINIAUDIO_DIR, STEAMWORKS_SDK (folder that contains public\steam\steam_api.h)
 # miniz (MINIZ_DIR) is used by the DLL and by the tests of the zip code.
+# libarchive (LIBARCHIVE_DIR, reduced to its RAR and RAR5 readers) is used by the DLL and by the tests of the rar code.
 
 option(IMPERIVM_BUILD_DLL "Build winmm.dll (needs the Steamworks SDK)" ON)
 option(IMPERIVM_BUILD_TESTS "Build the unit tests" ON)
@@ -44,6 +45,13 @@ if(NOT EXISTS "${MINIZ_DIR}/miniz.h")
 	message(FATAL_ERROR "Missing dependency: ${MINIZ_DIR}/miniz.h")
 endif()
 
+set(LIBARCHIVE_DIR "${_default_third_party}/libarchive" CACHE PATH "libarchive source folder (config.h and libarchive\\*.c)")
+if(NOT EXISTS "${LIBARCHIVE_DIR}/libarchive/archive.h")
+	message(FATAL_ERROR "Missing dependency: ${LIBARCHIVE_DIR}/libarchive/archive.h")
+endif()
+file(GLOB LIBARCHIVE_SOURCES CONFIGURE_DEPENDS "${LIBARCHIVE_DIR}/libarchive/*.c")
+set_source_files_properties(${LIBARCHIVE_SOURCES} PROPERTIES COMPILE_OPTIONS "/W0" COMPILE_DEFINITIONS "HAVE_CONFIG_H")
+
 if(IMPERIVM_BUILD_DLL)
 	set(MINHOOK_DIR "${_default_third_party}/minhook" CACHE PATH "MinHook source tree")
 	set(MINIAUDIO_DIR "${_default_third_party}/miniaudio" CACHE PATH "miniaudio source tree")
@@ -65,7 +73,7 @@ if(IMPERIVM_BUILD_DLL)
 	set(MINIAUDIO_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/hooks/miniaudio_impl.c")
 	set(MINIZ_SOURCE "${MINIZ_DIR}/miniz.c")
 
-	add_library(winmm SHARED ${MOD_SOURCES} ${MINHOOK_SOURCES} ${MINIAUDIO_IMPL} ${MINIZ_SOURCE} "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.def")
+	add_library(winmm SHARED ${MOD_SOURCES} ${MINHOOK_SOURCES} ${MINIAUDIO_IMPL} ${MINIZ_SOURCE} ${LIBARCHIVE_SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.def")
 	set_target_properties(winmm PROPERTIES PREFIX "" OUTPUT_NAME "winmm")
 
 	set_source_files_properties(${MINIAUDIO_IMPL} ${MINIZ_SOURCE} PROPERTIES COMPILE_OPTIONS "/W0")
@@ -76,6 +84,8 @@ if(IMPERIVM_BUILD_DLL)
 		"${MINHOOK_DIR}/include"
 		"${MINIAUDIO_DIR}"
 		"${MINIZ_DIR}"
+		"${LIBARCHIVE_DIR}"
+		"${LIBARCHIVE_DIR}/libarchive"
 		"${STEAMWORKS_SDK}/public")
 	target_compile_definitions(winmm PRIVATE $<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
 	target_compile_options(winmm PRIVATE $<$<NOT:$<CONFIG:Debug>>:/O2>)
@@ -98,6 +108,7 @@ if(IMPERIVM_BUILD_TESTS)
 	set(TR_SOURCES src/i18n/tr.cpp src/i18n/tr_data.cpp src/core/legacy.cpp tests/log_stub.cpp)
 	set(HASH_SOURCES src/core/sha256.cpp)
 	set(ZIP_SOURCES src/core/zipfile.cpp "${MINIZ_DIR}/miniz.c")
+	set(RAR_SOURCES src/core/rarfile.cpp ${ZIP_SOURCES} ${LIBARCHIVE_SOURCES})
 	set_source_files_properties("${MINIZ_DIR}/miniz.c" PROPERTIES COMPILE_OPTIONS "/W0")
 
 	imperivm_test(test_legacy src/core/legacy.cpp)
@@ -134,6 +145,10 @@ if(IMPERIVM_BUILD_TESTS)
 	imperivm_test(test_builtin src/hooks/builtin_data.cpp src/mods/patchxml.cpp ${TR_SOURCES})
 	imperivm_test(test_logreport src/core/logreport.cpp src/core/logfiles.cpp src/core/logredact.cpp ${ZIP_SOURCES} tests/log_stub.cpp)
 	imperivm_test(test_zip ${ZIP_SOURCES})
+	set(IMPERIVM_TEST_ARGS "${CMAKE_CURRENT_SOURCE_DIR}/tests/data/rar")
+	imperivm_test(test_rar ${RAR_SOURCES})
+	target_include_directories(test_rar PRIVATE "${LIBARCHIVE_DIR}" "${LIBARCHIVE_DIR}/libarchive")
+	unset(IMPERIVM_TEST_ARGS)
 
 	find_program(NODE_EXE node)
 	if(NODE_EXE)
