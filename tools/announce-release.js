@@ -30,6 +30,8 @@ const LANGUAGES = {
     installed: ['**¿Ya tienes el mod instalado?**', 'Entra al juego y te aparecerá el aviso para actualizarlo.'],
     fresh: site => ['**¿Aún no lo tienes?**', `Descárgalo desde la web: **[imperivmresurrected.com](${site})**`],
     news: '**📋 NOVEDADES**',
+    firstOld: ['**¿Vienes de la 0.9.0 o anterior?**', 'Descomprime el zip a mano sobre la carpeta del juego, una sola vez: el aviso del juego no puede instalar esta versión.'],
+    firstNews: '**📋 PRIMERA VERSIÓN**',
     more: site => `Más en la [web](${site}).`,
   },
   en: {
@@ -39,6 +41,8 @@ const LANGUAGES = {
     installed: ['**Already have the mod installed?**', 'Open the game and you\'ll get the prompt to update it.'],
     fresh: site => ['**Don\'t have it yet?**', `Download it from the website: **[imperivmresurrected.com](${site})**`],
     news: '**📋 WHAT\'S NEW**',
+    firstOld: ['**Coming from 0.9.0 or earlier?**', 'Unzip it by hand over the game folder, once: the game\'s own update cannot install this version.'],
+    firstNews: '**📋 FIRST RELEASE**',
     more: site => `More on the [website](${site}).`,
   },
   it: {
@@ -48,6 +52,8 @@ const LANGUAGES = {
     installed: ['**Hai già la mod installata?**', 'Entra nel gioco e ti comparirà l\'avviso per aggiornarla.'],
     fresh: site => ['**Non ce l\'hai ancora?**', `Scaricala dal sito: **[imperivmresurrected.com](${site})**`],
     news: '**📋 NOVITÀ**',
+    firstOld: ['**Arrivi dalla 0.9.0 o precedente?**', 'Decomprimi lo zip a mano sulla cartella del gioco, una sola volta: l\'aggiornamento del gioco non può installare questa versione.'],
+    firstNews: '**📋 PRIMA VERSIONE**',
     more: site => `Altro sul [sito](${site}).`,
   },
 };
@@ -85,10 +91,10 @@ function clip(text, site, more) {
   return (end > NOTES_LIMIT / 2 ? cut.slice(0, end) : cut).trimEnd() + '\n…\n' + more(site);
 }
 
-function message(lang, version, notes, publishedAt) {
+function message(lang, version, notes, publishedAt, first) {
   const t = LANGUAGES[lang];
-  const lines = [...t.installed, '', ...t.fresh(t.site)];
-  if (notes) lines.push('', t.news, clip(notes, t.site, t.more));
+  const lines = first ? [...t.fresh(t.site), '', ...t.firstOld] : [...t.installed, '', ...t.fresh(t.site)];
+  if (notes) lines.push('', first ? t.firstNews : t.news, clip(notes, t.site, t.more));
   const role = (process.env['DISCORD_ROLE_' + lang.toUpperCase()] || '').trim();
   return {
     content: role ? `<@&${role}>` : null,
@@ -110,9 +116,10 @@ async function main() {
   }
   const version = tag.replace(/^v/i, '');
   const notes = sections(release.body || '');
+  const first = /<!--\s*announce:\s*first-release\s*-->/.test(release.body || '');
   let failed = 0;
   for (const [lang, url] of hooks) {
-    const payload = message(lang, version, notes[lang] || '', release.publishedAt || new Date().toISOString());
+    const payload = message(lang, version, notes[lang] || '', release.publishedAt || new Date().toISOString(), first);
     if (dryRun) {
       console.log(`--- ${lang}${url ? '' : ' (no webhook: would be skipped)'}\n` + JSON.stringify(payload, null, 2));
       continue;
