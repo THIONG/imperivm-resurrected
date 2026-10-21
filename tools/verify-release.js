@@ -1,5 +1,5 @@
 // Verifies the files of a release before (or after) they are published, without the private key:
-//   - the version of the tag is the one in src/core/version.cpp (kVersion);
+//   - the version of the tag is the one in src/core/version_info.h (IMPERIVM_VERSION_TEXT, and the same numbers in IMPERIVM_VERSION_NUMBER);
 //   - version.json: same version, the link of the zip points to this release, size and SHA-256 of the zip are the real ones, and the
 //     signature is valid for the public key that the mod has in src/mods/updater.cpp (the one the game checks before installing);
 //   - the zip holds winmm.dll, steam_api.dll and the imperivm-resurrected\ folder and nothing else, with no path that escapes;
@@ -28,10 +28,12 @@ const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 const tarExe = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
 const listZip = (zip) => execFileSync(tarExe, ['-tf', zip], { encoding: 'utf8', maxBuffer: 1 << 28 }).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-const versionSource = fs.readFileSync(path.join(ROOT, 'src', 'core', 'version.cpp'), 'utf8');
-const version = (/kVersion\[\]\s*=\s*"([^"]+)"/.exec(versionSource) || [])[1];
-if (!version) { console.error('kVersion not found in src/core/version.cpp'); process.exit(2); }
-if (tag && tag !== 'v' + version) bad(`the tag is ${tag} but src/core/version.cpp says ${version}`);
+const versionSource = fs.readFileSync(path.join(ROOT, 'src', 'core', 'version_info.h'), 'utf8');
+const version = (/IMPERIVM_VERSION_TEXT\s+"([^"]+)"/.exec(versionSource) || [])[1];
+if (!version) { console.error('IMPERIVM_VERSION_TEXT not found in src/core/version_info.h'); process.exit(2); }
+const versionNumber = (/IMPERIVM_VERSION_NUMBER\s+([\d, ]+)/.exec(versionSource) || [])[1];
+if (versionNumber && versionNumber.replace(/\s/g, '').split(',').slice(0, 3).join('.') !== version) bad(`IMPERIVM_VERSION_NUMBER is ${versionNumber} but IMPERIVM_VERSION_TEXT is ${version}`);
+if (tag && tag !== 'v' + version) bad(`the tag is ${tag} but src/core/version_info.h says ${version}`);
 
 const publicKey = () => {
   const text = fs.readFileSync(path.join(ROOT, 'src', 'mods', 'updater.cpp'), 'utf8');
