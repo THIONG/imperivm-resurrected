@@ -157,7 +157,7 @@ void Detects()
 
 void ReadsEveryMethod(const std::string &dir)
 {
-	for (const char *name : {"lzma_solid", "lzma2_files", "bcj_lzma2", "delta_lzma", "ppmd"}) {
+	for (const char *name : {"lzma_solid", "lzma2_files", "bcj_lzma2", "delta_lzma", "ppmd", "bzip2", "deflate"}) {
 		const std::string out = dir + "\\" + name;
 		CHECK_EQ(ArchiveExtract(Fixture((std::string(name) + ".7z").c_str()), out, ZipLimits()), std::string());
 		CheckMod(out);
@@ -170,6 +170,8 @@ void ReadsFilesFromOtherWriters(const std::string &dir)
 	CHECK_EQ(HashOf(dir + "\\bcj1\\x86exe"), std::string("9f24006793ce80bf"));
 	CHECK_EQ(ArchiveExtract(Fixture("libarchive_lzma2_arm64.7z"), dir + "\\arm64", ZipLimits()), std::string());
 	CHECK_EQ(HashOf(dir + "\\arm64\\hw-arm64"), std::string("0d8fd07e6202c2da"));
+	CHECK_EQ(ArchiveExtract(Fixture("libarchive_bcj2_bzip2.7z"), dir + "\\bcj2", ZipLimits()), std::string());
+	CHECK_EQ(HashOf(dir + "\\bcj2\\x86exe"), std::string("9f24006793ce80bf"));
 	CHECK_EQ(ArchiveExtract(Fixture("libarchive_empty_archive.7z"), dir + "\\emptyarchive", ZipLimits()), std::string());
 	CHECK(IsFolder(dir + "\\emptyarchive"));
 }
@@ -224,10 +226,9 @@ void RefusesPasswordProtected(const std::string &dir)
 	CHECK_EQ(ArchiveExtract(Fixture("encrypted_header.7z"), dir + "\\enchead", ZipLimits()), std::string(kEncrypted));
 }
 
-void RefusesMethodsItDoesNotHave(const std::string &dir)
+void RefusesZstd(const std::string &dir)
 {
-	CHECK_EQ(ArchiveExtract(Fixture("bzip2.7z"), dir + "\\bzip2", ZipLimits()), std::string(kDamaged));
-	CHECK_EQ(ArchiveExtract(Fixture("deflate.7z"), dir + "\\deflate", ZipLimits()), std::string(kDamaged));
+	CHECK_EQ(ArchiveExtract(Fixture("libarchive_zstd.7z"), dir + "\\zstd", ZipLimits()), std::string(kDamaged));
 	CHECK(ArchiveNotUnderstood(kDamaged));
 	CHECK(!ArchiveNotUnderstood(kOutside));
 	CHECK(!ArchiveNotUnderstood(kEncrypted));
@@ -306,7 +307,7 @@ int main(int argc, char **argv)
 	RefusesPathsOutsideTheFolder(dir);
 	RefusesLinks(dir);
 	RefusesPasswordProtected(dir);
-	RefusesMethodsItDoesNotHave(dir);
+	RefusesZstd(dir);
 	AppliesTheLimits(dir);
 	StopsWhenCanceled(dir);
 	NoticesDamage(dir);

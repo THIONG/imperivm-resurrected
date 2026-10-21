@@ -35,6 +35,8 @@
 
 #define HAVE_BCRYPT_H 1
 #define HAVE_LZMA_H 1
+#define HAVE_ZLIB_H 1
+#define HAVE_BZLIB_H 1
 #define HAVE_LIBLZMA 1
 #define HAVE_CTYPE_H 1
 #define HAVE_DECL_INT32_MAX 1

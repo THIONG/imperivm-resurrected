@@ -24,7 +24,7 @@ Do 1 and 2 first. They decide the size of the work.
 Add the 7z reader that libarchive already has (`archive_read_support_format_7zip.c`, 5074 lines) to `core/rarfile`, and vendor only the part of liblzma that decodes LZMA and LZMA2.
 
 - The 7z reader calls the liblzma API (`lzma_*`), so the LZMA SDK cannot replace it without rewriting the reader.
-- The reader also has code for BZip2 and Deflate behind `HAVE_BZLIB_H` and `HAVE_ZLIB_H`. Leave both undefined: a 7z that uses them is refused with a clear message. Add them only if step 2 shows they matter.
+- The reader also has code for BZip2 and Deflate behind `HAVE_BZLIB_H` and `HAVE_ZLIB_H`. Done in the end: both are cheap (miniz and bzip2).
 - Rename `core/rarfile` to something that is not RAR-specific only if the 7z code goes in the same module; otherwise add `core/sevenzfile` next to it with the same shape (`Is…File`, `…Extract`, same limits, progress, path check and messages).
 - Reuse `ZipEntryPath`, `ZipLimits`, `ZipProgress` and `winpath.h`, as `rarfile` does.
 - Keep refusing links, special files and password protected archives.
@@ -51,7 +51,7 @@ Add the 7z reader that libarchive already has (`archive_read_support_format_7zip
 
 ## Decisions for the maintainer
 
-- Is it acceptable to refuse 7z files that use BZip2, Deflate or PPMd until someone needs them?
+- Is it acceptable to refuse 7z files that use Zstd (they go to `tar.exe`)?
 - Should one module read both RAR and 7z, or two modules with the same interface?
 - Should `.bnp` and `.json` be handled by this work or by their own?
 
@@ -60,25 +60,26 @@ Add the 7z reader that libarchive already has (`archive_read_support_format_7zip
 ### Unknowns (step 1)
 
 1. **`.bnp` and `.json`**: not answered. No file of those types in `community-mods`, and none among the GameBanana uploads (see 2). They still go to `tar.exe`, as before. Needs the maintainer.
-2. **Methods in the wild**: on 2026-10-21 the GameBanana API (`Mod/Index` and `Sound/Index` for game 26069, then `ProfilePage` of each) returned 15 items and 15 files: 14 `.zip`, 1 `.rar`, **no `.7z`**. `community-mods` has 59 zip, 56 rar and no 7z mod (its four `.7Z` files are the game's own `paks`, LZMA2, one solid block). So no 7z mod exists today; what the reader supports comes from what 7-Zip writes by default (LZMA2), plus LZMA, PPMd, Delta and the BCJ filters, which cost nothing once liblzma and the PPMd code of RAR are in. Not seen anywhere, so refused: BZip2, Deflate, Zstd, BCJ2.
+2. **Methods in the wild**: on 2026-10-21 the GameBanana API (`Mod/Index` and `Sound/Index` for game 26069, then `ProfilePage` of each) returned 15 items and 15 files: 14 `.zip`, 1 `.rar`, **no `.7z`**. `community-mods` has 59 zip, 56 rar and no 7z mod (its four `.7Z` files are the game's own `paks`, LZMA2, one solid block). So no 7z mod exists today; what the reader supports comes from what 7-Zip writes by default (LZMA2), plus LZMA, PPMd, Delta and the BCJ filters, which cost nothing once liblzma and the PPMd code of RAR are in. Zstd is not read (only the 7-Zip-zstd fork writes it).
 3. **License of liblzma**: 0BSD (`SPDX-License-Identifier: 0BSD` in all 55 vendored files); text in `THIRD-PARTY-NOTICES.md`.
 
 ### Decisions taken (maintainer can revert)
 
 - One module for RAR and 7z: `core/rarfile` became `core/archivefile` (`IsArchiveFile`, `ArchiveExtract`). The reader is libarchive's, so a second module would have copied the same 170 lines. Move and behavior change should go in separate commits: the `git mv` plus the identifier rename first, the rest after.
-- BZip2, Deflate and Zstd are not built in. When the own reader answers "unsupported format or damaged file" (`ArchiveNotUnderstood`), `Extract()` tries `tar.exe` if it exists; any other answer (password, links, path outside, limits, cancel) is final. Without `tar.exe` the player sees the own reader's message. `tar.exe` stays as the last resort.
+- Deflate and BZip2 are built in (second commit): Deflate with miniz through a hand-written `zlib.h`, BZip2 with bzip2 1.0.8 in `third_party/bzip2/`. BCJ2 works with LZMA, LZMA2, Copy, Deflate and BZip2. Zstd is not built in (libzstd is large and only 7-Zip-zstd writes it). When the own reader answers "unsupported format or damaged file" (`ArchiveNotUnderstood`), `Extract()` tries `tar.exe` if it exists; any other answer (password, links, path outside, limits, cancel) is final. Without `tar.exe` the player sees the own reader's message. `tar.exe` stays as the last resort.
 - `.bnp` and `.json` are odd formats (maintainer): not handled here; they go to `tar.exe` as before.
 
 ### What was done
 
+- `third_party/bzip2/` (7 files, bzip2 1.0.8) and `third_party/libarchive/zlib.h` (miniz); with `HAVE_ZLIB_H` libarchive also takes `crc32` from miniz, and RAR reads the same.
 - `third_party/xz/`: 20 decoder `.c` files and 35 headers of xz 5.8.4, unmodified, plus a hand-written `config.h`. `third_party/libarchive/`: `archive_read_support_format_7zip.c` added, `config.h` gets `HAVE_LZMA_H`.
 - `CMakeLists.txt` and `build.bat`: both libraries have a `config.h`, so each is compiled seeing only its own folder.
-- `tests/test_7z.cpp` (109 checks) and `tests/data/7z/` (11 files, 700 KB): 7-Zip 26.02 files with LZMA solid, LZMA2 non solid, BCJ, Delta, PPMd, BZip2, Deflate, password (data and headers), a symlink and a 20 MB file; three files from libarchive's test suite (BCJ+LZMA, ARM64+LZMA2, empty archive); generated files with `../evil.txt`, `C:/`, `/abs`, `con.txt`, `:stream`, MAX_PATH. With the path check removed on purpose 7 checks fail.
+- `tests/test_7z.cpp` (134 checks) and `tests/data/7z/` (11 files, 700 KB): 7-Zip 26.02 files with LZMA solid, LZMA2 non solid, BCJ, Delta, PPMd, BZip2, Deflate, password (data and headers), a symlink and a 20 MB file (BZip2 and Deflate extract; only the libarchive Zstd file is refused); five files from libarchive's test suite (BCJ+LZMA, ARM64+LZMA2, BCJ2+BZip2, Zstd, empty archive); generated files with `../evil.txt`, `C:/`, `/abs`, `con.txt`, `:stream`, MAX_PATH. With the path check removed on purpose 7 checks fail.
 
 ### Measurements
 
-- `winmm.dll` (clang-cl x86, `tools/build-dll.sh`): `main` 5,317,120 bytes, PR #20 5,489,664, this branch 5,553,152 (+63,488 over #20, +1.2%).
-- Community Mod v12 repacked as 7z with 7-Zip (1018 MB, 222 MB archive, LZMA2 level 5; and level 9 solid with a 64 MB dictionary): `diff -r` against the RAR extraction shows no differences. Under Wine 11, mingw -O1: 11.4 s, against 10.8 s for `bsdtar` 3.8.10 on the same file.
+- `winmm.dll` (clang-cl x86, `tools/build-dll.sh`): `main` 5,317,120 bytes, PR #20 5,489,664, LZMA only 5,553,152, with Deflate and BZip2 5,579,776 (+90,112 over #20, +1.6%).
+- Community Mod v12 repacked as 7z with 7-Zip (1018 MB; LZMA2 level 5, LZMA2 level 9 solid with a 64 MB dictionary, BZip2 and Deflate): `diff -r` against the RAR extraction shows no differences. Under Wine 11, mingw -O1: 11.4 s, against 10.8 s for `bsdtar` 3.8.10 on the same file.
 
 ### Not done
 
