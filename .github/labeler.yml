@@ -1,0 +1,28 @@
+src:
+  - changed-files:
+      - any-glob-to-any-file: src/**
+net:
+  - changed-files:
+      - any-glob-to-any-file: src/net/**
+ui:
+  - changed-files:
+      - any-glob-to-any-file: src/ui/**
+i18n:
+  - changed-files:
+      - any-glob-to-any-file: src/i18n/**
+sdk:
+  - changed-files:
+      - any-glob-to-any-file: sdk/**
+tools:
+  - changed-files:
+      - any-glob-to-any-file: tools/**
+tests:
+  - changed-files:
+      - any-glob-to-any-file: tests/**
+ci:
+  - changed-files:
+      - any-glob-to-any-file: .github/workflows/**
+      - any-glob-to-any-file: .github/dependabot.yml
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['*.md', release-notes/**, AGENTS.md]
