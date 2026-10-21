@@ -952,13 +952,15 @@ std::string InspectArchive(const std::string &archive)
 
 std::string Extract(const std::string &archive, const std::string &dest, const ZipProgress &progress)
 {
+	std::string ownError;
 	if (IsZipFile(archive)) {
 		ZipLimits limits;
 		limits.maxEntries = kMaxArchiveEntries;
 		limits.maxBytes = kMaxArchiveBytes;
-		return ZipExtract(archive, dest, limits, progress);
+		ownError = ZipExtract(archive, dest, limits, progress);
+		if (!ZipNotUnderstood(ownError)) return ownError;
 	}
-	if (GetFileAttributesA(TarPath().c_str()) == INVALID_FILE_ATTRIBUTES) return "this system can only install .zip files, and this archive is in another format";
+	if (GetFileAttributesA(TarPath().c_str()) == INVALID_FILE_ATTRIBUTES) return !ownError.empty() ? ownError : "this system can only install .zip files, and this archive is in another format";
 	const std::string bad = InspectArchive(archive);
 	if (!bad.empty()) return bad;
 	DWORD code = 1;

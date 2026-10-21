@@ -259,6 +259,11 @@ bool ZipEntryPath(const std::string &name, std::string &rel)
 	return rel.empty() || pathsafe::SafeRelative(rel);
 }
 
+bool ZipNotUnderstood(const std::string &error)
+{
+	return error == kUnreadable || error == kDamaged;
+}
+
 std::string ZipExtract(const std::string &zipPath, const std::string &dest, const ZipLimits &limits, const ZipProgress &progress)
 {
 	HANDLE file = CreateFileA(zipPath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_RANDOM_ACCESS, nullptr);
