@@ -56,6 +56,14 @@ Building the DLL needs Valve's Steamworks SDK, which is not in this repository.
 Every release is checked by `.github/workflows/release.yml` (tag, hashes, signature and contents of the zip). You can run the
 same check on a downloaded release with `node tools/verify-release.js <folder>`.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- Committers and reviewers: [THIONG](https://github.com/THIONG), [iiTzSenn](https://github.com/iiTzSenn), [Villoh](https://github.com/Villoh).
+- Approvers: [THIONG](https://github.com/THIONG), [iiTzSenn](https://github.com/iiTzSenn), [Villoh](https://github.com/Villoh).
+- Privacy policy: [imperivmresurrected.com/privacy.html](https://www.imperivmresurrected.com/privacy.html)
+
 ## License
 
 - **Code** (`src/`, `tests/`, `tools/`): GPL-3.0-or-later with an additional permission for Steamworks. See [LICENSE](LICENSE)
