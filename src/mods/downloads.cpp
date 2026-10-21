@@ -18,7 +18,7 @@
 #include "core/json.h"
 #include "core/guard.h"
 #include "core/pathsafe.h"
-#include "core/rarfile.h"
+#include "core/archivefile.h"
 #include "core/versioncmp.h"
 #include "core/zipfile.h"
 #include "mods/mods.h"
@@ -957,8 +957,12 @@ std::string Extract(const std::string &archive, const std::string &dest, const Z
 	limits.maxEntries = kMaxArchiveEntries;
 	limits.maxBytes = kMaxArchiveBytes;
 	if (IsZipFile(archive)) return ZipExtract(archive, dest, limits, progress);
-	if (IsRarFile(archive)) return RarExtract(archive, dest, limits, progress);
-	if (GetFileAttributesA(TarPath().c_str()) == INVALID_FILE_ATTRIBUTES) return "this system can only install .zip and .rar files, and this archive is in another format";
+	std::string ownError;
+	if (IsArchiveFile(archive)) {
+		ownError = ArchiveExtract(archive, dest, limits, progress);
+		if (!ArchiveNotUnderstood(ownError)) return ownError;
+	}
+	if (GetFileAttributesA(TarPath().c_str()) == INVALID_FILE_ATTRIBUTES) return !ownError.empty() ? ownError : "this system can only install .zip, .rar and .7z files, and this archive is in another format";
 	const std::string bad = InspectArchive(archive);
 	if (!bad.empty()) return bad;
 	DWORD code = 1;

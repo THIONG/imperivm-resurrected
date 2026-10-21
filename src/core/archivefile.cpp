@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 THIONG
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
-#include "core/rarfile.h"
+#include "core/archivefile.h"
 
 #define LIBARCHIVE_STATIC 1
 
@@ -135,7 +135,7 @@ std::string Walk(archive *a, const std::wstring &root, Job &job)
 }
 }
 
-bool IsRarFile(const std::string &path)
+bool IsArchiveFile(const std::string &path)
 {
 	HANDLE f = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
 	if (f == INVALID_HANDLE_VALUE) return false;
@@ -145,16 +145,24 @@ bool IsRarFile(const std::string &path)
 	CloseHandle(f);
 	static const unsigned char kRar4[7] = {'R', 'a', 'r', '!', 0x1a, 0x07, 0x00};
 	static const unsigned char kRar5[8] = {'R', 'a', 'r', '!', 0x1a, 0x07, 0x01, 0x00};
-	return (got >= sizeof(kRar4) && !memcmp(magic, kRar4, sizeof(kRar4))) || (got == sizeof(kRar5) && !memcmp(magic, kRar5, sizeof(kRar5)));
+	static const unsigned char k7z[6] = {'7', 'z', 0xbc, 0xaf, 0x27, 0x1c};
+	return (got >= sizeof(kRar4) && !memcmp(magic, kRar4, sizeof(kRar4))) || (got == sizeof(kRar5) && !memcmp(magic, kRar5, sizeof(kRar5))) ||
+		(got >= sizeof(k7z) && !memcmp(magic, k7z, sizeof(k7z)));
 }
 
-std::string RarExtract(const std::string &rar, const std::string &dest, const ZipLimits &limits, const ZipProgress &progress)
+bool ArchiveNotUnderstood(const std::string &error)
+{
+	return error == kUnreadable || error == kDamaged;
+}
+
+std::string ArchiveExtract(const std::string &rar, const std::string &dest, const ZipLimits &limits, const ZipProgress &progress)
 {
 	WIN32_FILE_ATTRIBUTE_DATA info = {};
 	if (!GetFileAttributesExW(Widen(rar, CP_ACP).c_str(), GetFileExInfoStandard, &info)) return kUnreadable;
 	Reader reader;
 	archive_read_support_format_rar(reader.a);
 	archive_read_support_format_rar5(reader.a);
+	archive_read_support_format_7zip(reader.a);
 	if (archive_read_open_filename_w(reader.a, Widen(rar, CP_ACP).c_str(), kBlock) != ARCHIVE_OK) return kUnreadable;
 	Job job;
 	job.limits = &limits;

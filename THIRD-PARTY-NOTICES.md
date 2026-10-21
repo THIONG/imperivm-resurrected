@@ -172,7 +172,7 @@ THE SOFTWARE.
 ```
 
 ## libarchive — folder `third_party/libarchive`
-Reads the .rar files (RAR 3, 4 and 5) of the content manager. Version 3.8.10, reduced to the files that read RAR and RAR5 (the rest of the library is not included), with a hand-written `config.h`. BSD 2-Clause. https://www.libarchive.org
+Reads the .rar (RAR 3, 4 and 5) and .7z files of the content manager. Its `zlib.h` (hand-written) is miniz, which gives it inflate for Deflate and crc32. Version 3.8.10, reduced to the files that read RAR, RAR5 and 7z (the rest of the library is not included), with a hand-written `config.h`. BSD 2-Clause. https://www.libarchive.org
 
 ```
 Copyright (c) 2003-2018 <author(s)>
@@ -203,6 +203,63 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Some files of that folder have another license, all compatible with the GPLv3:
 - `archive_ppmd7.c` and the `archive_ppmd*_private.h` headers (PPMd, from Igor Pavlov and Dmitry Shkarin): public domain.
 - `archive_blake2*` (BLAKE2, from Samuel Neves): used here under the CC0 1.0 or the Apache License 2.0, at the user's choice.
+
+## XZ Utils (liblzma) — folder `third_party/xz`
+Decodes the LZMA and LZMA2 data of the .7z files (and its Delta and BCJ filters) for the 7z reader of libarchive. Version 5.8.4, reduced to the decoders (no encoders, no .xz container, no checks), unmodified, with a hand-written `config.h`. BSD Zero Clause License (0BSD). https://tukaani.org/xz/
+
+```
+Permission to use, copy, modify, and/or distribute this
+software for any purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
+THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+## bzip2 (libbz2) — folder `third_party/bzip2`
+Decompresses the BZip2 data of the .7z files for the 7z reader of libarchive. Version 1.0.8, unmodified (only the library files, no command line tools). BSD-style license. https://sourceware.org/bzip2/
+
+```
+This program, "bzip2", the associated library "libbzip2", and all
+documentation, are copyright (C) 1996-2019 Julian R Seward.  All
+rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. The origin of this software must not be misrepresented; you must 
+   not claim that you wrote the original software.  If you use this 
+   software in a product, an acknowledgment in the product 
+   documentation would be appreciated but is not required.
+
+3. Altered source versions must be plainly marked as such, and must
+   not be misrepresented as being the original software.
+
+4. The name of the author may not be used to endorse or promote 
+   products derived from this software without specific prior written 
+   permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
+OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
 
 ## Syncrash — AlvaroPeyleth
 The crash protection in `src/hooks/tweaks.cpp` (`InstallCrashFix`) is based on their research. MIT. https://github.com/AlvaroPeyleth/Imperivm-Syncrash

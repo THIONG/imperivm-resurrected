@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "core/rarfile.h"
+#include "core/archivefile.h"
 #include "core/sha256.h"
 #include "miniz.h"
 
@@ -102,26 +102,26 @@ std::string MakeRar5(const std::string &name, const std::string &data)
 
 void Detects()
 {
-	CHECK(IsRarFile(Fixture("rar5_stored.rar")));
-	CHECK(IsRarFile(Fixture("rar3_windows.rar")));
-	CHECK(!IsRarFile(Fixture("missing.rar")));
-	CHECK(!IsRarFile(g_data + "\\.."));
+	CHECK(IsArchiveFile(Fixture("rar5_stored.rar")));
+	CHECK(IsArchiveFile(Fixture("rar3_windows.rar")));
+	CHECK(!IsArchiveFile(Fixture("missing.rar")));
+	CHECK(!IsArchiveFile(g_data + "\\.."));
 }
 
 void ReadsRar5(const std::string &dir)
 {
-	CHECK_EQ(RarExtract(Fixture("rar5_stored.rar"), dir + "\\stored", ZipLimits()), std::string());
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_stored.rar"), dir + "\\stored", ZipLimits()), std::string());
 	CHECK_EQ(test::ReadFile(dir + "\\stored\\helloworld.txt"), std::string("hello libarchive test suite!\n"));
 
-	CHECK_EQ(RarExtract(Fixture("rar5_compressed.rar"), dir + "\\compressed", ZipLimits()), std::string());
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_compressed.rar"), dir + "\\compressed", ZipLimits()), std::string());
 	CHECK_EQ(HashOf(dir + "\\compressed\\test.bin"), std::string("588870a2dade35c2"));
 
-	CHECK_EQ(RarExtract(Fixture("rar5_solid.rar"), dir + "\\solid", ZipLimits()), std::string());
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_solid.rar"), dir + "\\solid", ZipLimits()), std::string());
 	CHECK_EQ(HashOf(dir + "\\solid\\test.bin"), std::string("588870a2dade35c2"));
 	CHECK_EQ(HashOf(dir + "\\solid\\test1.bin"), std::string("7d89f86f9f69d744"));
 	CHECK_EQ(HashOf(dir + "\\solid\\test6.bin"), std::string("0b79ce23670b7c2e"));
 
-	CHECK_EQ(RarExtract(Fixture("rar5_win32.rar"), dir + "\\win32", ZipLimits()), std::string());
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_win32.rar"), dir + "\\win32", ZipLimits()), std::string());
 	CHECK_EQ(HashOf(dir + "\\win32\\test5.bin"), std::string("b0622b648b174abd"));
 	const DWORD folder = GetFileAttributesA((dir + "\\win32\\testdir").c_str());
 	CHECK(folder != INVALID_FILE_ATTRIBUTES && (folder & FILE_ATTRIBUTE_DIRECTORY));
@@ -129,14 +129,14 @@ void ReadsRar5(const std::string &dir)
 
 void ReadsRar3(const std::string &dir)
 {
-	CHECK_EQ(RarExtract(Fixture("rar3_windows.rar"), dir + "\\rar3", ZipLimits()), std::string());
+	CHECK_EQ(ArchiveExtract(Fixture("rar3_windows.rar"), dir + "\\rar3", ZipLimits()), std::string());
 	CHECK_EQ(HashOf(dir + "\\rar3\\testdir\\test.txt"), std::string("2d45c5f87d1b6cef"));
 	CHECK_EQ(HashOf(dir + "\\rar3\\test.txt"), std::string("2d45c5f87d1b6cef"));
 	CHECK_EQ(HashOf(dir + "\\rar3\\testshortcut.lnk"), std::string("08b633f146f22534"));
 	const DWORD empty = GetFileAttributesA((dir + "\\rar3\\testemptydir").c_str());
 	CHECK(empty != INVALID_FILE_ATTRIBUTES && (empty & FILE_ATTRIBUTE_DIRECTORY));
 
-	CHECK_EQ(RarExtract(Fixture("rar3_noeof.rar"), dir + "\\noeof", ZipLimits()), std::string());
+	CHECK_EQ(ArchiveExtract(Fixture("rar3_noeof.rar"), dir + "\\noeof", ZipLimits()), std::string());
 	CHECK_EQ(HashOf(dir + "\\noeof\\test.txt"), std::string("5a5f16e01faf8adf"));
 }
 
@@ -144,7 +144,7 @@ void ReportsProgress(const std::string &dir)
 {
 	uint64_t lastDone = 0, lastTotal = 0;
 	int calls = 0;
-	const std::string err = RarExtract(Fixture("rar3_big.rar"), dir + "\\big", ZipLimits(), [&](uint64_t done, uint64_t total) {
+	const std::string err = ArchiveExtract(Fixture("rar3_big.rar"), dir + "\\big", ZipLimits(), [&](uint64_t done, uint64_t total) {
 		CHECK(done >= lastDone);
 		lastDone = done;
 		lastTotal = total;
@@ -163,7 +163,7 @@ void ReportsProgress(const std::string &dir)
 void AcceptsGeneratedArchives(const std::string &dir)
 {
 	test::WriteFile(dir + "\\good.rar", MakeRar5("mod/data/units.txt", "units"));
-	CHECK_EQ(RarExtract(dir + "\\good.rar", dir + "\\good", ZipLimits()), std::string());
+	CHECK_EQ(ArchiveExtract(dir + "\\good.rar", dir + "\\good", ZipLimits()), std::string());
 	CHECK_EQ(test::ReadFile(dir + "\\good\\mod\\data\\units.txt"), std::string("units"));
 }
 
@@ -172,7 +172,7 @@ void RefusesPathsOutsideTheFolder(const std::string &dir)
 	const std::string out = dir + "\\outside";
 	for (const char *name : {"../evil.txt", "a/../../evil.txt", "C:/evil.txt", "/a/evil.txt", "a/con.txt", "a/file.txt:stream"}) {
 		test::WriteFile(dir + "\\outside.rar", MakeRar5(name, "evil"));
-		CHECK_EQ(RarExtract(dir + "\\outside.rar", out, ZipLimits()), std::string(kOutside));
+		CHECK_EQ(ArchiveExtract(dir + "\\outside.rar", out, ZipLimits()), std::string(kOutside));
 	}
 	CHECK(!test::Exists(dir + "\\evil.txt"));
 	CHECK(!test::Exists(out + "\\evil.txt"));
@@ -181,32 +181,32 @@ void RefusesPathsOutsideTheFolder(const std::string &dir)
 
 void RefusesLinks(const std::string &dir)
 {
-	CHECK_EQ(RarExtract(Fixture("rar5_symlink.rar"), dir + "\\link", ZipLimits()), std::string(kSpecial));
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_symlink.rar"), dir + "\\link", ZipLimits()), std::string(kSpecial));
 }
 
 void RefusesPasswordProtected(const std::string &dir)
 {
-	CHECK_EQ(RarExtract(Fixture("rar5_encrypted.rar"), dir + "\\enc5", ZipLimits()), std::string(kEncrypted));
-	CHECK_EQ(RarExtract(Fixture("rar3_encrypted.rar"), dir + "\\enc3", ZipLimits()), std::string(kEncrypted));
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_encrypted.rar"), dir + "\\enc5", ZipLimits()), std::string(kEncrypted));
+	CHECK_EQ(ArchiveExtract(Fixture("rar3_encrypted.rar"), dir + "\\enc3", ZipLimits()), std::string(kEncrypted));
 }
 
 void AppliesTheLimits(const std::string &dir)
 {
 	ZipLimits entries;
 	entries.maxEntries = 3;
-	CHECK_EQ(RarExtract(Fixture("rar5_solid.rar"), dir + "\\limits", entries), std::string(kTooLarge));
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_solid.rar"), dir + "\\limits", entries), std::string(kTooLarge));
 	ZipLimits bytes;
 	bytes.maxBytes = 10000;
-	CHECK_EQ(RarExtract(Fixture("rar5_solid.rar"), dir + "\\limits", bytes), std::string(kTooLarge));
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_solid.rar"), dir + "\\limits", bytes), std::string(kTooLarge));
 	ZipLimits enough;
 	enough.maxEntries = 7;
 	enough.maxBytes = 4096 * 6 + 1200;
-	CHECK_EQ(RarExtract(Fixture("rar5_solid.rar"), dir + "\\limits", enough), std::string());
+	CHECK_EQ(ArchiveExtract(Fixture("rar5_solid.rar"), dir + "\\limits", enough), std::string());
 }
 
 void StopsWhenCanceled(const std::string &dir)
 {
-	CHECK_EQ(RarExtract(Fixture("rar3_big.rar"), dir + "\\cancel", ZipLimits(), [](uint64_t, uint64_t) { return false; }), std::string(kCanceled));
+	CHECK_EQ(ArchiveExtract(Fixture("rar3_big.rar"), dir + "\\cancel", ZipLimits(), [](uint64_t, uint64_t) { return false; }), std::string(kCanceled));
 }
 
 void NoticesDamage(const std::string &dir)
@@ -214,16 +214,16 @@ void NoticesDamage(const std::string &dir)
 	std::string rar = test::ReadFile(Fixture("rar5_compressed.rar"));
 	rar[rar.size() / 2] = static_cast<char>(rar[rar.size() / 2] ^ 0x5a);
 	test::WriteFile(dir + "\\damaged.rar", rar);
-	CHECK(!RarExtract(dir + "\\damaged.rar", dir + "\\damaged", ZipLimits()).empty());
+	CHECK(!ArchiveExtract(dir + "\\damaged.rar", dir + "\\damaged", ZipLimits()).empty());
 
 	std::string cut = test::ReadFile(Fixture("rar3_big.rar"));
 	cut.resize(cut.size() / 2);
 	test::WriteFile(dir + "\\cut.rar", cut);
-	CHECK(!RarExtract(dir + "\\cut.rar", dir + "\\cut", ZipLimits()).empty());
+	CHECK(!ArchiveExtract(dir + "\\cut.rar", dir + "\\cut", ZipLimits()).empty());
 
 	test::WriteFile(dir + "\\notrar.rar", "Rar!\x1a\x07\x00 this is not really a rar");
-	CHECK(!RarExtract(dir + "\\notrar.rar", dir + "\\notrar", ZipLimits()).empty());
-	CHECK(!RarExtract(dir + "\\missing.rar", dir + "\\missing", ZipLimits()).empty());
+	CHECK(!ArchiveExtract(dir + "\\notrar.rar", dir + "\\notrar", ZipLimits()).empty());
+	CHECK(!ArchiveExtract(dir + "\\missing.rar", dir + "\\missing", ZipLimits()).empty());
 }
 
 void HandlesLongPaths(const std::string &dir)
@@ -232,7 +232,7 @@ void HandlesLongPaths(const std::string &dir)
 	const std::string dest = dir + "\\" + first + "\\" + second;
 	test::WriteFile(dir + "\\long.rar", MakeRar5("sub/" + file, "long"));
 	CHECK(dest.size() + 5 + file.size() > MAX_PATH);
-	CHECK_EQ(RarExtract(dir + "\\long.rar", dest, ZipLimits()), std::string());
+	CHECK_EQ(ArchiveExtract(dir + "\\long.rar", dest, ZipLimits()), std::string());
 	const std::wstring prefix = L"\\\\?\\" + Wide(dir);
 	const std::wstring full = prefix + L"\\" + Wide(first) + L"\\" + Wide(second) + L"\\sub\\" + Wide(file);
 	CHECK(GetFileAttributesW(full.c_str()) != INVALID_FILE_ATTRIBUTES);

@@ -1,4 +1,4 @@
-/* Hand-written configuration for the reduced libarchive in this folder: it only reads RAR and RAR5, on Windows, with MSVC or MinGW. */
+/* Hand-written configuration for the reduced libarchive in this folder: it only reads RAR, RAR5 and 7z, on Windows, with MSVC or MinGW. */
 #ifndef __LIBARCHIVE_CONFIG_H_INCLUDED
 #define __LIBARCHIVE_CONFIG_H_INCLUDED 1
 
@@ -34,6 +34,10 @@
 #endif
 
 #define HAVE_BCRYPT_H 1
+#define HAVE_LZMA_H 1
+#define HAVE_ZLIB_H 1
+#define HAVE_BZLIB_H 1
+#define HAVE_LIBLZMA 1
 #define HAVE_CTYPE_H 1
 #define HAVE_DECL_INT32_MAX 1
 #define HAVE_DECL_INT32_MIN 1
