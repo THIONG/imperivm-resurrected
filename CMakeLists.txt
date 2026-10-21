@@ -55,6 +55,7 @@ if(IMPERIVM_BUILD_DLL)
 		endif()
 	endforeach()
 
+	enable_language(RC)
 	file(GLOB_RECURSE MOD_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 	set(MINHOOK_SOURCES
@@ -65,7 +66,7 @@ if(IMPERIVM_BUILD_DLL)
 	set(MINIAUDIO_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/hooks/miniaudio_impl.c")
 	set(MINIZ_SOURCE "${MINIZ_DIR}/miniz.c")
 
-	add_library(winmm SHARED ${MOD_SOURCES} ${MINHOOK_SOURCES} ${MINIAUDIO_IMPL} ${MINIZ_SOURCE} "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.def")
+	add_library(winmm SHARED ${MOD_SOURCES} ${MINHOOK_SOURCES} ${MINIAUDIO_IMPL} ${MINIZ_SOURCE} "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.def" "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.rc")
 	set_target_properties(winmm PROPERTIES PREFIX "" OUTPUT_NAME "winmm")
 
 	set_source_files_properties(${MINIAUDIO_IMPL} ${MINIZ_SOURCE} PROPERTIES COMPILE_OPTIONS "/W0")

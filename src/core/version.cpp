@@ -2,10 +2,11 @@
 // Copyright (C) 2026 THIONG
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #include "core/version.h"
+#include "core/version_info.h"
 
 namespace {
 
-const char kVersion[] = "1.0.0";
+const char kVersion[] = IMPERIVM_VERSION_TEXT;
 
 }
 
