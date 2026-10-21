@@ -25,4 +25,4 @@ ci:
       - any-glob-to-any-file: .github/dependabot.yml
 documentation:
   - changed-files:
-      - any-glob-to-any-file: ['*.md', release-notes/**, AGENTS.md]
+      - any-glob-to-any-file: ['*.md', release-notes/**]
