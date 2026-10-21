@@ -56,6 +56,14 @@ Compilar la DLL necesita el SDK de Steamworks de Valve, que no se incluye en est
 Cada release la comprueba `.github/workflows/release.yml` (etiqueta, hashes, firma y contenido del zip). Puedes hacer la misma
 comprobación con una release descargada: `node tools/verify-release.js <carpeta>`.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- Autores y revisores: [THIONG](https://github.com/THIONG), [iiTzSenn](https://github.com/iiTzSenn), [Villoh](https://github.com/Villoh).
+- Aprobadores: [THIONG](https://github.com/THIONG), [iiTzSenn](https://github.com/iiTzSenn), [Villoh](https://github.com/Villoh).
+- Política de privacidad: [imperivmresurrected.com/privacy.html](https://www.imperivmresurrected.com/privacy.html)
+
 ## Licencia
 
 - **Código** (`src/`, `tests/`, `tools/`): GPL-3.0-or-later con una excepción para Steamworks. Ver [LICENSE](LICENSE) y
