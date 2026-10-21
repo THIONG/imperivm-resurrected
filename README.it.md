@@ -64,6 +64,8 @@ Free code signing provided by [SignPath.io](https://about.signpath.io), certific
 - Approvatori: [THIONG](https://github.com/THIONG), [Villoh](https://github.com/Villoh).
 - Informativa sulla privacy: [imperivmresurrected.com/it/privacy.html](https://www.imperivmresurrected.com/it/privacy.html)
 
+Viene firmato solo `winmm.dll`. È compilato da `src/` e `third_party/`, che usano licenze open source. Le guide dell'SDK e le immagini hanno le proprie licenze (vedi [Licenza](#licenza)) e non fanno parte del binario firmato. `steam_api.dll` è la libreria ridistribuibile di Valve, non modificata, e questo progetto non la firma.
+
 ## Licenza
 
 - **Codice** (`src/`, `tests/`, `tools/`): GPL-3.0-or-later con un'eccezione aggiuntiva per Steamworks. Vedi [LICENSE](LICENSE)
