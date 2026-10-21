@@ -37,7 +37,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Download what was attached to the release
         shell: bash
@@ -110,7 +110,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Announce the release in the Discord channels of new versions (links to the website)
         run: node tools/announce-release.js --tag "$TAG"
