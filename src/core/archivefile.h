@@ -6,5 +6,5 @@
 
 #include "core/zipfile.h"
 
-bool IsRarFile(const std::string &path);
-std::string RarExtract(const std::string &rar, const std::string &dest, const ZipLimits &limits, const ZipProgress &progress = nullptr);
+bool IsArchiveFile(const std::string &path);
+std::string ArchiveExtract(const std::string &rar, const std::string &dest, const ZipLimits &limits, const ZipProgress &progress = nullptr);

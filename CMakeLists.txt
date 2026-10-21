@@ -108,7 +108,7 @@ if(IMPERIVM_BUILD_TESTS)
 	set(TR_SOURCES src/i18n/tr.cpp src/i18n/tr_data.cpp src/core/legacy.cpp tests/log_stub.cpp)
 	set(HASH_SOURCES src/core/sha256.cpp)
 	set(ZIP_SOURCES src/core/zipfile.cpp "${MINIZ_DIR}/miniz.c")
-	set(RAR_SOURCES src/core/rarfile.cpp ${ZIP_SOURCES} ${LIBARCHIVE_SOURCES})
+	set(RAR_SOURCES src/core/archivefile.cpp ${ZIP_SOURCES} ${LIBARCHIVE_SOURCES})
 	set_source_files_properties("${MINIZ_DIR}/miniz.c" PROPERTIES COMPILE_OPTIONS "/W0")
 
 	imperivm_test(test_legacy src/core/legacy.cpp)
