@@ -2,7 +2,7 @@
 
 This repository holds the mod (`src/`, `tests/`, `tools/`) and its SDK (`sdk/`). The mod is GPL-3.0-or-later with an additional permission for Steamworks. The SDK is MIT for the code and CC BY-SA 4.0 for the guides. A contribution is published under the license of the part it changes, and by sending it you state that you have the right to do so.
 
-Issues and pull requests can be written in English or Spanish.
+Issues and pull requests must be written in English.
 
 ## Reporting a bug
 
@@ -22,7 +22,7 @@ For anything bigger than a small fix, open an issue first. It is cheaper to agre
 
 ## Building
 
-Windows, Visual Studio Build Tools 2022 (C++, x86) and Node.js 20 or newer. Building the DLL also needs the Steamworks SDK, which is Valve's and is not in this repository.
+Windows, Visual Studio Build Tools 2022 (C++, x86) and Node.js 24 or newer. Building the DLL also needs the Steamworks SDK, which is Valve's and is not in this repository.
 
 ```
 set STEAMWORKS_SDK=C:\path\to\steamworks_sdk
