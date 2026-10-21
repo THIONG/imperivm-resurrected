@@ -172,7 +172,7 @@ THE SOFTWARE.
 ```
 
 ## libarchive — folder `third_party/libarchive`
-Reads the .rar files (RAR 3, 4 and 5) of the content manager. Version 3.8.10, reduced to the files that read RAR and RAR5 (the rest of the library is not included), with a hand-written `config.h`. BSD 2-Clause. https://www.libarchive.org
+Reads the .rar (RAR 3, 4 and 5) and .7z files of the content manager. Version 3.8.10, reduced to the files that read RAR, RAR5 and 7z (the rest of the library is not included), with a hand-written `config.h`. BSD 2-Clause. https://www.libarchive.org
 
 ```
 Copyright (c) 2003-2018 <author(s)>
@@ -203,6 +203,23 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Some files of that folder have another license, all compatible with the GPLv3:
 - `archive_ppmd7.c` and the `archive_ppmd*_private.h` headers (PPMd, from Igor Pavlov and Dmitry Shkarin): public domain.
 - `archive_blake2*` (BLAKE2, from Samuel Neves): used here under the CC0 1.0 or the Apache License 2.0, at the user's choice.
+
+## XZ Utils (liblzma) — folder `third_party/xz`
+Decodes the LZMA and LZMA2 data of the .7z files (and its Delta and BCJ filters) for the 7z reader of libarchive. Version 5.8.4, reduced to the decoders (no encoders, no .xz container, no checks), unmodified, with a hand-written `config.h`. BSD Zero Clause License (0BSD). https://tukaani.org/xz/
+
+```
+Permission to use, copy, modify, and/or distribute this
+software for any purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
+THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
 
 ## Syncrash — AlvaroPeyleth
 The crash protection in `src/hooks/tweaks.cpp` (`InstallCrashFix`) is based on their research. MIT. https://github.com/AlvaroPeyleth/Imperivm-Syncrash

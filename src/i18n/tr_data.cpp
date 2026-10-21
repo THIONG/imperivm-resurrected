@@ -1157,7 +1157,7 @@ extern const TrRow kTrRows[] = {
 	{"the archive is too large to install", "el archivo comprimido es demasiado grande para instalarlo", "l'archivio è troppo grande per essere installato"},
 	{"the archive contains a path outside its folder: it will not be installed", "el archivo comprimido contiene una ruta fuera de su carpeta: no se instalará", "l'archivio contiene un percorso fuori dalla sua cartella: non verrà installato"},
 	{"could not write the extracted files", "no se pudieron escribir los archivos extraídos", "impossibile scrivere i file estratti"},
-	{"this system can only install .zip and .rar files, and this archive is in another format", "este sistema solo puede instalar archivos .zip y .rar, y este archivo comprimido tiene otro formato", "questo sistema può installare solo file .zip e .rar, e questo archivio è in un altro formato"},
+	{"this system can only install .zip, .rar and .7z files, and this archive is in another format", "este sistema solo puede instalar archivos .zip, .rar y .7z, y este archivo comprimido tiene otro formato", "questo sistema può installare solo file .zip, .rar e .7z, e questo archivio è in un altro formato"},
 	{"the archive is protected with a password: it cannot be installed", "el archivo comprimido está protegido con contraseña: no se puede instalar", "l'archivio è protetto da password: non può essere installato"},
 	{"the archive could not be read (unsupported format or damaged file)", "no se pudo leer el archivo comprimido (formato no admitido o archivo dañado)", "impossibile leggere l'archivio (formato non supportato o file danneggiato)"},
 	{"the extraction could not be prepared", "no se pudo preparar la descompresión", "impossibile preparare l'estrazione"},

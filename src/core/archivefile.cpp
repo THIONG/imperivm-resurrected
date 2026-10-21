@@ -145,7 +145,14 @@ bool IsArchiveFile(const std::string &path)
 	CloseHandle(f);
 	static const unsigned char kRar4[7] = {'R', 'a', 'r', '!', 0x1a, 0x07, 0x00};
 	static const unsigned char kRar5[8] = {'R', 'a', 'r', '!', 0x1a, 0x07, 0x01, 0x00};
-	return (got >= sizeof(kRar4) && !memcmp(magic, kRar4, sizeof(kRar4))) || (got == sizeof(kRar5) && !memcmp(magic, kRar5, sizeof(kRar5)));
+	static const unsigned char k7z[6] = {'7', 'z', 0xbc, 0xaf, 0x27, 0x1c};
+	return (got >= sizeof(kRar4) && !memcmp(magic, kRar4, sizeof(kRar4))) || (got == sizeof(kRar5) && !memcmp(magic, kRar5, sizeof(kRar5))) ||
+		(got >= sizeof(k7z) && !memcmp(magic, k7z, sizeof(k7z)));
+}
+
+bool ArchiveNotUnderstood(const std::string &error)
+{
+	return error == kUnreadable || error == kDamaged;
 }
 
 std::string ArchiveExtract(const std::string &rar, const std::string &dest, const ZipLimits &limits, const ZipProgress &progress)
@@ -155,6 +162,7 @@ std::string ArchiveExtract(const std::string &rar, const std::string &dest, cons
 	Reader reader;
 	archive_read_support_format_rar(reader.a);
 	archive_read_support_format_rar5(reader.a);
+	archive_read_support_format_7zip(reader.a);
 	if (archive_read_open_filename_w(reader.a, Widen(rar, CP_ACP).c_str(), kBlock) != ARCHIVE_OK) return kUnreadable;
 	Job job;
 	job.limits = &limits;
