@@ -60,8 +60,8 @@ same check on a downloaded release with `node tools/verify-release.js <folder>`.
 
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
-- Committers and reviewers: [THIONG](https://github.com/THIONG), [iiTzSenn](https://github.com/iiTzSenn), [Villoh](https://github.com/Villoh).
-- Approvers: [THIONG](https://github.com/THIONG), [iiTzSenn](https://github.com/iiTzSenn), [Villoh](https://github.com/Villoh).
+- Committers and reviewers: [THIONG](https://github.com/THIONG), [Villoh](https://github.com/Villoh).
+- Approvers: [THIONG](https://github.com/THIONG), [Villoh](https://github.com/Villoh).
 - Privacy policy: [imperivmresurrected.com/privacy.html](https://www.imperivmresurrected.com/privacy.html)
 
 ## License
