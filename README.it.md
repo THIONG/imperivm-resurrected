@@ -60,8 +60,8 @@ controllo su una release scaricata con `node tools/verify-release.js <cartella>`
 
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
-- Autori e revisori: [THIONG](https://github.com/THIONG), [iiTzSenn](https://github.com/iiTzSenn), [Villoh](https://github.com/Villoh).
-- Approvatori: [THIONG](https://github.com/THIONG), [iiTzSenn](https://github.com/iiTzSenn), [Villoh](https://github.com/Villoh).
+- Autori e revisori: [THIONG](https://github.com/THIONG), [Villoh](https://github.com/Villoh).
+- Approvatori: [THIONG](https://github.com/THIONG), [Villoh](https://github.com/Villoh).
 - Informativa sulla privacy: [imperivmresurrected.com/it/privacy.html](https://www.imperivmresurrected.com/it/privacy.html)
 
 ## Licenza
