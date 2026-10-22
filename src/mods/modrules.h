@@ -26,6 +26,7 @@ std::string SafeFileName(const std::string &name);
 std::string MakeId(const std::string &folder);
 
 bool AllowedExtension(const std::string &rel);
+bool IsDocumentation(const std::string &rel);
 
 bool IsGameplayPath(const std::string &p);
 

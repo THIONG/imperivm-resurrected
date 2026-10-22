@@ -19,6 +19,10 @@ using namespace mpui_impl;
 namespace mpui_impl {
 void DoAction(int action, int arg)
 {
+	if (g_s.game.active && RoomActionFrozen(g_s.game, action, arg)) {
+		ModUiToast("You are ready: press \"Not ready\" to change this.");
+		return;
+	}
 	if (action != kChatFocus && action != kFieldName && action != kFieldPass && action != kChatSend &&
 		action != kFieldJoinPass && action != kJoin && action != kFieldSearch && action != kPassShow) {
 		g_s.focus = kNoField;
@@ -323,6 +327,10 @@ void DoAction(int action, int arg)
 		}
 		else if (idx >= 0 && idx < static_cast<int>(g_s.game.options.size())) {
 			GameRoomOption &o = g_s.game.options[idx];
+			if (arg >= 0 && arg < static_cast<int>(o.itemDisabled.size()) && o.itemDisabled[arg]) {
+				ModUiToast("This map type does not exist in that size");
+				break;
+			}
 			o.sel = arg;
 			Predict(kPredOptSel, o.id, arg);
 			GameRoomSetOption(o.id, arg);
@@ -362,18 +370,17 @@ void DoAction(int action, int arg)
 			ModUiToast(block.toast);
 			break;
 		}
-		if (snap.host && !snap.scenario.empty() && g_s.hostSave.name.empty()) {
-			const ModNeeds needs = ModsNeededFor(snap.scenario + ".bfhp");
-			if (!needs.Satisfied()) {
-				ModUiToast(Tr("This map was made with content you don't have active: ") + ShortList(needs.Names(true)) +
-					(needs.AllInstalled() ? ". Activate it with a profile (Options > Content) and create the game again." : ". Download it in Options > Content > Browse content."));
-				break;
-			}
-		}
 		GameRoomStart();
 		break;
 	}
 	case kGCancel: LeaveGameRoom(); break;
+	case kGResync:
+		LogI("lobby", "leaving the room to download the content of its map and come back");
+		g_s.forcePackLobby = g_s.room.id;
+		g_s.leftByUser = true;
+		GameRoomCancel();
+		SteamLeaveForContent(true);
+		break;
 	case kGRuleToggle:
 		g_s.game.rules ^= static_cast<unsigned>(arg);
 		GameRoomSetRules(g_s.game.rules);
@@ -677,6 +684,7 @@ void DoAction(int action, int arg)
 		g_s.savePlayers.clear();
 		g_s.savePlaced.clear();
 		SteamCreateLobby(s);
+		g_s.roomLimit = g_s.hostSave.name.empty() ? g_s.createPlayers : 0;
 		g_s.autoHost = true;
 		g_s.view = kViewList;
 		g_s.connecting = true;

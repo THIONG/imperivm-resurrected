@@ -157,7 +157,7 @@ void MpUiDraw(uint32_t *buf, int w, int h)
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
 		if (!g_s.open) return;
-		if (SpectatorViewing()) {
+		if (SpectatorViewing() && !SpectatorCovering()) {
 			g_s.open = false;
 			return;
 		}
@@ -324,7 +324,7 @@ void MpUiDraw(uint32_t *buf, int w, int h)
 		std::lock_guard<std::mutex> lock(g_lock);
 		g_s.uiScale = s;
 	}
-	const bool cover = st.game.active || st.connecting || GetTickCount() - g_flow.lastLobbyUpdate < 1000;
+	const bool cover = st.game.active || st.connecting || SpectatorCovering() || GetTickCount() - g_flow.lastLobbyUpdate < 1000;
 	const size_t n = static_cast<size_t>(w) * h;
 	static bool triedCache = false;
 	if (cover && g_bg.size() != n && !triedCache) {

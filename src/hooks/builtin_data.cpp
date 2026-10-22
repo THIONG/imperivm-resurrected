@@ -5,10 +5,28 @@
 
 namespace {
 const BuiltinText kPatches[] = {
+	{"data/ai/ts_britishtactic.vs",
+		"@replace bool nSpearmen = false;\n",
+		"4826d83f77479e88d20db01215093041624cdcb61d514a131e9bd4065b6a3f75"},
 	{"data/ai/ts_gaultactic.vs",
 		"@replace while(!bHorseshoe || olDruids.count<nDruids || nIncPop<2)\n"
 		"\twhile(!bHorseshoe || nIncPop<2)\n",
 		"38e2dcceb033e98753faf75358e8bf67b35f46f81532b0c292deefdf1b837c3a"},
+	{"data/classes/gtownhall.sc.xml",
+		"<patch>\n"
+		"\t<set select=\"/class\" entity_winter=\"Buildings/Townhall/Townhall_w.ent.xml\"/>\n"
+		"</patch>\n",
+		"f40f57b4db91da515e8f59dbf935439607684751f6c9560115743c7d26beafad"},
+	{"data/classes/mtownhall.sc.xml",
+		"<patch>\n"
+		"\t<set select=\"/class\" entity_winter=\"Buildings/RTownhall/RTownhall_w.ent.xml\"/>\n"
+		"</patch>\n",
+		"eb9d5432eaa044692ccf9773ff1d02fe4aa6ea4150197aaff8ee7aeafa913d4e"},
+	{"data/classes/rtownhall.sc.xml",
+		"<patch>\n"
+		"\t<set select=\"/class\" entity_winter=\"Buildings/RTownhall/RTownhall_w.ent.xml\"/>\n"
+		"</patch>\n",
+		"b06962a1cb46ea51b78de0b9adabc5a3620ec6a598b1d9671fdc97974ff2ff04"},
 	{"menuini/gameoptions.ini",
 		"[GameOptions Objects]\n"
 		"+ModMovieMuteCheck\n"

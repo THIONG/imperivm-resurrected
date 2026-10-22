@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 
@@ -49,6 +50,12 @@ void LoadConfig()
 	g_config.windowH = GetPrivateProfileIntA("Display", "WindowHeight", 900, path);
 	g_config.trapMouse = GetPrivateProfileIntA("Display", "TrapMouse", 1, path) != 0;
 	g_config.monitor = (std::max)(0, (std::min)(15, static_cast<int>(GetPrivateProfileIntA("Display", "Monitor", 0, path))));
+	GetPrivateProfileStringA("Display", "Resolution", "", buf, sizeof(buf), path);
+	int resW = 0, resH = 0;
+	if (sscanf_s(buf, "%dx%d", &resW, &resH) == 2 && resW >= 640 && resH >= 480 && resW <= 8192 && resH <= 8192) {
+		g_config.resolutionW = resW;
+		g_config.resolutionH = resH;
+	}
 	g_config.allResolutions = GetPrivateProfileIntA("Display", "AllResolutions", 1, path) != 0;
 	g_config.extendedView = GetPrivateProfileIntA("Display", "ExtendedView", 1, path) != 0;
 	g_config.showPerf = GetPrivateProfileIntA("Display", "ShowPerformance", 0, path) != 0;
@@ -117,6 +124,9 @@ void SaveConfig()
 	WritePrivateProfileStringA("Display", "Mode", g_config.windowed ? "windowed" : "fullscreen", path);
 	WritePrivateProfileStringA("Display", "TrapMouse", g_config.trapMouse ? "1" : "0", path);
 	WritePrivateProfileStringA("Display", "Monitor", std::to_string(g_config.monitor).c_str(), path);
+	if (g_config.resolutionW > 0) {
+		WritePrivateProfileStringA("Display", "Resolution", (std::to_string(g_config.resolutionW) + "x" + std::to_string(g_config.resolutionH)).c_str(), path);
+	}
 	WritePrivateProfileStringA("Render", "VSync", g_config.vsync ? "1" : "0", path);
 	WritePrivateProfileStringA("Render", "Scaling", nullptr, path);
 	WritePrivateProfileStringA("Render", "Filter", nullptr, path);

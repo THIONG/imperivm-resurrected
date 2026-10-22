@@ -17,7 +17,7 @@ const SRC = path.resolve(__dirname, '..', 'src');
 const FOLDERS = new Set(['addr', 'core', 'i18n', 'hooks', 'mods', 'game', 'net', 'ui', 'app']);
 const EXTERN_ALLOWED = new Set(['core/crashlog.h:g_crashLogQuiet', 'net/discord.h:kDiscordInviteUrl']);
 const INLINE_GLOBAL_ALLOWED = new Set(['ui/textedit.h', 'ui/uikit.h']);
-const THIRD_PARTY = new Set(['MinHook.h', 'miniaudio.h', 'extras/stb_vorbis.c', 'miniz.h']);
+const THIRD_PARTY = new Set(['MinHook.h', 'miniaudio.h', 'extras/stb_vorbis.c', 'miniz.h', 'archive.h', 'archive_entry.h']);
 const NO_COMMENT_CHECK = new Set(['i18n/tr_data.cpp']);
 const problems = [];
 
@@ -43,7 +43,7 @@ for (const rel of allFiles.filter((f) => /\.(cpp|c)$/.test(f))) {
 
 for (const rel of allFiles) {
   const base = path.basename(rel);
-  if (!/^[a-z0-9_]+\.[a-z]+$/.test(base)) problems.push(rel + ': file name must be lowercase letters, digits and underscores');
+  if (!/^[a-z0-9_]+(\.[a-z]+){1,2}$/.test(base)) problems.push(rel + ': file name must be lowercase letters, digits and underscores');
   if (!/\.(cpp|h|c|inc)$/.test(base)) continue;
   const buf = fs.readFileSync(path.join(SRC, rel));
   const full = buf.toString('utf8');

@@ -148,6 +148,8 @@ std::vector<std::string> ScriptErrorsFor(const std::string &folder)
 	if (!ModsFind(folder, mod)) return out;
 	const std::set<std::string> paths(mod.paths.begin(), mod.paths.end());
 	const std::string prefix = "mods/" + Lower(folder) + "/";
+	bool mounted = false;
+	for (const std::string &name : ModsMountedProfile().mods) mounted = mounted || Lower(name) == Lower(folder);
 	std::vector<std::string> all;
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
@@ -160,7 +162,7 @@ std::vector<std::string> ScriptErrorsFor(const std::string &folder)
 		std::replace(norm.begin(), norm.end(), '\\', '/');
 		while (!norm.empty() && norm[0] == '/') norm.erase(0, 1);
 		const bool inMod = norm.compare(0, prefix.size(), prefix) == 0;
-		if (!inMod && !paths.count(norm)) continue;
+		if (!inMod && !(mounted && paths.count(norm))) continue;
 		const std::string shown = (inMod ? path.substr(prefix.size()) : path) + " " + rest;
 		out.push_back(shown.size() > 220 ? shown.substr(0, 217) + "..." : shown);
 	}

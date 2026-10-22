@@ -196,6 +196,16 @@ void DoAction(int action, int arg)
 		SetActive({r.folder}, !r.active);
 		break;
 	}
+	case kForget: {
+		if (arg < 0 || arg >= static_cast<int>(g_s.rows.size())) break;
+		const std::string folder = g_s.rows[arg].folder;
+		if (FindMod(folder)) break;
+		auto &mods = g_s.profile.mods;
+		mods.erase(std::remove_if(mods.begin(), mods.end(), [&](const std::string &f) { return _stricmp(f.c_str(), folder.c_str()) == 0; }), mods.end());
+		CommitProfile();
+		SetStatus(TrFmt("%s removed from the profile", {folder}));
+		break;
+	}
 	case kUseFiles: {
 		const ModIssues *is = SelectedIssues(g_s);
 		const size_t k = static_cast<size_t>(arg / 2);
@@ -230,6 +240,10 @@ void DoAction(int action, int arg)
 		g_s.catOpen = false;
 		break;
 	case kConfirmYes:
+		if (g_s.confirmKind == kConfirmNotice) {
+			DoAction(kConfirmNo, 0);
+			break;
+		}
 		if (g_s.confirmKind == kConfirmUninstall) {
 			g_s.confirm = false, g_s.confirmItems.clear();
 			const std::vector<std::string> targets = g_s.uninstallTargets;
@@ -260,7 +274,7 @@ void DoAction(int action, int arg)
 		break;
 	case kConfirmNo:
 		g_s.confirm = false, g_s.confirmItems.clear();
-		if (g_s.confirmKind == kConfirmRestart && g_s.confirmOnly) {
+		if ((g_s.confirmKind == kConfirmRestart || g_s.confirmKind == kConfirmNotice) && g_s.confirmOnly) {
 			g_s.open = false;
 		}
 		g_s.confirmOnly = false;
@@ -390,6 +404,19 @@ void DoAction(int action, int arg)
 		}
 		for (size_t k = 0; k < targets.size(); k++) DlUpdateMod(targets[k]->folder, entries[k]);
 		if (targets.empty()) SetStatus("No pending updates");
+		break;
+	}
+	case kReinstall: {
+		if (g_s.selected < 0 || g_s.selected >= static_cast<int>(g_s.rows.size())) break;
+		const ModInfo *m = FindMod(g_s.rows[g_s.selected].folder);
+		if (!m || !m->gbId) break;
+		CatalogEntry e;
+		e.id = m->id;
+		e.name = m->name;
+		e.version = m->version;
+		e.gbId = m->gbId;
+		DlUpdateMod(m->folder, e);
+		SetStatus(TrFmt("Downloading %s again from GameBanana", {m->name}));
 		break;
 	}
 	case kUpdateMod: {

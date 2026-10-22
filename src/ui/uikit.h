@@ -206,6 +206,62 @@ struct Painter {
 		GetTextExtentPoint32W(dc, ws.c_str(), static_cast<int>(ws.size()), &sz);
 		return static_cast<int>(sz.cx / s + 0.99f);
 	}
+	float TextWidthExact(const std::string &t)
+	{
+		const std::wstring ws = W(Tr(t));
+		SIZE sz = {};
+		GetTextExtentPoint32W(dc, ws.c_str(), static_cast<int>(ws.size()), &sz);
+		return static_cast<float>(sz.cx) / s;
+	}
+	std::vector<std::wstring> WrapLines(const std::string &t, int firstIndent, int width)
+	{
+		const std::wstring ws = W(t);
+		std::vector<std::wstring> lines;
+		std::wstring cur;
+		auto fits = [&](const std::wstring &text, int limit) {
+			SIZE sz = {};
+			GetTextExtentPoint32W(dc, text.c_str(), static_cast<int>(text.size()), &sz);
+			return sz.cx <= S(limit);
+		};
+		auto limit = [&]() { return lines.empty() ? width - firstIndent : width; };
+		size_t pos = 0;
+		while (pos <= ws.size()) {
+			size_t end = ws.find(L' ', pos);
+			if (end == std::wstring::npos) end = ws.size();
+			std::wstring word = ws.substr(pos, end - pos);
+			pos = end + 1;
+			if (word.empty() && end != ws.size()) {
+				if (!cur.empty()) cur += L' ';
+				continue;
+			}
+			const std::wstring joined = cur.empty() ? word : cur + L' ' + word;
+			if (fits(joined, limit())) {
+				cur = joined;
+				continue;
+			}
+			if (!cur.empty()) {
+				lines.push_back(cur);
+				cur.clear();
+			}
+			while (!word.empty() && !fits(word, limit())) {
+				int count = 0;
+				SIZE sz = {};
+				GetTextExtentExPointW(dc, word.c_str(), static_cast<int>(word.size()), S(limit()), &count, nullptr, &sz);
+				if (count < 1) count = 1;
+				lines.push_back(word.substr(0, count));
+				word.erase(0, count);
+			}
+			cur = word;
+		}
+		if (!cur.empty() || lines.empty()) lines.push_back(cur);
+		return lines;
+	}
+	void LineW(int x, int y, int w, int h, const std::wstring &ws, COLORREF c)
+	{
+		RECT r = R(x, y, w, h);
+		SetTextColor(dc, c);
+		DrawTextW(dc, ws.c_str(), static_cast<int>(ws.size()), &r, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX | DT_NOCLIP);
+	}
 	void Clip(int x, int y, int w, int h)
 	{
 		const RECT r = R(x, y, w, h);

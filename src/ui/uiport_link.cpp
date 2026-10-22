@@ -11,6 +11,7 @@ namespace {
 const bool g_registered = [] {
 	UiPort port;
 	port.toast = &ModUiToast;
+	port.notice = &ModUiNotice;
 	port.askRestart = &ModUiAskRestart;
 	port.modManagerOpen = &ModUiIsOpen;
 	port.multiplayerOpen = &MpUiIsOpen;

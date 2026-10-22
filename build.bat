@@ -19,10 +19,12 @@ del /q build\*.obj 2>nul
 set MH=third_party\minhook
 set MA=third_party\miniaudio
 set MZ=third_party\miniz
+set LA=third_party\libarchive
 
 cl /nologo /c /O2 /MT /W3 /DNDEBUG /I%MH%\include /Fobuild\ %MH%\src\buffer.c %MH%\src\hook.c %MH%\src\trampoline.c %MH%\src\hde\hde32.c || exit /b 1
 cl /nologo /c /O2 /MT /W0 /DNDEBUG /I%MA% /Fobuild\ src\hooks\miniaudio_impl.c || exit /b 1
 cl /nologo /c /O2 /MT /W0 /DNDEBUG /I%MZ% /Fobuild\ %MZ%\miniz.c || exit /b 1
-cl /nologo /c /O2 /MT /W3 /EHsc /std:c++17 /utf-8 /DNDEBUG /Isrc /I%MA% /I%MZ% /I%MH%\include /I"%STEAMWORKS_SDK%\public" /Fobuild\ src\core\*.cpp src\i18n\*.cpp src\app\*.cpp src\hooks\*.cpp src\game\*.cpp src\mods\*.cpp src\net\*.cpp src\ui\*.cpp || exit /b 1
+cl /nologo /c /O2 /MT /W0 /DNDEBUG /DHAVE_CONFIG_H /DLIBARCHIVE_STATIC /D_CRT_SECURE_NO_WARNINGS /DWIN32 /I%LA% /Fobuild\ %LA%\*.c || exit /b 1
+cl /nologo /c /O2 /MT /W3 /EHsc /std:c++17 /utf-8 /DNDEBUG /Isrc /I%MA% /I%MZ% /I%LA% /I%MH%\include /I"%STEAMWORKS_SDK%\public" /Fobuild\ src\core\*.cpp src\i18n\*.cpp src\app\*.cpp src\hooks\*.cpp src\game\*.cpp src\mods\*.cpp src\net\*.cpp src\ui\*.cpp || exit /b 1
 link /nologo /DLL /MAP:build\winmm.map /OUT:build\winmm.dll /DEF:src\app\winmm.def build\*.obj d3d11.lib dxgi.lib d3dcompiler.lib user32.lib gdi32.lib kernel32.lib ole32.lib bcrypt.lib shell32.lib ws2_32.lib winhttp.lib comdlg32.lib advapi32.lib windowscodecs.lib strmiids.lib || exit /b 1
 echo OK: build\winmm.dll

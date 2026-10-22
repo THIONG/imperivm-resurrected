@@ -4,7 +4,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <cstdint>
-
+#include <cstring>
 
 #include "MinHook.h"
 #include "hooks/hookcount.h"

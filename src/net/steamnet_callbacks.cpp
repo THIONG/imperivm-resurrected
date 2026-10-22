@@ -402,4 +402,9 @@ void RefuseForContent(uint64 lobby, const OnlineLobby &info, RoomContent content
 	g_resync.at = GetTickCount();
 	g_resync.lobby = lobby;
 }
+
+void RememberLobby(uint64 lobby)
+{
+	StoreLobbyEntry(lobby);
+}
 }

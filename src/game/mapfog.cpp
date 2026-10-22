@@ -39,6 +39,17 @@ bool g_forcing = false;
 DWORD g_refreshMs = 16;
 int g_exploredN = 0, g_visibleN = 0;
 
+struct FogCache {
+	std::vector<unsigned short> pixels, next;
+	void *zoom = nullptr, *src = nullptr;
+	int w = 0, h = 0;
+	unsigned short fogColor = 0;
+	bool valid = false;
+	DWORD usedAt = 0;
+};
+FogCache g_cache;
+bool g_overlayFromCache = false;
+
 template <typename T>
 T At(const void *p, size_t off) { return *reinterpret_cast<const T *>(static_cast<const char *>(p) + off); }
 
@@ -76,13 +87,14 @@ int Darken(void *zoom)
 	const bool hasAllies = receiveMask != selfBit;
 	const unsigned short fogColor = At<unsigned short>(zoom, 0x30);
 
-	const unsigned hd = At<unsigned>(dst, 4);
+	const unsigned hd = At<unsigned>(dst, 4), hs = At<unsigned>(src, 4);
 	reinterpret_cast<MemLock_t>(addr::kMemLock)(hd);
+	reinterpret_cast<MemLock_t>(addr::kMemLock)(hs);
 	int asked = 0;
 	const int step = 8, gw = (w + step - 1) / step + 1, gh = (h + step - 1) / step + 1;
 	auto rowPtr = [](char *bmp, int y) { return reinterpret_cast<unsigned short *>(reinterpret_cast<PixelPtr_t>((*reinterpret_cast<void ***>(bmp))[0x10 / 4])(bmp, nullptr, 0, y)); };
 
-	static std::vector<unsigned char> explored, seen;
+	static std::vector<unsigned char> explored, seen, nextExplored, nextSeen;
 	static DWORD gridTick = 0;
 	static int gridW = 0, gridH = 0, nextSlice = 0;
 	const int slices = 6;
@@ -91,81 +103,169 @@ int Darken(void *zoom)
 	if (gridW != gw || gridH != gh) {
 		explored.assign(static_cast<size_t>(gw) * gh, 0);
 		seen.assign(static_cast<size_t>(gw) * gh, 0);
+		nextExplored = explored;
+		nextSeen = seen;
 		gridW = gw;
 		gridH = gh;
+		nextSlice = 0;
 		toDo = slices;
 	}
 	else {
-		toDo = std::max(1, std::min(slices, static_cast<int>((now - gridTick) / 16)));
+		toDo = std::max(1, std::min(slices - nextSlice, static_cast<int>((now - gridTick) / 16)));
 	}
 	gridTick = now;
 	g_exploredN = g_visibleN = 0;
 	alignas(16) unsigned char query[32] = {};
-	for (int k = 0; k < toDo; k++) {
-		const int slice = (nextSlice + k) % slices;
-		for (int gy = slice; gy < gh; gy += slices) {
-			const int py = std::min(h - 1, gy * step);
-			for (int gx = 0; gx < gw; gx++) {
-				const int px = std::min(w - 1, gx * step);
-				const size_t idx = static_cast<size_t>(gy) * gw + gx;
-				explored[idx] = 0;
-				seen[idx] = 0;
-				int world[2] = {};
-				PixelToWorld(zoom, px, py, world);
-				asked++;
-				const bool wasExplored = reinterpret_cast<IsExplored_t>(addr::kIsExplored)(exploration, nullptr, reinterpret_cast<unsigned *>(world), playerIndex) != 0;
-				if (!wasExplored && !hasAllies) continue;
+	auto sampleRow = [&](int gy) {
+		bool changed = false;
+		const int py = std::min(h - 1, gy * step);
+		for (int gx = 0; gx < gw; gx++) {
+			const int px = std::min(w - 1, gx * step);
+			const size_t idx = static_cast<size_t>(gy) * gw + gx;
+			nextExplored[idx] = 0;
+			nextSeen[idx] = 0;
+			int world[2] = {};
+			PixelToWorld(zoom, px, py, world);
+			asked++;
+			const bool wasExplored = reinterpret_cast<IsExplored_t>(addr::kIsExplored)(exploration, nullptr, reinterpret_cast<unsigned *>(world), playerIndex) != 0;
+			if (wasExplored || hasAllies) {
 				memset(query, 0, sizeof(query));
 				const bool isSeen = reinterpret_cast<VisionRun_t>(addr::kVisionRun)(query, nullptr, world, viewer) != 0;
-				if (!wasExplored && !isSeen) continue;
-				explored[idx] = 1;
-				g_exploredN++;
-				if (isSeen) {
-					seen[idx] = 1;
-					g_visibleN++;
-				}
-			}
-		}
-	}
-	nextSlice = (nextSlice + toDo) % slices;
-
-	for (int y = 0; y < h; y++) {
-		unsigned short *drow = rowPtr(dst, y);
-		if (!drow) continue;
-		const int gy = y / step, fy = (y % step) * 256 / step;
-		for (int gx = 0; gx < gw - 1; gx++) {
-			const size_t idx = static_cast<size_t>(gy) * gw + gx;
-			const unsigned char *e0 = &explored[idx], *e1 = e0 + gw;
-			if (!(e0[0] | e0[1] | e1[0] | e1[1])) continue;
-			const unsigned char *g0 = &seen[idx], *g1 = g0 + gw;
-			if (g0[0] & g0[1] & g1[0] & g1[1]) continue;
-			const bool inside = (e0[0] & e0[1] & e1[0] & e1[1]) != 0;
-			const int x0 = gx * step, x1 = std::min(w, x0 + step);
-			if (!(g0[0] | g0[1] | g1[0] | g1[1])) {
-				unsigned short *p = drow + x0, *pe = drow + x1;
-				if (inside) {
-					for (; p < pe; p++) *p = static_cast<unsigned short>((((*p) >> 1) & 0x3DEF) + (((*p) >> 4) & 0x0421));
-				}
-				else {
-					for (; p < pe; p++) {
-						if (*p != fogColor) *p = static_cast<unsigned short>((((*p) >> 1) & 0x3DEF) + (((*p) >> 4) & 0x0421));
+				if (wasExplored || isSeen) {
+					nextExplored[idx] = 1;
+					g_exploredN++;
+					if (isSeen) {
+						nextSeen[idx] = 1;
+						g_visibleN++;
 					}
 				}
+			}
+			changed = changed || nextExplored[idx] != explored[idx];
+		}
+		return changed;
+	};
+	static DWORD lastFullPass = 0;
+	bool exploredChanged = false;
+	for (int k = 0; k < toDo; k++) {
+		const int slice = nextSlice + k;
+		for (int gy = slice; gy < gh; gy += slices) exploredChanged = sampleRow(gy) || exploredChanged;
+	}
+	nextSlice = (nextSlice + toDo) % slices;
+	if (exploredChanged && toDo < slices && now - lastFullPass >= 250) {
+		lastFullPass = now;
+		for (int gy = 0; gy < gh; gy++) sampleRow(gy);
+		nextSlice = 0;
+	}
+	static std::vector<int> fogA, seenS, blurA, blurB;
+	bool gridsUpdated = false;
+	if (nextSlice == 0 || fogA.size() != explored.size()) {
+		gridsUpdated = true;
+		explored = nextExplored;
+		seen = nextSeen;
+		const int radius = 2, taps = radius * 2 + 1;
+		auto soften = [&](const std::vector<unsigned char> &in, std::vector<int> &out) {
+			blurA.resize(in.size());
+			blurB.resize(in.size());
+			for (size_t i = 0; i < in.size(); i++) blurA[i] = in[i] ? 256 : 0;
+			for (int pass = 0; pass < 3; pass++) {
+				for (int gy = 0; gy < gh; gy++) {
+					for (int gx = 0; gx < gw; gx++) {
+						int sum = 0;
+						for (int d = -radius; d <= radius; d++) sum += blurA[static_cast<size_t>(gy) * gw + std::max(0, std::min(gw - 1, gx + d))];
+						blurB[static_cast<size_t>(gy) * gw + gx] = sum / taps;
+					}
+				}
+				for (int gy = 0; gy < gh; gy++) {
+					for (int gx = 0; gx < gw; gx++) {
+						int sum = 0;
+						for (int d = -radius; d <= radius; d++) sum += blurB[static_cast<size_t>(std::max(0, std::min(gh - 1, gy + d))) * gw + gx];
+						blurA[static_cast<size_t>(gy) * gw + gx] = sum / taps;
+					}
+				}
+			}
+			out = blurA;
+		};
+		soften(explored, fogA);
+		for (int &a : fogA) a = std::max(0, std::min(256, a * 2 - 256));
+		soften(seen, seenS);
+	}
+
+	static const int kBayer[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
+	auto smooth = [](int a) { return a * a * (768 - 2 * a) >> 16; };
+	auto shade = [fogColor](unsigned p, int k, int t, int dither) {
+		unsigned out = 0;
+		for (int shift = 10; shift >= 0; shift -= 5) {
+			const int v = static_cast<int>((fogColor >> shift) & 31) * (256 - t) * 256 + static_cast<int>((p >> shift) & 31) * k * t;
+			out |= static_cast<unsigned>(std::min(31, (v + dither) >> 16)) << shift;
+		}
+		return static_cast<unsigned short>(out);
+	};
+	const bool sameBitmaps = g_cache.valid && g_cache.zoom == zoom && g_cache.src == src && g_cache.w == w && g_cache.h == h;
+	const bool dirty = gridsUpdated || !sameBitmaps || !g_overlayFromCache || g_cache.fogColor != fogColor || now - g_cache.usedAt > 500;
+	g_cache.usedAt = now;
+	if (dirty) {
+		const size_t total = static_cast<size_t>(w) * h;
+		g_cache.next.resize(total);
+		for (int y = 0; y < h; y++) {
+			const unsigned short *srow = rowPtr(src, y);
+			unsigned short *out = &g_cache.next[static_cast<size_t>(y) * w];
+			if (!srow) {
+				std::fill(out, out + w, fogColor);
 				continue;
 			}
-			for (int x = x0; x < x1; x++) {
-				if (!inside && drow[x] == fogColor) continue;
-				const int fx = (x - x0) * 256 / step;
-				const int top = g0[0] * (256 - fx) + g0[1] * fx, bot = g1[0] * (256 - fx) + g1[1] * fx;
-				const int s = (top * (256 - fy) + bot * fy) >> 8;
-				if (s >= 255) continue;
-				const int k = 256 - ((256 - s) * 115 >> 8);
-				const unsigned p = drow[x];
-				const int r = ((p >> 10) & 31) * k >> 8, g = ((p >> 5) & 31) * k >> 8, b = (p & 31) * k >> 8;
-				drow[x] = static_cast<unsigned short>((r << 10) | (g << 5) | b);
+			const int gy = y / step, fy = (y % step) * 256 / step;
+			for (int gx = 0; gx < gw - 1; gx++) {
+				const size_t idx = static_cast<size_t>(gy) * gw + gx;
+				const int *a0 = &fogA[idx], *a1 = a0 + gw;
+				const int *s0 = &seenS[idx], *s1 = s0 + gw;
+				const int x0 = gx * step, x1 = std::min(w, x0 + step);
+				if (x0 >= w) break;
+				if (!(a0[0] | a0[1] | a1[0] | a1[1])) {
+					std::fill(out + x0, out + x1, fogColor);
+					continue;
+				}
+				const bool clear = (a0[0] & a0[1] & a1[0] & a1[1]) == 256;
+				const bool allSeen = (s0[0] & s0[1] & s1[0] & s1[1]) == 256;
+				if (clear && allSeen) {
+					std::copy(srow + x0, srow + x1, out + x0);
+					continue;
+				}
+				for (int x = x0; x < x1; x++) {
+					const int fx = (x - x0) * 256 / step;
+					int k = 256, t = 256;
+					if (!allSeen) {
+						const int top = s0[0] * (256 - fx) + s0[1] * fx, bot = s1[0] * (256 - fx) + s1[1] * fx;
+						k = 256 - ((256 - smooth((top * (256 - fy) + bot * fy) >> 16)) * 115 >> 8);
+					}
+					if (!clear) {
+						const int top = a0[0] * (256 - fx) + a0[1] * fx, bot = a1[0] * (256 - fx) + a1[1] * fx;
+						t = smooth((top * (256 - fy) + bot * fy) >> 16);
+					}
+					out[x] = shade(srow[x], k, t, kBayer[y & 3][x & 3] * 4096 + 2048);
+				}
 			}
 		}
+		const bool fromCache = g_overlayFromCache && sameBitmaps && g_cache.pixels.size() == total;
+		for (int y = 0; y < h; y++) {
+			unsigned short *drow = rowPtr(dst, y);
+			const unsigned short *srow = rowPtr(src, y);
+			if (!drow || !srow) continue;
+			const unsigned short *was = fromCache ? &g_cache.pixels[static_cast<size_t>(y) * w] : nullptr;
+			const unsigned short *fresh = &g_cache.next[static_cast<size_t>(y) * w];
+			for (int x = 0; x < w; x++) {
+				const bool background = was ? drow[x] == was[x] : drow[x] == srow[x] || drow[x] == fogColor;
+				if (background) drow[x] = fresh[x];
+			}
+		}
+		g_cache.pixels.swap(g_cache.next);
+		g_cache.zoom = zoom;
+		g_cache.src = src;
+		g_cache.w = w;
+		g_cache.h = h;
+		g_cache.fogColor = fogColor;
+		g_cache.valid = true;
 	}
+	reinterpret_cast<MemUnlock_t>(addr::kMemUnlock)(hs);
 	reinterpret_cast<MemUnlock_t>(addr::kMemUnlock)(hd);
 	return asked;
 }
@@ -178,6 +278,120 @@ int SafeDarken(void *zoom)
 	__except (EXCEPTION_EXECUTE_HANDLER) {
 		g_enabled = false;
 		return -2;
+	}
+}
+
+typedef void(__fastcall *FogOverlay_t)(void *self, void *edx, int x0, int y0, int x1, int y1);
+FogOverlay_t g_origFogOverlay = nullptr;
+const int kFogOverlayColumns = 0x800;
+
+unsigned short *RowPtr(char *bmp, int y)
+{
+	return reinterpret_cast<unsigned short *>(reinterpret_cast<PixelPtr_t>((*reinterpret_cast<void ***>(bmp))[0x10 / 4])(bmp, nullptr, 0, y));
+}
+
+int FogWideColumns(void *zoom, int x0, int y0, int x1, int y1)
+{
+	char *dst = At<char *>(zoom, 0x14), *src = At<char *>(zoom, 0x18);
+	if (!dst || !src) return -1;
+	const int w = At<int>(dst, 8), h = At<int>(dst, 0xc);
+	if (At<short>(dst, 0x10) != 16 || At<int>(src, 8) != w || At<int>(src, 0xc) != h) return -1;
+	x1 = std::min(x1, w - 1);
+	y0 = std::max(y0, 0);
+	y1 = std::min(y1, h - 1);
+	if (x0 > x1 || y0 > y1) return 0;
+	char *game = *reinterpret_cast<char **>(addr::kGame);
+	char *map = *reinterpret_cast<char **>(addr::kMap);
+	char *player = game ? At<char *>(game, 0x12c8) : nullptr;
+	char *vis = game ? At<char *>(game, 0x44d4) : nullptr;
+	void *exploration = map ? At<void *>(map, 0xb0) : nullptr;
+	const unsigned playerIndex = player ? static_cast<unsigned>((player - game - 0x12cc) / 800) : 8;
+	const bool fogOn = vis && At<int>(vis, 0xd4) != 0 && exploration && playerIndex <= 7;
+	const unsigned short fogColor = At<unsigned short>(zoom, 0x30);
+	const int step = 8, gw = (x1 - x0) / step + 1;
+	std::vector<unsigned char> fogged(static_cast<size_t>(gw), 0);
+	const unsigned hd = At<unsigned>(dst, 4), hs = At<unsigned>(src, 4);
+	reinterpret_cast<MemLock_t>(addr::kMemLock)(hd);
+	reinterpret_cast<MemLock_t>(addr::kMemLock)(hs);
+	for (int by = y0; by <= y1; by += step) {
+		const int py = std::min(y1, by + step / 2);
+		for (int gx = 0; gx < gw; gx++) {
+			fogged[gx] = 0;
+			if (!fogOn) continue;
+			int world[2] = {};
+			PixelToWorld(zoom, std::min(x1, x0 + gx * step + step / 2), py, world);
+			fogged[gx] = reinterpret_cast<IsExplored_t>(addr::kIsExplored)(exploration, nullptr, reinterpret_cast<unsigned *>(world), playerIndex) == 0;
+		}
+		for (int y = by; y <= y1 && y < by + step; y++) {
+			unsigned short *drow = RowPtr(dst, y);
+			const unsigned short *srow = RowPtr(src, y);
+			if (!drow || !srow) continue;
+			for (int x = x0; x <= x1; x++) drow[x] = fogged[(x - x0) / step] ? fogColor : srow[x];
+		}
+	}
+	reinterpret_cast<MemUnlock_t>(addr::kMemUnlock)(hs);
+	reinterpret_cast<MemUnlock_t>(addr::kMemUnlock)(hd);
+	return gw;
+}
+
+int SafeFogWideColumns(void *zoom, int x0, int y0, int x1, int y1)
+{
+	__try {
+		return FogWideColumns(zoom, x0, y0, x1, y1);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return -2;
+	}
+}
+
+bool CopyCachedFog(void *zoom, int x0, int y0, int x1, int y1)
+{
+	if (!g_enabled || !g_cache.valid || zoom != g_cache.zoom) return false;
+	char *dst = At<char *>(zoom, 0x14), *src = At<char *>(zoom, 0x18);
+	if (!dst || src != g_cache.src || At<int>(dst, 8) != g_cache.w || At<int>(dst, 0xc) != g_cache.h || At<short>(dst, 0x10) != 16) return false;
+	if (x0 < 0 || y0 < 0 || x1 >= g_cache.w || y1 >= g_cache.h || x0 > x1 || y0 > y1) return false;
+	const unsigned hd = At<unsigned>(dst, 4);
+	reinterpret_cast<MemLock_t>(addr::kMemLock)(hd);
+	for (int y = y0; y <= y1; y++) {
+		unsigned short *drow = RowPtr(dst, y);
+		if (drow) memcpy(drow + x0, &g_cache.pixels[static_cast<size_t>(y) * g_cache.w + x0], static_cast<size_t>(x1 - x0 + 1) * 2);
+	}
+	reinterpret_cast<MemUnlock_t>(addr::kMemUnlock)(hd);
+	return true;
+}
+
+bool SafeCopyCachedFog(void *zoom, int x0, int y0, int x1, int y1)
+{
+	__try {
+		return CopyCachedFog(zoom, x0, y0, x1, y1);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		g_cache.valid = false;
+		return false;
+	}
+}
+
+void __fastcall HookFogOverlay(void *self, void *edx, int x0, int y0, int x1, int y1)
+{
+	if (SafeCopyCachedFog(self, x0, y0, x1, y1)) {
+		g_overlayFromCache = true;
+		return;
+	}
+	if (x1 < kFogOverlayColumns) {
+		g_origFogOverlay(self, edx, x0, y0, x1, y1);
+		return;
+	}
+	if (x0 < kFogOverlayColumns) g_origFogOverlay(self, edx, x0, y0, kFogOverlayColumns - 1, y1);
+	const int from = std::max(x0, kFogOverlayColumns);
+	const int r = SafeFogWideColumns(self, from, y0, x1, y1);
+	static bool logged = false, failed = false;
+	if (!logged) {
+		logged = true;
+		LogI("game", "zoom map: %d px wide; the game draws the fog of 2048 columns, the mod draws columns %d to %d", x1 + 1, from, x1);
+	}
+	if (r < 0 && !failed) {
+		failed = true;
+		LogE("game", "zoom map: ERROR drawing the fog of the columns past 2048 (%d)", r);
 	}
 }
 
@@ -214,10 +428,12 @@ void *__fastcall HookRebuild(void *self)
 		g_zoomThis = self;
 		g_lastNatural = GetTickCount();
 	}
+	g_overlayFromCache = false;
 	void *r = g_origRebuild(self);
 	if (!g_enabled || r != nullptr) return r;
 	const DWORD t0 = GetTickCount();
 	const int asked = SafeDarken(self);
+	if (asked < 0) g_cache.valid = false;
 	if (asked == -2) LogE("game", "map fog: ERROR, disabled");
 	else if (asked > 0 && g_calls++ < 20) LogD("game", "map fog: %d points queried, %d explored, %d in view, %lu ms", asked, g_exploredN, g_visibleN, GetTickCount() - t0);
 	return r;
@@ -309,7 +525,10 @@ void InstallZoomFog(bool knownExe)
 		HookEnable(reinterpret_cast<void *>(addr::kRebuild)) == MH_OK;
 	const bool okCenter = HookCreate(reinterpret_cast<void *>(addr::kCenterOn), reinterpret_cast<void *>(&HookCenterOn), reinterpret_cast<void **>(&g_origCenterOn)) == MH_OK &&
 		HookEnable(reinterpret_cast<void *>(addr::kCenterOn)) == MH_OK;
+	const bool okWide = HookCreate(reinterpret_cast<void *>(addr::kZoomFogOverlay), reinterpret_cast<void *>(&HookFogOverlay), reinterpret_cast<void **>(&g_origFogOverlay)) == MH_OK &&
+		HookEnable(reinterpret_cast<void *>(addr::kZoomFogOverlay)) == MH_OK;
 	LogAt(okCenter ? kLogInfo : kLogError, "game", "camera: CenterOn protection without zoom map %s", okCenter ? "ready" : "NOT available");
+	LogAt(okWide ? kLogInfo : kLogError, "game", "zoom map: screens wider than 2048 px %s", okWide ? "protected" : "NOT protected");
 	LogAt(ok ? kLogInfo : kLogError, "game", "zoom map fog: %s", ok ? (g_enabled ? "ready" : "disabled in the .ini") : "NOT available");
 }
 

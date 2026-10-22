@@ -39,8 +39,59 @@ int UpdatesAvailable()
 DiscordIconState g_icon;
 CardState g_card;
 
+Painter CardPainter(HDC dc, float s)
+{
+	Painter p{dc, s, 0, 0, nullptr};
+	for (int i = 0; i < 5; i++) p.fonts[i] = g_fonts[i];
+	return p;
+}
+
+RECT DrawKeysCard(Canvas &canvas, uint32_t *buf, int w, int h, const Card &c, float s, int alpha)
+{
+	EnsureFonts(s);
+	const std::wstring ws = W(Tr(c.text));
+	const int padX = static_cast<int>(18 * s), padY = static_cast<int>(10 * s), bar = std::max(3, static_cast<int>(4 * s));
+	const int capH = 26, gap = static_cast<int>(10 * s);
+	HDC measure = CreateCompatibleDC(nullptr);
+	SelectObject(measure, g_fonts[3]);
+	SIZE text = {};
+	GetTextExtentPoint32W(measure, ws.c_str(), static_cast<int>(ws.size()), &text);
+	Painter mp = CardPainter(measure, s);
+	const int keysW = static_cast<int>(KeysWidth(mp, c.keys) * s + 0.5f);
+	DeleteDC(measure);
+	const int textGap = ws.empty() ? 0 : gap;
+	const int tw = std::min(w - 20, bar + padX + static_cast<int>(text.cx) + textGap + keysW + padX);
+	const int th = std::max(static_cast<int>(text.cy), static_cast<int>(capH * s + 0.5f)) + padY * 2;
+	if (!canvas.Ensure(tw, th)) return {0, 0, 0, 0};
+	HDC dc = canvas.dc;
+	RECT all = {0, 0, tw, th};
+	HBRUSH b = CreateSolidBrush(RGB(26, 21, 15));
+	FillRect(dc, &all, b);
+	DeleteObject(b);
+	HBRUSH frame = CreateSolidBrush(pal::edge);
+	FrameRect(dc, &all, frame);
+	DeleteObject(frame);
+	RECT accent = {0, 0, bar, th};
+	HBRUSH ab = CreateSolidBrush(c.accent);
+	FillRect(dc, &accent, ab);
+	DeleteObject(ab);
+	SelectObject(dc, g_fonts[3]);
+	SetBkMode(dc, TRANSPARENT);
+	SetTextColor(dc, RGB(236, 224, 196));
+	RECT r = {bar + padX, 0, bar + padX + static_cast<int>(text.cx), th};
+	DrawTextW(dc, ws.c_str(), static_cast<int>(ws.size()), &r, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+	Painter p = CardPainter(dc, s);
+	DrawKeys(p, static_cast<int>((r.right + textGap) / s + 0.5f), static_cast<int>((th / s - capH) / 2), capH, c.keys);
+	GdiFlush();
+	const int x = c.atX >= 0 ? c.atX : (w - tw) / 2;
+	const int y = c.atX >= 0 ? c.atCenterY - th / 2 : h - th - static_cast<int>(70 * s);
+	Blend(buf, w, h, canvas, x, y, alpha);
+	return {x, y, x + tw, y + th};
+}
+
 RECT DrawCard(Canvas &canvas, uint32_t *buf, int w, int h, const Card &c, float s, int alpha)
 {
+	if (!c.keys.empty() && c.progress < 0 && !c.close) return DrawKeysCard(canvas, buf, w, h, c, s, alpha);
 	EnsureFonts(s);
 	const std::wstring ws = W(Tr(c.text)), sub = W(Tr(c.sub));
 	const int padX = static_cast<int>(22 * s), padY = static_cast<int>(12 * s), bar = std::max(3, static_cast<int>(4 * s));

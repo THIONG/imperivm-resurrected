@@ -7,6 +7,7 @@
 namespace addr {
 
 inline constexpr uintptr_t kSendPacket = 0x00404df0;
+inline constexpr uintptr_t kTransportLog = 0x00405660;
 inline constexpr uintptr_t kBuildLocalTick = 0x00405bb0;
 inline constexpr uintptr_t kNetReportDesync = 0x00406e30;
 inline constexpr uintptr_t kTransportCtor = 0x004071b0;
@@ -18,6 +19,7 @@ inline constexpr uintptr_t kWantsToQuitExecute = 0x004e60c0;
 inline constexpr uintptr_t kSurrenderExecute = 0x004e6250;
 inline constexpr uintptr_t kNetworkSplitExecute = 0x004e68c0;
 inline constexpr uintptr_t kCmdMessageCreate = 0x004e9570;
+inline constexpr uintptr_t kPlaybackRecordedTick = 0x004f64a0;
 inline constexpr uintptr_t kCmdQueueSetDtor = 0x004f6770;
 inline constexpr uintptr_t kCmdQueueSetCtor = 0x004f6960;
 inline constexpr uintptr_t kAddCommand = 0x004f6dc0;

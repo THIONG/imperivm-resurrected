@@ -15,6 +15,7 @@ project(imperivm_resurrected LANGUAGES C CXX)
 # Dependencies of the DLL, by default in the layout of the private workspace (..\tools) or in third_party\ (public repository):
 #   MINHOOK_DIR, MINIAUDIO_DIR, STEAMWORKS_SDK (folder that contains public\steam\steam_api.h)
 # miniz (MINIZ_DIR) is used by the DLL and by the tests of the zip code.
+# libarchive (LIBARCHIVE_DIR, only its RAR reader) is used by the DLL and by the tests of the rar code.
 
 option(IMPERIVM_BUILD_DLL "Build winmm.dll (needs the Steamworks SDK)" ON)
 option(IMPERIVM_BUILD_TESTS "Build the unit tests" ON)
@@ -43,6 +44,18 @@ set(MINIZ_DIR "${_default_third_party}/miniz" CACHE PATH "miniz source folder (m
 if(NOT EXISTS "${MINIZ_DIR}/miniz.h")
 	message(FATAL_ERROR "Missing dependency: ${MINIZ_DIR}/miniz.h")
 endif()
+
+set(LIBARCHIVE_DIR "${_default_third_party}/libarchive" CACHE PATH "libarchive source folder (the RAR reader and config.h)")
+if(NOT EXISTS "${LIBARCHIVE_DIR}/archive.h")
+	message(FATAL_ERROR "Missing dependency: ${LIBARCHIVE_DIR}/archive.h")
+endif()
+file(GLOB LIBARCHIVE_SOURCES CONFIGURE_DEPENDS "${LIBARCHIVE_DIR}/*.c")
+add_library(rar_reader STATIC ${LIBARCHIVE_SOURCES})
+target_include_directories(rar_reader PUBLIC "${LIBARCHIVE_DIR}")
+target_compile_definitions(rar_reader PRIVATE HAVE_CONFIG_H _CRT_SECURE_NO_WARNINGS WIN32)
+target_compile_definitions(rar_reader PUBLIC LIBARCHIVE_STATIC)
+target_compile_options(rar_reader PRIVATE /W0)
+target_link_libraries(rar_reader PUBLIC bcrypt advapi32)
 
 if(IMPERIVM_BUILD_DLL)
 	set(MINHOOK_DIR "${_default_third_party}/minhook" CACHE PATH "MinHook source tree")
@@ -80,7 +93,7 @@ if(IMPERIVM_BUILD_DLL)
 	target_compile_definitions(winmm PRIVATE $<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
 	target_compile_options(winmm PRIVATE $<$<NOT:$<CONFIG:Debug>>:/O2>)
 	target_link_libraries(winmm PRIVATE
-		d3d11 dxgi d3dcompiler user32 gdi32 kernel32 ole32 bcrypt shell32 ws2_32 winhttp comdlg32 advapi32 windowscodecs strmiids)
+		rar_reader d3d11 dxgi d3dcompiler user32 gdi32 kernel32 ole32 bcrypt shell32 ws2_32 winhttp comdlg32 advapi32 windowscodecs strmiids)
 endif()
 
 if(IMPERIVM_BUILD_TESTS)
@@ -97,7 +110,7 @@ if(IMPERIVM_BUILD_TESTS)
 
 	set(TR_SOURCES src/i18n/tr.cpp src/i18n/tr_data.cpp src/core/legacy.cpp tests/log_stub.cpp)
 	set(HASH_SOURCES src/core/sha256.cpp)
-	set(ZIP_SOURCES src/core/zipfile.cpp "${MINIZ_DIR}/miniz.c")
+	set(ZIP_SOURCES src/core/zipfile.cpp src/core/archivefs.cpp "${MINIZ_DIR}/miniz.c")
 	set_source_files_properties("${MINIZ_DIR}/miniz.c" PROPERTIES COMPILE_OPTIONS "/W0")
 
 	imperivm_test(test_legacy src/core/legacy.cpp)
@@ -122,6 +135,9 @@ if(IMPERIVM_BUILD_TESTS)
 	imperivm_test(test_transferrate)
 	imperivm_test(test_serverpick src/mods/serverpick.cpp src/core/json.cpp ${TR_SOURCES})
 	imperivm_test(test_roomcontent src/net/roomcontent.cpp)
+	imperivm_test(test_scenvalue src/net/scenvalue.cpp)
+	imperivm_test(test_mappack src/mods/mappack.cpp)
+	imperivm_test(test_seasondecors src/game/seasondecors.cpp)
 	imperivm_test(test_rletail src/mods/rletail.cpp)
 	imperivm_test(test_hidefiles src/mods/hidefiles.cpp)
 	imperivm_test(test_civroom src/game/civroom.cpp)
@@ -134,6 +150,8 @@ if(IMPERIVM_BUILD_TESTS)
 	imperivm_test(test_builtin src/hooks/builtin_data.cpp src/mods/patchxml.cpp ${TR_SOURCES})
 	imperivm_test(test_logreport src/core/logreport.cpp src/core/logfiles.cpp src/core/logredact.cpp ${ZIP_SOURCES} tests/log_stub.cpp)
 	imperivm_test(test_zip ${ZIP_SOURCES})
+	imperivm_test(test_rar src/core/rarfile.cpp ${ZIP_SOURCES})
+	target_link_libraries(test_rar PRIVATE rar_reader)
 
 	find_program(NODE_EXE node)
 	if(NODE_EXE)

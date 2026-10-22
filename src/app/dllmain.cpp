@@ -34,6 +34,7 @@
 #include "mods/netmods.h"
 #include "mods/downloads.h"
 #include "game/autosave.h"
+#include "game/seasondecors.h"
 #include "net/steamnet.h"
 #include "ui/mpui.h"
 #include "net/vnet.h"
@@ -196,6 +197,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 		InstallNetModsHooks(knownExe);
 		DlStartUpdateCheck();
 		InstallAutosave(knownExe);
+		InstallSeasonDecors(knownExe);
 		MediaInstall(knownExe);
 		InstallMpSave(knownExe);
 		InstallOnlineSaves(knownExe);

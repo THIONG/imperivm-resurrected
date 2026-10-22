@@ -2,6 +2,7 @@
 // Copyright (C) 2026 THIONG
 // Part of Imperivm Resurrected. GPL-3.0-or-later license with an exception for Steamworks: see LICENSE and ADDITIONAL-PERMISSION.md.
 #pragma once
+#include <functional>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -144,6 +145,8 @@ struct RoomModStatus {
 void RoomModsFromGb(const std::vector<RoomModRequest> &mods);
 RoomModStatus RoomModsStatus();
 void RoomModsCancel();
+std::string DlFetchRoomMap(uint64_t gbId, const std::string &version, const std::string &packId, const std::string &packName, const std::string &leaf, const std::string &outFile,
+	const std::function<void(uint64_t, uint64_t)> &progress, const std::function<bool()> &cancelled);
 
 struct Json;
 std::string DlHttpGet(const std::string &url, std::string *toMemory, const std::string &toFile);

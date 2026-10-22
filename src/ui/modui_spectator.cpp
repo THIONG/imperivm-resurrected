@@ -4,7 +4,9 @@
 #define NOMINMAX
 #include <windows.h>
 #include <cmath>
+#include "addr/state.h"
 #include "net/spectator.h"
+#include "net/steamnet.h"
 
 #include "ui/modui_internal.h"
 
@@ -13,6 +15,7 @@ using namespace modui_impl;
 namespace modui_impl {
 void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 {
+	if (SpectatorCovering()) return;
 	SpectatorState st;
 	if (!SpectatorControls(st)) {
 		std::lock_guard<std::mutex> lock(g_lock);
@@ -72,6 +75,7 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 	RectF rCollapse{bx + pad, cy - 13 * s, 26 * s, 26 * s};
 	RectF rBack, rPlay, rFwd, rSpeed, rUi, rLive, rCur, rTotal, rTrack;
 	std::string tipFor;
+	std::vector<ControlKey> tipKeys;
 	float tipX = bx;
 
 	if (collapsed) {
@@ -80,7 +84,7 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 		button(rCollapse, false, false, h);
 		arrow(rCollapse.x + 16 * s, cy, 12 * s, false, label);
 		DrawLabel(buf, W, H, ClockText(shownCur), rCollapse.x + 30 * s, rCollapse.y, rCollapse.w - 36 * s, rCollapse.h, DT_LEFT, label, 1.0f);
-		if (h) { tipFor = "Show the bar  (Ctrl+B)"; tipX = rCollapse.x; }
+		if (h) { tipFor = "Show the bar"; tipKeys = {ControlsModKey(kModKeySpecBar)}; tipX = rCollapse.x; }
 	}
 	else {
 		float x = rCollapse.x + rCollapse.w + gap;
@@ -179,18 +183,18 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 			}
 		}
 		if (!drag) {
-			if (hCollapse) { tipFor = "Hide the bar  (Ctrl+B)"; tipX = rCollapse.x; }
-			else if (hBack) { tipFor = "Back 10 s  (Ctrl+Left)"; tipX = rBack.x; }
-			else if (hPlay) { tipFor = st.paused ? "Resume  (Ctrl+Space)" : "Pause  (Ctrl+Space)"; tipX = rPlay.x; }
-			else if (hFwd) { tipFor = "Forward 10 s  (Ctrl+Right)"; tipX = rFwd.x; }
-			else if (hSpeed) { tipFor = "Speed  (click, or Ctrl+Up / Ctrl+Down)"; tipX = rSpeed.x - 120 * s; }
-			else if (hUi) { tipFor = st.uiHidden ? "Show the game interface  (Ctrl+H)" : "Hide the game interface  (Ctrl+H)"; tipX = rUi.x - 100 * s; }
-			else if (hLive) { tipFor = st.ended ? "Leave to the menu  (Ctrl+End)" : "Jump to live  (Ctrl+End)"; tipX = rLive.x - 40 * s; }
+			if (hCollapse) { tipFor = "Hide the bar"; tipKeys = {ControlsModKey(kModKeySpecBar)}; tipX = rCollapse.x; }
+			else if (hBack) { tipFor = "Back 10 s"; tipKeys = {ControlsModKey(kModKeySpecBack)}; tipX = rBack.x; }
+			else if (hPlay) { tipFor = st.paused ? "Resume" : "Pause"; tipKeys = {ControlsModKey(kModKeySpecPause)}; tipX = rPlay.x; }
+			else if (hFwd) { tipFor = "Forward 10 s"; tipKeys = {ControlsModKey(kModKeySpecForward)}; tipX = rFwd.x; }
+			else if (hSpeed) { tipFor = "Speed: click, or"; tipKeys = {ControlsModKey(kModKeySpecFaster), ControlsModKey(kModKeySpecSlower)}; tipX = rSpeed.x - 120 * s; }
+			else if (hUi) { tipFor = st.uiHidden ? "Show the game interface" : "Hide the game interface"; tipKeys = {ControlsModKey(kModKeySpecUi)}; tipX = rUi.x - 100 * s; }
+			else if (hLive) { tipFor = st.ended ? "Leave to the menu" : "Jump to live"; tipKeys = {ControlsModKey(kModKeySpecLive)}; tipX = rLive.x - 40 * s; }
 		}
 	}
 	if (!tipFor.empty()) {
 		const float tipY = by + barH + 30 * s > H - 40 * s ? by - 30 * s : by + barH + 30 * s;
-		ModUiDrawHoverCard(buf, W, H, tipFor, kGold, static_cast<int>(std::max(4.0f, tipX)), static_cast<int>(tipY));
+		ModUiDrawHoverCard(buf, W, H, tipFor, kGold, static_cast<int>(std::max(4.0f, tipX)), static_cast<int>(tipY), KnownKeys(tipKeys));
 	}
 	std::lock_guard<std::mutex> lock(g_lock);
 	auto store = [&](int i, const RectF &r) { g_spec.btn[i] = {static_cast<LONG>(r.x), static_cast<LONG>(r.y), static_cast<LONG>(r.x + r.w), static_cast<LONG>(r.y + r.h)}; };
@@ -213,5 +217,25 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 	g_spec.winW = W;
 	g_spec.winH = H;
 	g_spec.barShown = true;
+}
+
+void DrawWatchersBadge(uint32_t *buf, int W, int H, float s)
+{
+	const int watchers = SteamRoomWatchers();
+	if (watchers <= 0 || !*reinterpret_cast<void **>(addr::kGame)) return;
+	SpectatorState watching;
+	if (SpectatorControls(watching)) return;
+	EnsureFonts(s);
+	const COLORREF panel = pal::dialog, frame = kGold, ink = RGB(240, 226, 180);
+	wchar_t text[16];
+	swprintf_s(text, L"%d", watchers);
+	const float h = 26 * s, eyeW = 20 * s, textW = (6 + 8 * static_cast<float>(wcslen(text))) * s, w = 10 * s + eyeW + 6 * s + textW + 10 * s;
+	const float x = std::floor(static_cast<float>(W) - w - 14 * s), y = std::floor(96 * s);
+	FillRound(buf, W, H, x, y, w, h, 4 * s, panel, 0.88f);
+	StrokeRound(buf, W, H, x, y, w, h, 4 * s, std::max(1.0f, s), frame, 1.0f);
+	const float cx = x + 10 * s + eyeW / 2, cy = y + h / 2;
+	StrokeRound(buf, W, H, cx - eyeW / 2, cy - 5 * s, eyeW, 10 * s, 5 * s, std::max(1.0f, 1.3f * s), ink, 1.0f);
+	FillDisc(buf, W, H, cx, cy, 3 * s, ink, 1.0f);
+	DrawLabel(buf, W, H, text, x + 10 * s + eyeW + 6 * s, y, textW, h, DT_LEFT, ink, 1.0f);
 }
 }

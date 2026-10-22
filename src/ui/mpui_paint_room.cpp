@@ -129,7 +129,7 @@ void PaintGameRoom(Painter &p, const State &st)
 		if (s.local) p.Fill(px + 1, rowY, pw - 2, rowH - 2, RGB(56, 44, 28));
 		else if (i % 2) p.Fill(px + 1, rowY, pw - 2, rowH - 2, rowAlt);
 		if (s.used) {
-			const bool colorEditable = !load && (s.local || (g.host && s.type == 1));
+			const bool colorEditable = !load && (s.local || (g.host && s.type == 1)) && !SlotFrozen(g, s);
 			p.Fill(px + 12, y + 7, 24, 22, PlayerColor(g, s.color));
 			p.Frame(px + 12, y + 7, 24, 22, colorEditable && p.Hover(px + 12, y + 7, 24, 22, mx, my) ? pal::focus : kGold);
 			if (colorEditable) p.AddHit(px + 12, y + 7, 24, 22, kGColor, i);
@@ -154,7 +154,7 @@ void PaintGameRoom(Painter &p, const State &st)
 		if (g.host && !s.local && (s.type == 0 || s.type == 2 || s.type == 1) && !load && (s.type == 1 || s.aiAllowed || g.online)) {
 			int sel = 0;
 			const std::vector<SlotChoice> choices = SlotChoices(g, s, sel);
-			Combo(p, st, px + 44, y + 6, 146, 24, choices[sel].label, kDropSlot, i, choices.size() > 1 && !movingRows);
+			Combo(p, st, px + 44, y + 6, 146, 24, choices[sel].label, kDropSlot, i, choices.size() > 1 && !movingRows && !(g.online && LocalReady(g)));
 			p.Font(0);
 			if (!movingRows && (s.type == 1 || (s.type == 0 && s.aiAllowed))) p.Button(px + 196, y + 6, 60, 24, "Take", kGSeat, i, mx, my, true, false, 0);
 			if (s.type != 1) continue;
@@ -192,7 +192,7 @@ void PaintGameRoom(Painter &p, const State &st)
 			if (seat && !movingRows) p.Button(px + 196, y + 6, 60, 24, "Take", kGSeat, i, mx, my, true, false, 0);
 		}
 		if (!s.used) continue;
-		const bool raceEditable = RaceEditable(g, s, load);
+		const bool raceEditable = RaceEditable(g, s, load) && !SlotFrozen(g, s);
 		const bool hidden = (g.rules & kRuleBlindPick) && !load && !s.local && !(g.host && s.type == 1);
 		const std::string race = hidden ? "Hidden"
 			: s.race >= 0 && s.race < static_cast<int>(s.raceNames.size()) ? (RaceSeparator(s.raceNames) && s.race == 9 ? "—" : s.raceNames[s.race]) : "?";
@@ -208,7 +208,8 @@ void PaintGameRoom(Painter &p, const State &st)
 			const bool known = s.bonus > 0 && s.bonus < static_cast<int>(g.bonuses.size());
 			const std::string bonus = off || s.bonus <= 0 ? "—" : known ? g.bonuses[s.bonus].name : "?";
 			p.Font(3);
-			if (!load && !off && g.bonuses.size() > 1 && !GameModeLocksOption(GameModeFor(g.mode.c_str()), 0x10a7) && (s.local || (g.host && s.type == 1))) {
+			if (!load && !off && g.bonuses.size() > 1 && !GameModeLocksOption(GameModeFor(g.mode.c_str()), 0x10a7) && (s.local || (g.host && s.type == 1)) &&
+				!SlotFrozen(g, s)) {
 				Combo(p, st, px + kBonusX, y + 6, kBonusW, 24, bonus, kDropBonus, i, true);
 			}
 			else {
@@ -217,7 +218,7 @@ void PaintGameRoom(Painter &p, const State &st)
 			p.Font(0);
 		}
 		const std::string team = s.team <= 0 || s.team > 4 ? "—" : std::to_string(s.team);
-		if (!load && (s.local || (g.host && s.type == 1))) p.Button(px + kTeamX, y + 6, kTeamW, 24, team, kGTeam, i, mx, my);
+		if (!load && (s.local || (g.host && s.type == 1)) && !SlotFrozen(g, s)) p.Button(px + kTeamX, y + 6, kTeamW, 24, team, kGTeam, i, mx, my);
 		else p.Text(px + kTeamX, y, kTeamW, 36, team, kText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 		if (s.type == 1) PaintBadge(p, px + kBadgeX, y + 8, kBadgeW, 20, "AI", RGB(60, 52, 80), RGB(210, 200, 240));
 		else if (!g.online) PaintBadge(p, px + kBadgeX, y + 8, kBadgeW, 20, "You", RGB(56, 44, 28), kGold);
@@ -278,6 +279,7 @@ void PaintGameRoom(Painter &p, const State &st)
 			a = b + 1;
 		}
 		const bool host = g.host;
+		const bool canEdit = host && !(g.online && LocalReady(g));
 		int y = oy + 8;
 		p.Font(1);
 		p.Text(ox + 12, y, ow - 24, 24, "Game options", kGold);
@@ -393,7 +395,7 @@ void PaintGameRoom(Painter &p, const State &st)
 						if (o.checkbox) v = o.value ? "yes" : "no";
 						else if (o.sel >= 0 && o.sel < static_cast<int>(o.items.size()) && !o.items[o.sel].empty()) v = o.items[o.sel];
 						const bool mapByHand = id == 0x1000 && st.saveMapStep >= 2 && st.saveMap.empty() && !st.saveMapRandom;
-						enabled = (o.checkbox || o.items.size() > 1) && (!load || mapByHand) && !GameModeLocksOption(GameModeFor(g.mode.c_str()), id);
+						enabled = canEdit && (o.checkbox || o.items.size() > 1) && (!load || mapByHand) && !GameModeLocksOption(GameModeFor(g.mode.c_str()), id);
 					}
 				}
 				else {
@@ -423,7 +425,7 @@ void PaintGameRoom(Painter &p, const State &st)
 			};
 			auto ruleRow = [&](unsigned bit, const char *label, bool inLoad, const char *help) {
 				const bool set = (g.rules & bit) != 0;
-				toggleRow(label, set, host && (!load || inLoad), kGRuleToggle, static_cast<int>(bit), help);
+				toggleRow(label, set, canEdit && (!load || inLoad), kGRuleToggle, static_cast<int>(bit), help);
 			};
 			if (saveName.empty() || !g.online) {
 				const int preset = MatchPreset(g.siteFlags, g.rules, [&](int id, const char *key) {
@@ -431,7 +433,7 @@ void PaintGameRoom(Painter &p, const State &st)
 					bool enabled;
 					return gameValue(id, key, index, enabled);
 				});
-				row("Preset", preset >= 0 ? kPresets[preset].name : "Custom setup", preset != 0, host, true, kDropPreset, 0,
+				row("Preset", preset >= 0 ? kPresets[preset].name : "Custom setup", preset != 0, canEdit, true, kDropPreset, 0,
 					"Classic: like the original game. Competitive: 5000 gold, normal population, no bonuses, unexplored map with fog and diplomacy locked. Various: 10000 gold, high population, with bonuses, explored map and no fog.");
 			}
 			section("MAP");
@@ -447,7 +449,7 @@ void PaintGameRoom(Painter &p, const State &st)
 					if (g.siteFlags & site.bit) removed += (removed.empty() ? "" : ", ") + Tr(site.name);
 				}
 				row("Remove from map", !g.randomMap ? "Only on random maps" : removed.empty() ? "None" : removed, g.randomMap && !removed.empty(),
-					host && g.randomMap, true, kDropSites, 0,
+					canEdit && g.randomMap, true, kDropSites, 0,
 					"Neutral sites that are not generated on the random map: ruins, caves, item locations and strongholds (these only appear on large maps).");
 				const std::vector<ModOption> &mods = ModOptions();
 				for (size_t oi = 0; oi < mods.size(); oi++) {
@@ -455,7 +457,7 @@ void PaintGameRoom(Painter &p, const State &st)
 					if (mo.id != kSeasonOptionId) continue;
 					const int v = ModOptionGet(mo, g.rules);
 					row(mo.name.c_str(), !g.randomMap ? Tr("Only on random maps") : mo.values[v < static_cast<int>(mo.values.size()) ? v : 0], g.randomMap && v != 0,
-						host && g.randomMap, true, kDropModOption, static_cast<int>(oi), mo.description.c_str());
+						canEdit && g.randomMap, true, kDropModOption, static_cast<int>(oi), mo.description.c_str());
 				}
 			}
 			section("GAME");
@@ -467,7 +469,7 @@ void PaintGameRoom(Painter &p, const State &st)
 				if (host) {
 					static const char *const kSpecNames[] = {"No spectators", "With a 30 s delay", "With a 60 s delay", "With a 120 s delay", "Live"};
 					const int sv = std::max(0, std::min(4, st.createSpec));
-					row("Spectators", kSpecNames[sv], false, true, true, kDropSpectators, 0,
+					row("Spectators", kSpecNames[sv], false, canEdit, true, kDropSpectators, 0,
 						"Who can watch the game without playing, and with how much delay. It can be changed while the room is open.");
 				}
 				else {
@@ -495,7 +497,7 @@ void PaintGameRoom(Painter &p, const State &st)
 						continue;
 					}
 					const int v = ModOptionGet(mo, g.rules);
-					row(mo.name.c_str(), mo.values[v < static_cast<int>(mo.values.size()) ? v : 0], v != 0, host, true, kDropModOption, static_cast<int>(oi),
+					row(mo.name.c_str(), mo.values[v < static_cast<int>(mo.values.size()) ? v : 0], v != 0, canEdit, true, kDropModOption, static_cast<int>(oi),
 						mo.description.c_str());
 				}
 			}
@@ -514,6 +516,13 @@ void PaintGameRoom(Painter &p, const State &st)
 				p.Fill(ix, y + 20, iw, 8, pal::well);
 				p.Fill(ix, y + 20, iw * pct / 100, 8, kGold);
 				y += 30;
+			}
+			else if (!host && st.map.state == 2 && st.map.needsPack) {
+				y += 8;
+				p.Font(3);
+				std::string text = TrFmt("This room's map comes from \"%s\", which you do not have loaded.", {st.map.packName});
+				if (!st.map.error.empty()) text += " " + Tr(st.map.error) + ".";
+				y += p.TextWrapped(ix, y, iw, 36, text, kBad);
 			}
 			else if (!host && st.map.state == 2) {
 				y += 8;
@@ -561,8 +570,13 @@ void PaintGameRoom(Painter &p, const State &st)
 	int step = 0;
 	auto yAt = [&](int k) { return cy + (ch - bh) * k / (count - 1); };
 	int by = yAt(step++);
-	p.Button(ax, by, aw, bh, !saveReady ? "Waiting for the saved game..." : !mapReady ? "Waiting for the scenario..." : me.ready ? "Not ready" : "Ready", kGReady, 0, mx,
-		my, mapReady || me.ready, !me.ready && mapReady);
+	if (!g.host && st.map.needsPack) {
+		p.Button(ax, by, aw, bh, "Download and rejoin", kGResync, 0, mx, my, true, true);
+	}
+	else {
+		p.Button(ax, by, aw, bh, !saveReady ? "Waiting for the saved game..." : !mapReady ? "Waiting for the scenario..." : me.ready ? "Not ready" : "Ready", kGReady, 0, mx,
+			my, mapReady || me.ready, !me.ready && mapReady);
+	}
 	if (g.host) {
 		const bool allReady = humans > 0 && readyCount == humans;
 		const StartBlock block = StartBlocker(st, g);

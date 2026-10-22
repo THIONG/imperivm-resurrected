@@ -7,13 +7,14 @@
 
 namespace {
 
-RoomContentFacts Facts(const std::string &room, const std::string &own, const std::string &mapMod = "", bool haveMap = false)
+RoomContentFacts Facts(const std::string &room, const std::string &own, const std::string &mapMod = "", bool haveMap = false, bool simple = false)
 {
 	RoomContentFacts f;
 	f.roomKey = room;
 	f.ownKey = own;
 	f.mapModId = mapMod;
 	f.haveMapMod = haveMap;
+	f.mapSimple = simple;
 	return f;
 }
 
@@ -41,6 +42,13 @@ void TheMapModMustBeLoaded()
 	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "685eb718eafca4a3", "numida", true)) == RoomContent::kSame);
 }
 
+void AMapOnlyPackIsNotNeededToJoin()
+{
+	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "685eb718eafca4a3", "numida", false, true)) == RoomContent::kSame);
+	CHECK(CompareRoomContent(Facts("685eb718eafca4a3", "1f00aa0000000000", "numida", false, true)) == RoomContent::kOtherGameplay);
+	CHECK(CompareRoomContent(Facts("", "685eb718eafca4a3", "numida", false, true)) == RoomContent::kChecking);
+}
+
 void AMissingMapModIsKnownBeforeTheKeys()
 {
 	CHECK(CompareRoomContent(Facts("", "", "numida", false)) == RoomContent::kOtherMap);
@@ -63,6 +71,7 @@ int main()
 	DifferentKeysAreOtherGameplay();
 	AMissingKeyIsNeverTheSame();
 	TheMapModMustBeLoaded();
+	AMapOnlyPackIsNotNeededToJoin();
 	AMissingMapModIsKnownBeforeTheKeys();
 	OnlyTheTwoDifferencesDiffer();
 	return test::Summary("roomcontent");

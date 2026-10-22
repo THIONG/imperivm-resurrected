@@ -35,6 +35,7 @@ struct ControlKey {
 	bool operator==(const ControlKey &o) const { return vk == o.vk && mods == o.mods; }
 	bool operator!=(const ControlKey &o) const { return !(*this == o); }
 };
+ControlKey ControlsModKey(int id);
 
 enum KeyRule {
 	kRuleAny,
@@ -84,6 +85,11 @@ void ControlsDrawBarKeys(uint32_t *buf, int w, int h);
 bool ControlsBarKeysChanged();
 bool ControlsBarLetters();
 void ControlsSetBarLetters(bool on);
+enum ZoomBoxMode { kZoomBoxCtrl, kZoomBoxAlt, kZoomBoxShift, kZoomBoxOff, kZoomBoxModes };
+int ControlsZoomBoxMode();
+void ControlsSetZoomBoxMode(int mode);
+unsigned ControlsZoomBoxVk();
+unsigned ControlsZoomBoxAddVk();
 std::string ControlsExport();
 bool ControlsImport(const std::string &text);
 void ControlsNoteLayout();

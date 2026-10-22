@@ -7,10 +7,14 @@
 #pragma warning(disable : 4996 4828)
 #pragma warning(pop)
 #include <algorithm>
+#include <atomic>
+#include "core/guard.h"
 #include "core/log.h"
+#include "mods/downloads.h"
 #include "mods/mods.h"
 #include "net/mpsave.h"
 #include "net/rejoin.h"
+#include "net/scenvalue.h"
 #include "net/sharemsg.h"
 #include "i18n/tr.h"
 
@@ -63,7 +67,12 @@ bool FileFingerprint(const std::string &file, uint64_t &size, std::string &hash)
 	return true;
 }
 
+const uint64_t kMaxMapBytes = 64ull * 1024 * 1024;
+
 std::string g_scenPublished;
+std::string g_scenPackFile;
+bool g_scenPackShare = false;
+std::atomic<int> g_fetchToken{0};
 }
 }
 
@@ -72,19 +81,38 @@ void PublishScenario(const std::string &path)
 {
 	if (!g_lobby || path == g_scenPublished) return;
 	g_scenPublished = path;
-	std::string value, modId, modVersion, modName;
+	g_scenPackFile.clear();
+	g_scenPackShare = false;
+	ScenValue scen;
 	if (!path.empty()) {
+		scen.path = path;
 		uint64_t size = 0;
 		std::string hash;
 		const std::string file = ScenarioFile(path);
 		const bool loose = !file.empty() && FileFingerprint(file, size, hash);
-		value = loose ? path + "\t" + std::to_string(size) + "\t" + hash : path + "\t0\t";
-		if (!loose && ModsScenarioProvider(path, modId, modVersion, modName)) {
-			for (std::string *field : {&modId, &modVersion, &modName}) std::replace(field->begin(), field->end(), '\t', ' ');
-			value += "\t" + modId + "\t" + modVersion + "\t" + modName;
+		if (loose) {
+			scen.size = size;
+			scen.hash = hash;
+		}
+		else if (ModsScenarioProvider(path, scen.modId, scen.modVersion, scen.modName)) {
+			ModsMapPack pack;
+			uint64_t packSize = 0;
+			std::string packHash;
+			if (ModsScenarioPack(path, pack) && pack.simple && FileFingerprint(pack.file, packSize, packHash) && packSize > 0 && packSize <= kMaxMapBytes) {
+				scen.simple = true;
+				scen.shareable = pack.shareable;
+				scen.mapSize = packSize;
+				scen.mapHash = packHash;
+				scen.gbId = pack.gbId;
+				g_scenPackFile = pack.file;
+				g_scenPackShare = pack.shareable;
+			}
 		}
 	}
-	PublishMods(modId);
+	const std::string value = path.empty() ? std::string() : ScenValueEncode(scen);
+	std::string modId = scen.modId;
+	std::replace(modId.begin(), modId.end(), '\t', ' ');
+	PublishMods(scen.simple ? std::string() : modId);
 	S.SteamAPI_ISteamMatchmaking_SetLobbyData(g_steam.mm, g_lobby, "scen", value.c_str());
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
@@ -99,10 +127,14 @@ namespace {
 void HostOnMapRequest(uint64 peer, const std::string &path)
 {
 	const bool save = path == kSaveTransferPath;
-	const std::string file = save ? g_savePublishedFile : ScenarioFile(path);
+	std::string file = save ? g_savePublishedFile : ScenarioFile(path);
+	if (!save && path == g_scenPublished && g_scenPackShare && !g_scenPackFile.empty() && !file.empty() &&
+		GetFileAttributesA(file.c_str()) == INVALID_FILE_ATTRIBUTES) {
+		file = g_scenPackFile;
+	}
 	uint64_t size = 0;
 	std::string hash;
-	if (file.empty() || (!save && path != g_scenPublished) || !FileFingerprint(file, size, hash) || size > 64 * 1024 * 1024) {
+	if (file.empty() || (!save && path != g_scenPublished) || !FileFingerprint(file, size, hash) || size > kMaxMapBytes) {
 		LogW("room", "scenarios: \"%s\" is not sent to %s", path.c_str(), Name(peer).c_str());
 		return;
 	}
@@ -161,40 +193,141 @@ void MapFailed(const std::string &why)
 }
 
 namespace steamnet_impl {
+namespace {
+void FetchPackMapThread(int token, ScenValue sv, std::string value, uint64 host, std::string file, std::string localFile)
+{
+	const std::string leaf = file.substr(file.find_last_of('\\') + 1);
+	const std::string part = file + ".partial";
+	auto stale = [token] { return token != g_fetchToken.load(); };
+	uint64_t size = 0;
+	std::string hash;
+	bool local = false;
+	if (!localFile.empty() && FileFingerprint(localFile, size, hash) && size == sv.mapSize && hash == sv.mapHash) {
+		local = CopyFileA(localFile.c_str(), part.c_str(), FALSE) != 0;
+	}
+	std::string err;
+	if (!local) {
+		err = DlFetchRoomMap(
+			sv.gbId, sv.modVersion, sv.modId, sv.modName, leaf, part,
+			[&](uint64_t got, uint64_t total) {
+				if (stale()) return;
+				std::lock_guard<std::mutex> lock(g_lock);
+				g_share.mapStatus.got = got;
+				g_share.mapStatus.total = total ? total : sv.mapSize;
+			},
+			stale);
+	}
+	if (err.empty() && !(FileFingerprint(part, size, hash) && size == sv.mapSize && hash == sv.mapHash)) {
+		err = "the map on GameBanana is not the one of the host";
+	}
+	if (stale()) {
+		DeleteFileA(part.c_str());
+		return;
+	}
+	if (err.empty() && GetFileAttributesA(file.c_str()) != INVALID_FILE_ATTRIBUTES) err = "a map with that name already exists";
+	if (err.empty() && !MoveFileExA(part.c_str(), file.c_str(), 0)) err = "could not save the map";
+	if (err.empty()) {
+		ModsNoteReceivedMap(file);
+		LogI("room", "scenarios: \"%s\" %s (%llu bytes)", sv.path.c_str(), local ? "copied from the package you already have" : "downloaded from GameBanana",
+			static_cast<unsigned long long>(sv.mapSize));
+		Post([=] {
+			if (stale()) return;
+			ShareSend(host, kShMapHave, value.data(), value.size());
+			std::lock_guard<std::mutex> lock(g_lock);
+			g_share.mapStatus.state = 0;
+			g_share.mapStatus.ready = true;
+		});
+		return;
+	}
+	DeleteFileA(part.c_str());
+	LogW("room", "scenarios: could not download \"%s\" from GameBanana (%s)", sv.path.c_str(), err.c_str());
+	Post([=] {
+		if (stale()) return;
+		if (sv.shareable) {
+			g_mapIn.host = host;
+			ShareSend(host, kShMapReq, sv.path.data(), sv.path.size());
+			LogI("room", "scenarios: requesting \"%s\" from the host", sv.path.c_str());
+			std::lock_guard<std::mutex> lock(g_lock);
+			g_share.mapStatus.got = 0;
+			g_share.mapStatus.total = sv.mapSize;
+			return;
+		}
+		std::lock_guard<std::mutex> lock(g_lock);
+		g_share.mapStatus.state = 2;
+		g_share.mapStatus.error = err;
+		g_share.mapStatus.needsPack = true;
+		g_share.mapStatus.packName = sv.modName;
+	});
+}
+
+void NeedsPack(OnlineMapStatus &st, const ScenValue &sv, const std::string &why)
+{
+	LogW("room", "scenarios: the map \"%s\" comes from \"%s\" %s, which is not loaded (%s)", sv.path.c_str(), sv.modName.c_str(), sv.modVersion.c_str(),
+		why.empty() ? "it brings more than the map" : why.c_str());
+	st.state = 2;
+	st.error = why;
+	st.needsPack = true;
+	st.packName = sv.modName;
+	if (g_lobby != g_pendingJoin.syncLobby) {
+		Notice(TrFmt("The room map comes from \"%s\", which you do not have loaded: use the button to download it and come back", {sv.modName}));
+	}
+}
+
+void BeginPackMapFetch(const ScenValue &sv, const std::string &value, uint64 host, const std::string &file, OnlineMapStatus &st)
+{
+	uint64_t mySize = 0;
+	std::string myHash;
+	if (GetFileAttributesA(file.c_str()) != INVALID_FILE_ATTRIBUTES) {
+		if (FileFingerprint(file, mySize, myHash) && mySize == sv.mapSize && myHash == sv.mapHash) {
+			ShareSend(host, kShMapHave, value.data(), value.size());
+			return;
+		}
+		NeedsPack(st, sv, "you already have another map with that name");
+		return;
+	}
+	st.state = 1;
+	st.total = sv.mapSize;
+	SafeThread(FetchPackMapThread, g_fetchToken.load(), sv, value, host, file, ModsInstalledPackMap(sv.modId, sv.modVersion, sv.path)).detach();
+}
+}
+}
+
+namespace steamnet_impl {
 void CheckRoomScenario()
 {
 	if (!g_lobby || S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby) == g_steam.me) return;
 	const std::string value = Data(g_lobby, "scen");
 	if (value == g_mapIn.handled) return;
 	g_mapIn.handled = value;
-	const std::vector<std::string> f = SplitTabs(value);
+	g_fetchToken++;
+	ScenValue sv;
 	OnlineMapStatus st;
-	if (f.size() >= 3 && !f[0].empty()) {
-		st.name = f[0].substr(f[0].find_last_of("/\\") + 1);
-		const uint64_t size = _strtoui64(f[1].c_str(), nullptr, 10);
-		const std::string file = ScenarioFile(f[0]);
-		const bool fromMod = f.size() >= 6 && !f[3].empty();
+	if (ScenValueParse(value, sv)) {
+		st.name = sv.path.substr(sv.path.find_last_of("/\\") + 1);
+		const std::string file = ScenarioFile(sv.path);
+		const bool fromMod = !sv.modId.empty();
+		const uint64 host = S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby);
 		uint64_t mySize = 0;
 		std::string myHash;
-		if (fromMod && size == 0) {
-			const uint64 host = S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby);
-			if (ModsMountedHasExact(f[3], f[4])) {
+		if (fromMod && sv.size == 0) {
+			if (ModsMountedHasExact(sv.modId, sv.modVersion)) {
 				ShareSend(host, kShMapHave, value.data(), value.size());
 			}
+			else if (sv.simple && !file.empty()) {
+				BeginPackMapFetch(sv, value, host, file, st);
+			}
 			else {
-				LogW("room", "scenarios: the map \"%s\" comes from \"%s\" %s, which is not loaded", f[0].c_str(), f[5].c_str(), f[4].c_str());
-				if (g_lobby != g_pendingJoin.syncLobby) Notice(TrFmt("The room map comes from \"%s\", which you do not have loaded: leave the room and join again to download it", {f[5]}));
+				NeedsPack(st, sv, "");
 			}
 		}
-		else if (size && !file.empty() && !(FileFingerprint(file, mySize, myHash) && mySize == size && myHash == f[2])) {
-			g_mapIn.host = S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby);
+		else if (sv.size && !file.empty() && !(FileFingerprint(file, mySize, myHash) && mySize == sv.size && myHash == sv.hash)) {
+			g_mapIn.host = host;
 			st.state = 1;
-			st.total = size;
-			ShareSend(g_mapIn.host, kShMapReq, f[0].data(), f[0].size());
-			LogI("room", "scenarios: requesting \"%s\" from the host", f[0].c_str());
+			st.total = sv.size;
+			ShareSend(g_mapIn.host, kShMapReq, sv.path.data(), sv.path.size());
+			LogI("room", "scenarios: requesting \"%s\" from the host", sv.path.c_str());
 		}
-		else if (size) {
-			const uint64 host = S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby);
+		else if (sv.size) {
 			ShareSend(host, kShMapHave, value.data(), value.size());
 		}
 	}
@@ -316,6 +449,9 @@ bool ClientOnMapMessage(uint64 peer, const uint8_t *data, size_t len)
 namespace steamnet_impl {
 void ResetRoomScenario()
 {
+	g_fetchToken++;
+	g_scenPackFile.clear();
+	g_scenPackShare = false;
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
 		g_share.scenarioValue.clear();

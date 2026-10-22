@@ -87,7 +87,6 @@ LRESULT GameWindowHandler(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		AudioSetBackgroundMute(false);
 	}
 	return DisplayForwardMessage(hwnd, msg, wp, lp);
-	return DisplayForwardMessage(hwnd, msg, wp, lp);
 }
 
 const bool g_registered = (DisplaySetWindowHandler(&GameWindowHandler), true);

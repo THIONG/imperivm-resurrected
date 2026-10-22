@@ -852,6 +852,13 @@ void PaintDropList(Painter &p, const State &st)
 		return;
 	}
 	std::vector<DropItem> shown = ToDropItems(items);
+	if (st.dropKind == kDropOption && st.dropIndex >= 0 && st.dropIndex < static_cast<int>(st.game.options.size())) {
+		const GameRoomOption &o = st.game.options[st.dropIndex];
+		for (size_t i = 0; i < shown.size() && i < o.itemDisabled.size(); i++) {
+			shown[i].disabled = o.itemDisabled[i] != 0;
+			if (shown[i].disabled) shown[i].tip = "This map type does not exist in that size";
+		}
+	}
 	if (st.dropKind == kDropBonus) {
 		for (size_t i = 0; i < shown.size() && i < st.game.bonuses.size(); i++) shown[i].tip = st.game.bonuses[i].description;
 	}
@@ -914,31 +921,33 @@ void PaintChatLog(Painter &p, const State &st, int x, int y, int w, int h)
 	if (chat.empty()) return;
 	const int pad = 10, barW = 6, textW = w - pad * 2 - barW - 2;
 	struct Item {
-		int y, h, timeW;
+		int y, h, timeW, indent, lineH;
 		std::string text;
+		std::vector<std::wstring> lines;
 	};
 	std::vector<Item> items;
 	int total = 4;
 	p.Font(3);
 	const int timeW = p.TextWidth("00:00");
-	const int nbsp = std::max(1, p.TextWidth("\xC2\xA0"));
+	const int lineH = p.Measure(textW, "A");
 	for (const OnlineChatLine &l : chat) {
 		Item it;
+		it.indent = 0;
+		it.lineH = lineH;
 		if (l.system) {
 			it.text = "\xE2\x80\x94 " + l.text;
+			p.Font(3);
+			it.h = p.Measure(textW, it.text);
 		}
 		else {
 			p.Font(1);
-			const int nameW = p.TextWidth(l.who + ":");
+			const float nameW = p.TextWidthExact(l.who + ":");
 			p.Font(3);
-			const int padN = (timeW + 6 + nameW + 6 + nbsp - 1) / nbsp;
-			std::string pre;
-			for (int k = 0; k < padN; k++) pre += "\xC2\xA0";
-			it.text = pre + l.text;
+			it.indent = static_cast<int>(std::ceil(timeW + 6 + nameW + 6));
+			it.lines = p.WrapLines(l.text, it.indent, textW);
+			it.h = static_cast<int>(it.lines.size()) * lineH;
 		}
 		it.timeW = timeW;
-		p.Font(3);
-		it.h = p.Measure(textW, it.text);
 		it.y = total;
 		total += it.h + 4;
 		items.push_back(it);
@@ -969,7 +978,10 @@ void PaintChatLog(Painter &p, const State &st, int x, int y, int w, int h)
 		p.Font(1);
 		p.Text(x + pad + it.timeW + 6, py, textW - it.timeW - 6, 18, l.who + ":", ChatNameColor(st, l, me), DT_LEFT | DT_TOP | DT_SINGLELINE);
 		p.Font(3);
-		p.TextWrapped(x + pad, py, textW, it.h + 2, it.text, kText);
+		for (size_t k = 0; k < it.lines.size(); k++) {
+			const int shift = k == 0 ? it.indent : 0;
+			p.LineW(x + pad + shift, py + static_cast<int>(k) * it.lineH, textW - shift, it.lineH, it.lines[k], kText);
+		}
 	}
 	p.Unclip();
 	{

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "MinHook.h"
 #include "i18n/tr.h"
+#include "mods/mappack.h"
 
 #include "mods/mods_internal.h"
 
@@ -41,6 +42,49 @@ bool ModsScenarioProvider(const std::string &scenarioPath, std::string &id, std:
 	return false;
 }
 
+bool ModsScenarioPack(const std::string &scenarioPath, ModsMapPack &out)
+{
+	const std::string want = NormPath(scenarioPath) + ".bfhp";
+	std::lock_guard<std::mutex> lock(g_lock);
+	for (const std::string &folder : g_mount.profile.mods) {
+		for (const ModInfo &m : g_mods) {
+			if (m.folder != folder || std::find(m.paths.begin(), m.paths.end(), want) == m.paths.end()) continue;
+			MapPackFacts facts;
+			facts.rules = m.kind == kModRules;
+			facts.rleTail = m.rleTail;
+			facts.forbidden = m.forbidden.size();
+			facts.patchValues = m.patchValues.size();
+			facts.hidden = m.hidden.size();
+			out = ModsMapPack();
+			out.id = m.id;
+			out.version = m.version;
+			out.name = m.name;
+			out.gbId = m.gbId;
+			out.simple = MapPackIsSimple(facts, m.paths);
+			out.shareable = m.redistributable && m.forbidden.empty();
+			std::string rel = want;
+			std::replace(rel.begin(), rel.end(), '/', '\\');
+			out.file = ModsDir() + "\\" + m.folder + "\\" + rel;
+			return true;
+		}
+	}
+	return false;
+}
+
+std::string ModsInstalledPackMap(const std::string &id, const std::string &version, const std::string &scenarioPath)
+{
+	const std::string want = NormPath(scenarioPath) + ".bfhp";
+	std::lock_guard<std::mutex> lock(g_lock);
+	for (const ModInfo &m : g_mods) {
+		if (_stricmp(m.id.c_str(), id.c_str()) != 0 || m.version != version) continue;
+		if (std::find(m.paths.begin(), m.paths.end(), want) == m.paths.end()) continue;
+		std::string rel = want;
+		std::replace(rel.begin(), rel.end(), '/', '\\');
+		return ModsDir() + "\\" + m.folder + "\\" + rel;
+	}
+	return "";
+}
+
 bool ModsMountedHasExact(const std::string &id, const std::string &version)
 {
 	std::lock_guard<std::mutex> lock(g_lock);
@@ -62,11 +106,38 @@ const ModProfile &ModsMountedProfile()
 	return g_mount.known ? g_mount.profile : original;
 }
 
+bool ModsLoadsWithoutRestart(const std::string &folder)
+{
+	ModInfo m;
+	if (!ModsFind(folder, m)) return false;
+	MapPackFacts facts;
+	facts.rules = m.kind == kModRules;
+	facts.rleTail = m.rleTail;
+	facts.forbidden = m.forbidden.size();
+	facts.patchValues = m.patchValues.size();
+	facts.hidden = m.hidden.size();
+	return PackLoadsWithoutRestart(facts, m.paths);
+}
+
 bool ModsRestartNeeded()
 {
-	const ModProfile active = ModsLoadProfile(ModsActiveProfileName());
+	ModProfile active = ModsLoadProfile(ModsActiveProfileName());
+	active.mods.erase(std::remove_if(active.mods.begin(), active.mods.end(), [](const std::string &f) {
+		ModInfo m;
+		return !ModsFind(f, m);
+	}), active.mods.end());
 	const ModProfile &mounted = ModsMountedProfile();
 	if (!ModsSameSet(active.mods, mounted.mods)) return true;
+	std::map<std::string, std::string> signatures;
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		signatures = g_mount.signatures;
+	}
+	for (const auto &mountedPack : signatures) {
+		ModInfo m;
+		if (ModsFind(mountedPack.first, m) && ModSignature(m) != mountedPack.second && !ModsLoadsWithoutRestart(mountedPack.first)) return true;
+		if (IsDir(ModsDir() + "\\_downloads\\pending\\" + mountedPack.first)) return true;
+	}
 	std::map<std::string, std::string> chosen;
 	if (!active.choices.empty()) chosen = ChosenFolders(active, ModsList());
 	std::lock_guard<std::mutex> lock(g_lock);

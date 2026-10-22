@@ -73,6 +73,27 @@ void ListPushFront(void *list, void *value)
 	*reinterpret_cast<int *>(l + 0xc) += 1;
 }
 
+bool ListUnlink(void *list, void *value)
+{
+	char *l = static_cast<char *>(list);
+	void **link = reinterpret_cast<void **>(l + 0x10);
+	while (*link) {
+		void **node = static_cast<void **>(*link);
+		if (node[0] == value) {
+			*link = node[1];
+			*reinterpret_cast<int *>(l + 0xc) -= 1;
+			return true;
+		}
+		link = &node[1];
+	}
+	return false;
+}
+
+bool ContainsFolder(const std::vector<std::string> &list, const std::string &folder)
+{
+	return std::find_if(list.begin(), list.end(), [&](const std::string &f) { return _stricmp(f.c_str(), folder.c_str()) == 0; }) != list.end();
+}
+
 std::string ReadGameLanguage()
 {
 	const char *base = reinterpret_cast<const char *>(kLanguageName);
@@ -132,6 +153,7 @@ void MountProfileLayers(void *list)
 	DlCleanLeftovers();
 	ModsApplyPendingUninstalls();
 	ModsScan();
+	ModsPruneMissing();
 	std::string name = ModsActiveProfileName();
 	if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
 		name = ShowStartupPicker(name);
@@ -139,10 +161,17 @@ void MountProfileLayers(void *list)
 	}
 	ModProfile p = ModsLoadProfile(name);
 	p.mods = ModsLoadOrder(p.mods);
+	std::map<std::string, std::string> signatures;
+	for (const std::string &folder : p.mods) {
+		ModInfo m;
+		if (ModsFind(folder, m)) signatures[Lower(folder)] = ModSignature(m);
+	}
 	{
 		std::lock_guard<std::mutex> lock(g_lock);
 		g_mount.profile = p;
 		g_mount.known = true;
+		g_mount.signatures = signatures;
+		g_mount.layerList = list;
 	}
 	if (p.mods.empty()) {
 		LogI("content", "profile \"%s\" (no mods)", p.name.c_str());
@@ -187,6 +216,8 @@ void MountProfileLayers(void *list)
 	for (auto it = looseLayers.rbegin(); it != looseLayers.rend(); ++it) {
 		if (void *layer = CreateLooseLayer(*it)) {
 			ListPushFront(list, layer);
+			std::lock_guard<std::mutex> lock(g_lock);
+			g_mount.looseLayers[Lower(*it)] = layer;
 		}
 	}
 	LogI("content", "profile \"%s\" mounted (%u mods)", p.name.c_str(), static_cast<unsigned>(p.mods.size()));
@@ -226,6 +257,87 @@ const std::string *ModsChosenFile(const std::string &rel)
 	if (!files) return nullptr;
 	const auto it = files->find(rel);
 	return it == files->end() ? nullptr : &it->second;
+}
+
+bool ModsApplyWithoutRestart()
+{
+	void *list = nullptr;
+	ModProfile mounted;
+	std::map<std::string, std::string> chosen;
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		if (!g_mount.known || !g_mount.layerList) return false;
+		list = g_mount.layerList;
+		mounted = g_mount.profile;
+		chosen = g_mount.chosen;
+	}
+	ModProfile active = ModsLoadProfile(ModsActiveProfileName());
+	active.mods.erase(std::remove_if(active.mods.begin(), active.mods.end(), [](const std::string &f) {
+		ModInfo m;
+		return !ModsFind(f, m);
+	}), active.mods.end());
+	std::vector<std::string> added, removed;
+	for (const std::string &f : active.mods) {
+		if (!ContainsFolder(mounted.mods, f)) added.push_back(f);
+	}
+	for (const std::string &f : mounted.mods) {
+		if (!ContainsFolder(active.mods, f)) removed.push_back(f);
+	}
+	if (added.empty() && removed.empty()) return false;
+	if (!active.choices.empty() && ChosenFolders(active, ModsList()) != chosen) return false;
+	std::vector<ModInfo> addedInfo;
+	for (const std::string &f : added) {
+		ModInfo m;
+		if (!ModsLoadsWithoutRestart(f) || !ModsFind(f, m) || !m.hasLoose) return false;
+		addedInfo.push_back(m);
+	}
+	for (const std::string &f : removed) {
+		if (!ModsLoadsWithoutRestart(f)) return false;
+		std::lock_guard<std::mutex> lock(g_lock);
+		if (!g_mount.looseLayers.count(Lower("mods/" + f + "/"))) return false;
+	}
+	for (const std::string &f : removed) {
+		void *layer = nullptr;
+		{
+			std::lock_guard<std::mutex> lock(g_lock);
+			const auto it = g_mount.looseLayers.find(Lower("mods/" + f + "/"));
+			layer = it->second;
+			g_mount.looseLayers.erase(it);
+			g_mount.signatures.erase(Lower(f));
+			const std::string dir = ModsDir() + "\\" + f;
+			auto &dirs = g_mount.dirs;
+			dirs.erase(std::remove_if(dirs.begin(), dirs.end(), [&](const std::string &d) { return _stricmp(d.c_str(), dir.c_str()) == 0; }), dirs.end());
+		}
+		ListUnlink(list, layer);
+		LogI("content", "%s unloaded without restarting", f.c_str());
+	}
+	std::vector<std::string> failed;
+	for (const ModInfo &m : addedInfo) {
+		void *layer = CreateLooseLayer("mods/" + m.folder + "/");
+		if (!layer) {
+			failed.push_back(m.folder);
+			LogW("content", "%s could not be loaded without restarting", m.folder.c_str());
+			continue;
+		}
+		ListPushFront(list, layer);
+		{
+			std::lock_guard<std::mutex> lock(g_lock);
+			g_mount.looseLayers[Lower("mods/" + m.folder + "/")] = layer;
+			g_mount.signatures[Lower(m.folder)] = ModSignature(m);
+			g_mount.dirs.push_back(ModsDir() + "\\" + m.folder);
+		}
+		LogI("content", "loaded %s %s without restarting", m.name.c_str(), m.version.c_str());
+	}
+	for (const std::string &f : failed) active.mods.erase(std::remove(active.mods.begin(), active.mods.end(), f), active.mods.end());
+	active.mods = ModsLoadOrder(active.mods);
+	std::vector<std::string> dirs;
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		g_mount.profile = active;
+		dirs = g_mount.dirs;
+	}
+	MediaSetModDirs(dirs);
+	return failed.empty();
 }
 
 namespace mods_impl {

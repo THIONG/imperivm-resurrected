@@ -191,6 +191,7 @@ ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files)
 	Walk(base, "", files);
 	const std::string lang = LanguageLower();
 	std::set<std::string> paths, loose;
+	unsigned documents = 0;
 	auto addLanguage = [&](const std::string &code) {
 		for (const ModLanguage &l : m.languages) {
 			if (l.code == code) return;
@@ -253,6 +254,10 @@ ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files)
 			code = code.substr(0, code.find('_'));
 			if (!code.empty()) addLanguage(code);
 		}
+		if (IsDocumentation(f.rel)) {
+			documents++;
+			continue;
+		}
 		if (StartsWith(f.rel, "loc/")) {
 			continue;
 		}
@@ -304,6 +309,7 @@ ModInfo ScanMod(const std::string &folder, std::vector<ScanFile> &files)
 		m.content = m.content || f.content;
 		m.gameplay = m.gameplay || f.gameplay;
 	}
+	m.noGameFiles = m.fileCount == documents && m.requires.empty();
 	m.paths.assign(paths.begin(), paths.end());
 	m.loosePaths.assign(loose.begin(), loose.end());
 	m.kind = m.gameplay ? kModRules : m.content ? kModContent : kModCosmetic;

@@ -179,6 +179,7 @@ ModIssues IssuesOf(const ModProfile &p, const std::vector<ModInfo> &all, const s
 	const bool active = HasFolder(p.mods, folder);
 	if (!m->forbidden.empty()) out.problems.push_back(Tr("Contains disallowed files (") + m->forbidden[0] + Tr("): it will not be loaded"));
 	if (!m->manifestError.empty()) out.problems.push_back(Tr("mod.json has errors: ") + m->manifestError);
+	if (m->noGameFiles) out.problems.push_back(Tr("This content pack is empty: it brings nothing for the game."));
 	if (!m->rleTailError.empty()) out.problems.push_back(Tr(m->rleTailError));
 	for (const std::string &e : PatchErrorsFor(m->folder)) {
 		if (out.problems.size() >= 8) break;

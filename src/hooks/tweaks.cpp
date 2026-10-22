@@ -130,9 +130,8 @@ bool ResolutionListed(int w, int h)
 
 void AddNativeResolution()
 {
-	HDC screen = GetDC(nullptr);
-	const int dw = GetDeviceCaps(screen, HORZRES), dh = GetDeviceCaps(screen, VERTRES);
-	ReleaseDC(nullptr, screen);
+	int dw = 0, dh = 0;
+	DisplayTargetSize(dw, dh);
 	if (dw <= 0 || dh <= 0 || dw > 4096 || dh > 2304 || ResolutionListed(dw, dh)) {
 		return;
 	}
@@ -141,21 +140,83 @@ void AddNativeResolution()
 	LogD("display", "resolutions: the monitor's added, %dx%d", dw, dh);
 }
 
+void RemoveUnavailableResolutions()
+{
+	auto &begin = *reinterpret_cast<POINT **>(addr::kResolutionList + 4);
+	auto &end = *reinterpret_cast<POINT **>(addr::kResolutionList + 8);
+	if (!begin) return;
+	POINT *keep = begin;
+	for (POINT *p = begin; p < end; p++) {
+		if (DisplayModeAllowed(p->x, p->y)) *keep++ = *p;
+		else LogD("display", "resolutions: %dx%d is not offered (the monitor is smaller)", p->x, p->y);
+	}
+	if (keep != begin) end = keep;
+}
+
 void AddExtendedViewResolutions()
 {
-	HDC screen = GetDC(nullptr);
-	const int dw = GetDeviceCaps(screen, HORZRES), dh = GetDeviceCaps(screen, VERTRES);
-	ReleaseDC(nullptr, screen);
-	const float factors[] = {1.25f, 1.5f, 2.0f};
-	for (float f : factors) {
-		int w = static_cast<int>(dw * f) / 8 * 8, h = static_cast<int>(dh * f) / 8 * 8;
-		if (w > 4096 || h > 2304 || ResolutionListed(w, h)) {
-			continue;
-		}
-		POINT p = {w, h};
+	for (POINT p : DisplayExtendedSizes()) {
+		if (ResolutionListed(p.x, p.y)) continue;
 		reinterpret_cast<PushBack_t>(addr::kVectorPointPushBack)(reinterpret_cast<void *>(addr::kResolutionList), nullptr, &p);
-		LogD("display", "extended view: added %dx%d (%.2fx the monitor %dx%d)", w, h, f, dw, dh);
+		LogD("display", "extended view: added %dx%d", p.x, p.y);
 	}
+}
+
+typedef void(__fastcall *OptionsBlock_t)(unsigned *block);
+OptionsBlock_t g_origSaveOptions = nullptr;
+const int kResolutionSlot = 0xd;
+int g_resolutionAtStart = -1;
+
+int ResolutionCount()
+{
+	auto begin = *reinterpret_cast<POINT **>(addr::kResolutionList + 4);
+	auto end = *reinterpret_cast<POINT **>(addr::kResolutionList + 8);
+	return begin ? static_cast<int>(end - begin) : 0;
+}
+
+int ResolutionIndexOf(int w, int h)
+{
+	auto begin = *reinterpret_cast<POINT **>(addr::kResolutionList + 4);
+	for (int i = 0, n = ResolutionCount(); i < n; i++) {
+		if (begin[i].x == w && begin[i].y == h) return i;
+	}
+	return -1;
+}
+
+void UseSavedResolution()
+{
+	static bool done = false;
+	if (done || ResolutionCount() == 0) return;
+	done = true;
+	const Config &c = GetConfig();
+	int &current = *reinterpret_cast<int *>(addr::kCurrentResolutionIndex);
+	const int stored = current;
+	const int saved = c.resolutionW > 0 ? ResolutionIndexOf(c.resolutionW, c.resolutionH) : -1;
+	int monitorW = 0, monitorH = 0;
+	DisplayTargetSize(monitorW, monitorH);
+	const int wanted = saved >= 0 ? saved : ResolutionIndexOf(monitorW, monitorH);
+	if (wanted >= 0) current = wanted;
+	g_resolutionAtStart = current;
+	LogI("display", "resolution at start: Settings.ini has the position %d, the mod's saved size is %dx%d (%s), the monitor is %dx%d, position used %d of %d",
+		stored, c.resolutionW, c.resolutionH, c.resolutionW <= 0 ? "none" : saved >= 0 ? "in the list" : "not in the list", monitorW, monitorH, current,
+		ResolutionCount());
+}
+
+void __fastcall HookSaveOptions(unsigned *block)
+{
+	const int index = static_cast<int>(block[kResolutionSlot]);
+	if (index >= 0 && index < ResolutionCount() && index != g_resolutionAtStart) {
+		const POINT size = (*reinterpret_cast<POINT **>(addr::kResolutionList + 4))[index];
+		Config &c = MutableConfig();
+		if (c.resolutionW != size.x || c.resolutionH != size.y) {
+			c.resolutionW = size.x;
+			c.resolutionH = size.y;
+			SaveConfig();
+			LogI("display", "resolution saved by size: %dx%d", size.x, size.y);
+		}
+		g_resolutionAtStart = index;
+	}
+	g_origSaveOptions(block);
 }
 
 bool __cdecl HookInitResolutionList()
@@ -167,12 +228,14 @@ bool __cdecl HookInitResolutionList()
 	*slot = g_origFileExists;
 
 	AddNativeResolution();
-	if (GetConfig().extendedView) {
+	if (GetConfig().extendedView && DisplayFakesModeChange()) {
 		AddExtendedViewResolutions();
 	}
 
+	RemoveUnavailableResolutions();
 	auto begin = *reinterpret_cast<POINT **>(addr::kResolutionList + 4);
 	auto end = *reinterpret_cast<POINT **>(addr::kResolutionList + 8);
+	UseSavedResolution();
 	LogI("display", "resolutions in the menu: %d", begin ? static_cast<int>(end - begin) : 0);
 	for (POINT *p = begin; p && p < end; p++) {
 		LogD("display", "resolution %ldx%ld", p->x, p->y);
@@ -521,15 +584,25 @@ void InstallTweaks(bool knownExe)
 		"CVXGameMultiplayer::RequestPauseOnline");
 	HookAt(addr::kChangeDisplayModeTo, reinterpret_cast<void *>(&HookChangeDisplayModeTo), reinterpret_cast<void **>(&g_origChangeDisplayModeTo),
 		"ChangeDisplayModeTo");
-	if (GetConfig().allResolutions || GetConfig().extendedView) {
-		HookAt(addr::kInitResolutionList, reinterpret_cast<void *>(&HookInitResolutionList),
-			reinterpret_cast<void **>(&g_origInitResolutionList), "InitResolutionList");
-	}
+	HookAt(addr::kInitResolutionList, reinterpret_cast<void *>(&HookInitResolutionList),
+		reinterpret_cast<void **>(&g_origInitResolutionList), "InitResolutionList");
+	HookAt(addr::kSaveGameOptionsToIni, reinterpret_cast<void *>(&HookSaveOptions), reinterpret_cast<void **>(&g_origSaveOptions),
+		"SaveGameOptionsToIni");
 	HookAt(addr::kLoadScrollSettings, reinterpret_cast<void *>(&HookLoadScrollSettings),
 		reinterpret_cast<void **>(&g_origLoadScroll), "LoadScrollSettings");
 	HookAt(addr::kLoadConfigIni, reinterpret_cast<void *>(&HookLoadConfigIni), reinterpret_cast<void **>(&g_origLoadConfigIni),
 		"LoadConfigIni");
 	LogI("boot", "tweaks: installed (AllResolutions=%d, ScrollSpeed=%.2f)", GetConfig().allResolutions, GetConfig().scrollSpeed);
+}
+
+bool TweaksIntendedResolution(int &w, int &h)
+{
+	const int index = *reinterpret_cast<int *>(addr::kCurrentResolutionIndex);
+	if (index < 0 || index >= ResolutionCount()) return false;
+	const POINT size = (*reinterpret_cast<POINT **>(addr::kResolutionList + 4))[index];
+	w = size.x;
+	h = size.y;
+	return true;
 }
 
 void TweaksApplySmoothScroll()

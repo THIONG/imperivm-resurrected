@@ -36,6 +36,33 @@ void AppendUtf8(std::string &o, unsigned cp)
 	}
 }
 
+std::string Visible(const std::string &s)
+{
+	std::string out;
+	out.reserve(s.size());
+	for (size_t i = 0; i < s.size(); i++) {
+		const unsigned char c = static_cast<unsigned char>(s[i]);
+		if (c == 0xE2 && i + 2 < s.size() && static_cast<unsigned char>(s[i + 1]) == 0x80) {
+			const unsigned char d = static_cast<unsigned char>(s[i + 2]);
+			if (d >= 0x8B && d <= 0x8F) {
+				i += 2;
+				continue;
+			}
+		}
+		if (c == 0xEF && i + 2 < s.size() && static_cast<unsigned char>(s[i + 1]) == 0xBB && static_cast<unsigned char>(s[i + 2]) == 0xBF) {
+			i += 2;
+			continue;
+		}
+		if (c == 0xC2 && i + 1 < s.size() && static_cast<unsigned char>(s[i + 1]) == 0xA0) {
+			out += ' ';
+			i++;
+			continue;
+		}
+		out += s[i];
+	}
+	return out;
+}
+
 bool DecodeEntity(const std::string &name, std::string &out)
 {
 	static const struct {
@@ -239,7 +266,22 @@ std::vector<RichBlock> RichFromHtml(const std::string &html)
 		i++;
 	}
 	flush();
-	return out;
+	std::vector<RichBlock> tidy;
+	for (RichBlock &b : out) {
+		b.text = Visible(b.text);
+		const bool empty = b.text.find_first_not_of(" \t\r\n") == std::string::npos;
+		if (b.kind == 5 || (empty && b.kind != 4)) {
+			if (!tidy.empty() && tidy.back().kind != 5) {
+				RichBlock gap;
+				gap.kind = 5;
+				tidy.push_back(gap);
+			}
+			continue;
+		}
+		tidy.push_back(b);
+	}
+	while (!tidy.empty() && tidy.back().kind == 5) tidy.pop_back();
+	return tidy;
 }
 
 std::vector<RichBlock> RichFromPlain(const std::string &text)
@@ -250,7 +292,7 @@ std::vector<RichBlock> RichFromPlain(const std::string &text)
 	while (pos <= text.size()) {
 		size_t e = text.find('\n', pos);
 		if (e == std::string::npos) e = text.size();
-		std::string line = text.substr(pos, e - pos);
+		std::string line = Visible(text.substr(pos, e - pos));
 		pos = e + 1;
 		while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t')) line.pop_back();
 		const size_t s = line.find_first_not_of(" \t");

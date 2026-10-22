@@ -42,13 +42,6 @@ std::vector<std::string> ModNeeds::Names(bool onlyMissing) const
 	return out;
 }
 
-std::string ModNeeds::Text(bool onlyMissing) const
-{
-	std::string out;
-	for (const std::string &n : Names(onlyMissing)) out += (out.empty() ? "" : ", ") + n;
-	return out;
-}
-
 ModNeeds ModsNeededFor(const std::string &gamePath, const std::string &profile)
 {
 	ModNeeds out;

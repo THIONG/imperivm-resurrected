@@ -198,6 +198,44 @@ void RemoveFromProfiles(const std::string &folder)
 }
 }
 
+namespace {
+std::mutex g_prunedLock;
+std::vector<std::string> g_pruned;
+}
+
+void ModsPruneMissing()
+{
+	if (!IsDir(ModsDir())) return;
+	for (const std::string &name : ModsProfileNames()) {
+		if (_stricmp(name.c_str(), kOriginal) == 0) continue;
+		ModProfile p = ModsLoadProfile(name);
+		std::vector<std::string> keep, gone;
+		for (const std::string &folder : p.mods) {
+			(GetFileAttributesA((ModsDir() + "\\" + folder).c_str()) == INVALID_FILE_ATTRIBUTES ? gone : keep).push_back(folder);
+		}
+		if (gone.empty()) continue;
+		const auto isGone = [&](const std::string &f) {
+			return std::find_if(gone.begin(), gone.end(), [&](const std::string &g) { return _stricmp(g.c_str(), f.c_str()) == 0; }) != gone.end();
+		};
+		p.mods = keep;
+		p.choices.erase(std::remove_if(p.choices.begin(), p.choices.end(), [&](const ModChoice &c) { return isGone(c.use) || isGone(c.over); }), p.choices.end());
+		if (!ModsSaveProfile(p)) continue;
+		std::lock_guard<std::mutex> lock(g_prunedLock);
+		for (const std::string &folder : gone) {
+			LogW("content", "%s is no longer in the mods folder: removed from the profile \"%s\"", folder.c_str(), p.name.c_str());
+			if (std::find(g_pruned.begin(), g_pruned.end(), folder) == g_pruned.end()) g_pruned.push_back(folder);
+		}
+	}
+}
+
+std::vector<std::string> ModsTakePruned()
+{
+	std::lock_guard<std::mutex> lock(g_prunedLock);
+	std::vector<std::string> out;
+	out.swap(g_pruned);
+	return out;
+}
+
 void ModsApplyPendingUninstalls()
 {
 	std::vector<std::string> left;
@@ -270,7 +308,6 @@ void RemoveReceivedMaps(const std::vector<std::string> &names)
 			continue;
 		}
 		if (DeleteFileA(path.c_str()) || GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
-			DeleteFileA((path + ".mods.json").c_str());
 			LogI("content", "also deleted the copy of the map a host passed (%s)", path.c_str());
 		}
 		else {
@@ -364,8 +401,6 @@ bool ModsDeleteMap(const std::string &scenarioPath, std::string &message)
 		message = Tr("The map could not be deleted");
 		return false;
 	}
-	const std::string sidecar = file + ".mods.json";
-	if (GetFileAttributesA(sidecar.c_str()) != INVALID_FILE_ATTRIBUTES) ToRecycleBin(sidecar);
 	if (origin.kind == kMapReceived) {
 		std::vector<std::string> keep;
 		for (const std::string &l : ReadReceived()) {

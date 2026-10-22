@@ -14,6 +14,7 @@
 #include "core/transferrate.h"
 #include "mods/downloads.h"
 #include "ui/widgets.h"
+#include "ui/keycaps.h"
 #include "ui/modui.h"
 #include "ui/richtext.h"
 #include "mods/mods.h"
@@ -58,7 +59,7 @@ enum Action {
 	kRichLink, kShowProblems, kUpdateAll,
 	kIoFilterOpen, kIoFilterClose, kIoFilterToggle, kIoFilterClear,
 	kUseFiles,
-	kRowClick, kMark, kStateFilter, kCatChip, kCatPanel, kCatClear, kBulkOn, kBulkOff, kBulkUninstall, kClearMarks, kSetActive,
+	kRowClick, kMark, kStateFilter, kCatChip, kCatPanel, kCatClear, kBulkOn, kBulkOff, kBulkUninstall, kClearMarks, kSetActive, kForget, kReinstall,
 };
 
 enum Field { kNoField, kSearchField, kNameField, kIoSearchField };
@@ -77,7 +78,7 @@ const int kIoPerPage = 8;
 std::string IoTagsText(const GbMod &m);
 enum NameMode { kNameNone, kNameSaveAs, kNameRename, kNameNew };
 
-enum Confirm { kConfirmRestart, kConfirmUninstall, kConfirmDelete };
+enum Confirm { kConfirmRestart, kConfirmUninstall, kConfirmDelete, kConfirmNotice };
 
 const char *const kSortNames[] = {"Name", "Active first", "Recently installed", "Size"};
 const int kSortCount = 4;
@@ -157,6 +158,7 @@ struct State {
 
 	std::string restartReason;
 	int restartLargeAddress = -1;
+	std::string noticeTitle, noticeText;
 };
 
 extern std::mutex g_lock;
@@ -262,6 +264,7 @@ struct Card {
 	bool corner = false;
 	int fixedW = 0;
 	int atX = -1, atCenterY = 0;
+	std::vector<ControlKey> keys;
 };
 
 RECT DrawCard(Canvas &canvas, uint32_t *buf, int w, int h, const Card &c, float s, int alpha);
@@ -315,6 +318,7 @@ struct RectF {
 };
 
 void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY);
+void DrawWatchersBadge(uint32_t *buf, int W, int H, float s);
 struct CheatBtn {
 	int verb;
 	int amount;

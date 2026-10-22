@@ -11,6 +11,7 @@ struct RoomContentFacts {
 	std::string ownKey;
 	std::string mapModId;
 	bool haveMapMod = false;
+	bool mapSimple = false;
 };
 
 RoomContent CompareRoomContent(const RoomContentFacts &facts);

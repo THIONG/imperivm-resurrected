@@ -17,6 +17,7 @@
 #include "addr/ui.h"
 #include "addr/world.h"
 #include "core/log.h"
+#include "game/controls.h"
 #include "game/mapfog.h"
 #include "game/quickicons.h"
 #include "game/zoomview.h"
@@ -310,7 +311,7 @@ bool ZoomViewHandleMouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			g_swallowLeftUp = true;
 			return true;
 		}
-		if (msg == WM_LBUTTONDOWN && InsideBitmap(x, y)) {
+		if (msg == WM_LBUTTONDOWN && ControlsZoomBoxVk() && (GetKeyState(static_cast<int>(ControlsZoomBoxVk())) & 0x8000) && InsideBitmap(x, y)) {
 			g_drag.pending = true;
 			g_drag.startX = g_drag.curX = x;
 			g_drag.startY = g_drag.curY = y;
@@ -332,7 +333,7 @@ bool ZoomViewHandleMouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			g_drag.curY = y;
 			if (!g_drag.dragging && (std::abs(x - g_drag.startX) >= kDragThreshold || std::abs(y - g_drag.startY) >= kDragThreshold)) {
 				g_drag.dragging = true;
-				BeginBox((GetKeyState(VK_SHIFT) & 0x8000) != 0);
+				BeginBox((GetKeyState(static_cast<int>(ControlsZoomBoxAddVk())) & 0x8000) != 0);
 			}
 			if (g_drag.dragging) PreviewBox(g_drag.startX, g_drag.startY, x, y, false);
 		}
