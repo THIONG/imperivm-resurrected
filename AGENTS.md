@@ -65,4 +65,21 @@ Passing them doesn't prove the game works. If the change affects what the player
 
 ## Releases
 
-Made by the maintainer only. Don't change the version number or touch `release-notes/` in a PR.
+Made by the maintainer only. Don't change the version number in a PR.
+
+### Release notes
+
+`release-notes/<version>.md` is the one source of the notes. The release body, the `notes` of `version.json` (signed) and the Discord announcement all come from it, and `tools/verify-release.js` fails the release if they differ.
+
+1. Run the `Draft release notes` workflow with the version (or `node tools/draft-release-notes.js --version X.Y.Z` locally). It reads the commits since the last release tag, asks a free LLM API (Gemini first, OpenRouter free models as the fallback) and opens a draft PR with the notes.
+2. Review the draft. The model only sees commits and diffs, so write by hand what it cannot know: what was tried in the game, and the notice for players who must update by hand.
+3. Merge it, create the release from that file (`gh release create vX.Y.Z --notes-file release-notes/X.Y.Z.md`) and sign `version.json` with the same text.
+
+The notes have three sections, `## Español`, `## English` and `## Italiano`, with the same content in each. `announce-release.js` reads them by those headings, and Discord cuts each one at 1500 characters, so keep each one short.
+
+What goes in, from the Conventional Commit types:
+
+- **What's new**: `feat`. **Fixes**: `fix`, and `perf` when the player notices it. **For modders**: scope `sdk`, in one line that points to `sdk/CHANGELOG.md`. **Notice**: `!` or `BREAKING CHANGE`, a new minimum version, or a manual update step.
+- Left out: `ci`, `docs`, `chore`, `refactor`, `test` and `build`, unless the player can see the effect.
+
+If you draft the notes yourself, follow the same rules. Don't invent: if the commits don't say what a change does for the player, leave it out and ask.
