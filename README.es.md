@@ -56,16 +56,6 @@ Compilar la DLL necesita el SDK de Steamworks de Valve, que no se incluye en est
 Cada release la comprueba `.github/workflows/release.yml` (etiqueta, hashes, firma y contenido del zip). Puedes hacer la misma
 comprobación con una release descargada: `node tools/verify-release.js <carpeta>`.
 
-## Code signing policy
-
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
-
-- Autores y revisores: [THIONG](https://github.com/THIONG), [Villoh](https://github.com/Villoh).
-- Aprobadores: [THIONG](https://github.com/THIONG), [Villoh](https://github.com/Villoh).
-- Política de privacidad: [imperivmresurrected.com/privacy.html](https://www.imperivmresurrected.com/privacy.html)
-
-Solo se firma `winmm.dll`. Se compila desde `src/` y `third_party/`, que usan licencias de código abierto. Las guías del SDK y las imágenes tienen sus propias licencias (ver [Licencia](#licencia)) y no forman parte del binario firmado. `steam_api.dll` es la biblioteca redistribuible de Valve, sin modificar, y este proyecto no la firma.
-
 ## Licencia
 
 - **Código** (`src/`, `tests/`, `tools/`): GPL-3.0-or-later con una excepción para Steamworks. Ver [LICENSE](LICENSE) y
