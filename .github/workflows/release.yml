@@ -50,7 +50,8 @@ jobs:
         shell: bash
         run: |
           rm -f assets/SHA256SUMS.txt
-          node tools/verify-release.js assets --tag "$TAG" --write-sums
+          gh release view "$TAG" --json body --jq .body > "$RUNNER_TEMP/release-body.md"
+          node tools/verify-release.js assets --tag "$TAG" --body "$RUNNER_TEMP/release-body.md" --write-sums
 
       - name: Attach the SDK zip and the checksums
         shell: bash

@@ -3,9 +3,11 @@
 //   - version.json: same version, the link of the zip points to this release, size and SHA-256 of the zip are the real ones, and the
 //     signature is valid for the public key that the mod has in src/mods/updater.cpp (the one the game checks before installing);
 //   - the zip holds winmm.dll, steam_api.dll and the imperivm-resurrected\ folder and nothing else, with no path that escapes;
+//   - release-notes/<version>.md is the one source of the notes: the notes in version.json and, with --body, the body of the release are the same text;
 //   - the SDK zip, if there is one, holds exactly the files of sdk/ at this commit;
 //   - SHA256SUMS.txt, if there is one, matches the files.
-//   node tools/verify-release.js <folder with the files> [--tag v0.31.54] [--repo THIONG/imperivm-resurrected] [--write-sums]
+//   node tools/verify-release.js <folder with the files> [--tag v0.31.54] [--repo THIONG/imperivm-resurrected] [--body release-body.md] [--write-sums]
+//   --body        the body of the release as published (gh release view --json body --jq .body), to compare with release-notes/<version>.md
 //   --write-sums  after verifying, writes SHA256SUMS.txt in the folder (zips and version.json)
 // publish-version.js runs it on the folder it prepares; the release workflow runs it on the files downloaded from the release.
 'use strict';
@@ -17,10 +19,11 @@ const { execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
-const dir = args.find((a, i) => !a.startsWith('--') && !['--tag', '--repo'].includes(args[i - 1]));
+const dir = args.find((a, i) => !a.startsWith('--') && !['--tag', '--repo', '--body'].includes(args[i - 1]));
 const tag = option('--tag', '');
 const repo = option('--repo', 'THIONG/imperivm-resurrected');
-if (!dir) { console.error('usage: node tools/verify-release.js <folder> [--tag vX.Y.Z] [--repo owner/name] [--write-sums]'); process.exit(2); }
+const bodyFile = option('--body', '');
+if (!dir) { console.error('usage: node tools/verify-release.js <folder> [--tag vX.Y.Z] [--repo owner/name] [--body file] [--write-sums]'); process.exit(2); }
 
 const problems = [];
 const bad = (m) => problems.push(m);
@@ -44,20 +47,34 @@ const publicKey = () => {
   return crypto.createPublicKey({ key: Buffer.concat([spkiPrefix, Buffer.from([4]), Buffer.from(bytes)]), format: 'der', type: 'spki' });
 };
 
+const sameText = (a, b) => a.replace(/\r\n/g, '\n').trim() === b.replace(/\r\n/g, '\n').trim();
+const notesPath = path.join(ROOT, 'release-notes', `${version}.md`);
+const sourceNotes = fs.existsSync(notesPath) ? fs.readFileSync(notesPath, 'utf8') : null;
+if (sourceNotes === null) bad(`release-notes/${version}.md is missing: it is the one source of the release notes`);
+if (sourceNotes !== null && bodyFile) {
+  if (!fs.existsSync(bodyFile)) bad(`${bodyFile} (the body of the release) does not exist`);
+  else if (!sameText(fs.readFileSync(bodyFile, 'utf8').replace(/^<!--[^>]*-->\s*/, ''), sourceNotes.replace(/^<!--[^>]*-->\s*/, ''))) bad(`the body of the release is not the text of release-notes/${version}.md (edit the release with gh release edit --notes-file)`);
+}
+
 const zipName = `imperivm-resurrected-${version}.zip`;
 const zipPath = path.join(dir, zipName);
 const jsonPath = path.join(dir, 'version.json');
 if (!fs.existsSync(zipPath)) bad(`${zipName} is missing`);
 if (!fs.existsSync(jsonPath)) bad('version.json is missing');
 
-if (fs.existsSync(zipPath) && fs.existsSync(jsonPath)) {
+let info = null;
+if (fs.existsSync(jsonPath)) {
+  try { info = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch (e) { bad('version.json is not valid JSON: ' + e.message); }
+}
+
+if (fs.existsSync(zipPath) && info) {
   const data = fs.readFileSync(zipPath);
-  const info = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   const hash = sha256(data);
   if (info.version !== version) bad(`version.json says ${info.version}, the code says ${version}`);
   if (!info.zip || info.zip.url !== `https://github.com/${repo}/releases/download/v${version}/${zipName}`) bad(`version.json links to ${info.zip && info.zip.url}, not to this release`);
   if (info.zip && info.zip.bytes !== data.length) bad(`version.json says ${info.zip.bytes} bytes, the zip has ${data.length}`);
   if (info.zip && info.zip.sha256 !== hash) bad('version.json has a different SHA-256 than the zip');
+  if (sourceNotes !== null && !sameText(String(info.notes || '').replace(/^<!--[^>]*-->\s*/, ''), sourceNotes.replace(/^<!--[^>]*-->\s*/, ''))) bad(`the notes in version.json are not the text of release-notes/${version}.md`);
   if (info.firma !== info.signature || info.notas !== info.notes || info.fecha !== info.date) bad('the legacy keys (firma, notas, fecha) differ from the current ones');
   try {
     const message = Buffer.from(`imperivm-resurrected\n${version}\n${hash}\n${data.length}`);
