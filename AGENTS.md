@@ -69,11 +69,11 @@ Made by the maintainer only. Don't change the version number in a PR.
 
 ### Release notes
 
-`release-notes/<version>.md` is the one source of the notes. The release body, the `notes` of `version.json` (signed) and the Discord announcement all come from it, and `tools/verify-release.js` fails the release if they differ.
+`release-notes/<version>.md` is the one source of the notes. The release body, the `notes` field of `version.json` and the Discord announcement all come from it, and `tools/verify-release.js` fails the release if they differ.
 
 1. Run the `Draft release notes` workflow with the version (or `node tools/draft-release-notes.js --version X.Y.Z` locally). It reads the commits since the last release tag, asks a free LLM API (Gemini first, OpenRouter free models as the fallback) and opens a draft PR with the notes.
 2. Review the draft. The model only sees commits and diffs, so write by hand what it cannot know: what was tried in the game, and the notice for players who must update by hand.
-3. Merge it, create the release from that file (`gh release create vX.Y.Z --notes-file release-notes/X.Y.Z.md`) and sign `version.json` with the same text.
+3. Merge it, create the release from that file (`gh release create vX.Y.Z --notes-file release-notes/X.Y.Z.md`) and build and sign `version.json` locally with the same text. The update signature covers the version, the SHA-256 and the size of the zip, so it can only be made by the maintainer, who holds the private key, once the zip exists. It does not cover the notes, which is why `verify-release.js` compares the three copies.
 
 The notes have three sections, `## Español`, `## English` and `## Italiano`, with the same content in each. `announce-release.js` reads them by those headings, and Discord cuts each one at 1500 characters, so keep each one short.
 

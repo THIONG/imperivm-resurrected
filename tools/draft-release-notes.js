@@ -1,5 +1,5 @@
 // Drafts release-notes/<version>.md from the commits since the last release, with a free LLM API. A person reviews the draft in a pull request
-// before it is released: the notes are signed into version.json and announced on Discord, so nothing here publishes anything.
+// before it is released: the notes end up in the release, in version.json and on Discord, so nothing here publishes anything.
 //   node tools/draft-release-notes.js --version 1.0.1 [--from v1.0.0] [--report report.md] [--force] [--dry-run]
 //   node tools/draft-release-notes.js --self-test
 //   --from     tag to start from (default: the latest v* tag)
@@ -202,7 +202,7 @@ async function main() {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, result.notes);
       const report = [
-        `Drafted with \`${served}\` (asked for \`${entry}\`) from ${count} commits since \`${from}\`. Read it before merging: it is signed into \`version.json\` and announced on Discord.`,
+        `Drafted with \`${served}\` (asked for \`${entry}\`) from ${count} commits since \`${from}\`. Read it before merging: it ends up in the release, in \`version.json\` and on Discord.`,
         failures.length ? `\nSkipped before it: ${failures.map((f) => `\`${f}\``).join('; ')}.` : '',
         result.unclear ? `\n## What the model could not decide\n\n${result.unclear.slice(0, 2000)}` : '',
         '\n## Still to write by hand\n\n- The "tested in..." paragraph: the model cannot know what was tried in the game.\n- The notice about updating by hand, if this version needs one.\n',
