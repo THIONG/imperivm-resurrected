@@ -172,52 +172,9 @@ THE SOFTWARE.
 ```
 
 ## libarchive — folder `third_party/libarchive`
-Reads the .rar files (content packages) without depending on the `tar.exe` of Windows. Only its RAR / RAR5 reader is included, with one
-documented change (see `README-IMPERIVM.txt` in that folder). BSD 2-Clause; BLAKE2 is CC0 / Apache 2.0 and PPMd is public domain. https://github.com/libarchive/libarchive
+Reads the .rar (RAR 3, 4 and 5) and .7z files of the content manager. Its `zlib.h` (hand-written) is miniz, which gives it inflate for Deflate and crc32. Version 3.8.10, reduced to the files that read RAR, RAR5 and 7z (the rest of the library is not included), with a hand-written `config.h`. BSD 2-Clause. https://www.libarchive.org
 
 ```
-The libarchive distribution as a whole is Copyright by Tim Kientzle
-and is subject to the copyright notice reproduced at the bottom of
-this file.
-
-Each individual file in this distribution should have a clear
-copyright/licensing statement at the beginning of the file.  If any do
-not, please let me know and I will rectify it.  The following is
-intended to summarize the copyright status of the individual files;
-the actual statements in the files are controlling.
-
-* Except as listed below, all C sources (including .c and .h files)
-  and documentation files are subject to the copyright notice reproduced
-  at the bottom of this file.
-
-* The following source files are also subject in whole or in part to
-  a 3-clause UC Regents copyright; please read the individual source
-  files for details:
-   libarchive/archive_read_support_filter_compress.c
-   libarchive/archive_write_add_filter_compress.c
-   libarchive/mtree.5
-
-* The following source files are in the public domain:
-   libarchive/archive_getdate.c
-
-* The following source files are triple-licensed with the ability to choose
-  from CC0 1.0 Universal, OpenSSL or Apache 2.0 licenses:
-   libarchive/archive_blake2.h
-   libarchive/archive_blake2_impl.h
-   libarchive/archive_blake2s_ref.c
-   libarchive/archive_blake2sp_ref.c
-
-* The build files---including Makefiles, configure scripts,
-  and auxiliary scripts used as part of the compile process---have
-  widely varying licensing terms.  Please check individual files before
-  distributing them to see if those restrictions apply to you.
-
-I intend for all new source code to use the license below and hope over
-time to replace code with other licenses with new implementations that
-do use the license below.  The varying licensing of the build scripts
-seems to be an unavoidable mess.
-
-
 Copyright (c) 2003-2018 <author(s)>
 All rights reserved.
 
@@ -241,6 +198,67 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+Some files of that folder have another license, all compatible with the GPLv3:
+- `archive_ppmd7.c` and the `archive_ppmd*_private.h` headers (PPMd, from Igor Pavlov and Dmitry Shkarin): public domain.
+- `archive_blake2*` (BLAKE2, from Samuel Neves): used here under the CC0 1.0 or the Apache License 2.0, at the user's choice.
+
+## XZ Utils (liblzma) — folder `third_party/xz`
+Decodes the LZMA and LZMA2 data of the .7z files (and its Delta and BCJ filters) for the 7z reader of libarchive. Version 5.8.4, reduced to the decoders (no encoders, no .xz container, no checks), unmodified, with a hand-written `config.h`. BSD Zero Clause License (0BSD). https://tukaani.org/xz/
+
+```
+Permission to use, copy, modify, and/or distribute this
+software for any purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
+THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+## bzip2 (libbz2) — folder `third_party/bzip2`
+Decompresses the BZip2 data of the .7z files for the 7z reader of libarchive. Version 1.0.8, unmodified (only the library files, no command line tools). BSD-style license. https://sourceware.org/bzip2/
+
+```
+This program, "bzip2", the associated library "libbzip2", and all
+documentation, are copyright (C) 1996-2019 Julian R Seward.  All
+rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. The origin of this software must not be misrepresented; you must 
+   not claim that you wrote the original software.  If you use this 
+   software in a product, an acknowledgment in the product 
+   documentation would be appreciated but is not required.
+
+3. Altered source versions must be plainly marked as such, and must
+   not be misrepresented as being the original software.
+
+4. The name of the author may not be used to endorse or promote 
+   products derived from this software without specific prior written 
+   permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
+OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## Syncrash — AlvaroPeyleth

@@ -15,7 +15,7 @@ project(imperivm_resurrected LANGUAGES C CXX)
 # Dependencies of the DLL, by default in the layout of the private workspace (..\tools) or in third_party\ (public repository):
 #   MINHOOK_DIR, MINIAUDIO_DIR, STEAMWORKS_SDK (folder that contains public\steam\steam_api.h)
 # miniz (MINIZ_DIR) is used by the DLL and by the tests of the zip code.
-# libarchive (LIBARCHIVE_DIR, only its RAR reader) is used by the DLL and by the tests of the rar code.
+# libarchive (LIBARCHIVE_DIR, reduced to its RAR, RAR5 and 7z readers), the LZMA decoders of xz (XZ_DIR) and bzip2 (BZIP2_DIR) are used by the DLL and by the tests of the archive code.
 
 option(IMPERIVM_BUILD_DLL "Build winmm.dll (needs the Steamworks SDK)" ON)
 option(IMPERIVM_BUILD_TESTS "Build the unit tests" ON)
@@ -45,17 +45,31 @@ if(NOT EXISTS "${MINIZ_DIR}/miniz.h")
 	message(FATAL_ERROR "Missing dependency: ${MINIZ_DIR}/miniz.h")
 endif()
 
-set(LIBARCHIVE_DIR "${_default_third_party}/libarchive" CACHE PATH "libarchive source folder (the RAR reader and config.h)")
-if(NOT EXISTS "${LIBARCHIVE_DIR}/archive.h")
-	message(FATAL_ERROR "Missing dependency: ${LIBARCHIVE_DIR}/archive.h")
+set(LIBARCHIVE_DIR "${_default_third_party}/libarchive" CACHE PATH "libarchive source folder (config.h and libarchive\\*.c)")
+if(NOT EXISTS "${LIBARCHIVE_DIR}/libarchive/archive.h")
+	message(FATAL_ERROR "Missing dependency: ${LIBARCHIVE_DIR}/libarchive/archive.h")
 endif()
-file(GLOB LIBARCHIVE_SOURCES CONFIGURE_DEPENDS "${LIBARCHIVE_DIR}/*.c")
-add_library(rar_reader STATIC ${LIBARCHIVE_SOURCES})
-target_include_directories(rar_reader PUBLIC "${LIBARCHIVE_DIR}")
-target_compile_definitions(rar_reader PRIVATE HAVE_CONFIG_H _CRT_SECURE_NO_WARNINGS WIN32)
-target_compile_definitions(rar_reader PUBLIC LIBARCHIVE_STATIC)
-target_compile_options(rar_reader PRIVATE /W0)
-target_link_libraries(rar_reader PUBLIC bcrypt advapi32)
+set(XZ_DIR "${_default_third_party}/xz" CACHE PATH "xz source folder (config.h and src\\liblzma, reduced to the decoders)")
+if(NOT EXISTS "${XZ_DIR}/src/liblzma/api/lzma.h")
+	message(FATAL_ERROR "Missing dependency: ${XZ_DIR}/src/liblzma/api/lzma.h")
+endif()
+set(BZIP2_DIR "${_default_third_party}/bzip2" CACHE PATH "bzip2 source folder (the decompression files of libbz2)")
+if(NOT EXISTS "${BZIP2_DIR}/bzlib.h")
+	message(FATAL_ERROR "Missing dependency: ${BZIP2_DIR}/bzlib.h")
+endif()
+file(GLOB BZIP2_SOURCES CONFIGURE_DEPENDS "${BZIP2_DIR}/*.c")
+set_source_files_properties(${BZIP2_SOURCES} PROPERTIES COMPILE_OPTIONS "/W0")
+# Both libraries have their own config.h, so each one only sees its own folder. Its zlib.h is miniz.
+file(GLOB LIBARCHIVE_SOURCES CONFIGURE_DEPENDS "${LIBARCHIVE_DIR}/libarchive/*.c")
+set_source_files_properties(${LIBARCHIVE_SOURCES} PROPERTIES COMPILE_OPTIONS "/W0" COMPILE_DEFINITIONS "HAVE_CONFIG_H;LZMA_API_STATIC"
+	INCLUDE_DIRECTORIES "${LIBARCHIVE_DIR};${LIBARCHIVE_DIR}/libarchive;${XZ_DIR}/src/liblzma/api;${BZIP2_DIR};${MINIZ_DIR}")
+file(GLOB XZ_SOURCES CONFIGURE_DEPENDS "${XZ_DIR}/src/liblzma/*/*.c")
+set(XZ_INCLUDES "${XZ_DIR}")
+foreach(_part api common lz lzma rangecoder delta simple)
+	list(APPEND XZ_INCLUDES "${XZ_DIR}/src/liblzma/${_part}")
+endforeach()
+list(APPEND XZ_INCLUDES "${XZ_DIR}/src/common")
+set_source_files_properties(${XZ_SOURCES} PROPERTIES COMPILE_OPTIONS "/W0" COMPILE_DEFINITIONS "HAVE_CONFIG_H;LZMA_API_STATIC" INCLUDE_DIRECTORIES "${XZ_INCLUDES}")
 
 if(IMPERIVM_BUILD_DLL)
 	set(MINHOOK_DIR "${_default_third_party}/minhook" CACHE PATH "MinHook source tree")
@@ -68,6 +82,7 @@ if(IMPERIVM_BUILD_DLL)
 		endif()
 	endforeach()
 
+	enable_language(RC)
 	file(GLOB_RECURSE MOD_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 	set(MINHOOK_SOURCES
@@ -78,7 +93,7 @@ if(IMPERIVM_BUILD_DLL)
 	set(MINIAUDIO_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/hooks/miniaudio_impl.c")
 	set(MINIZ_SOURCE "${MINIZ_DIR}/miniz.c")
 
-	add_library(winmm SHARED ${MOD_SOURCES} ${MINHOOK_SOURCES} ${MINIAUDIO_IMPL} ${MINIZ_SOURCE} "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.def")
+	add_library(winmm SHARED ${MOD_SOURCES} ${MINHOOK_SOURCES} ${MINIAUDIO_IMPL} ${MINIZ_SOURCE} ${LIBARCHIVE_SOURCES} ${XZ_SOURCES} ${BZIP2_SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.def" "${CMAKE_CURRENT_SOURCE_DIR}/src/app/winmm.rc")
 	set_target_properties(winmm PROPERTIES PREFIX "" OUTPUT_NAME "winmm")
 
 	set_source_files_properties(${MINIAUDIO_IMPL} ${MINIZ_SOURCE} PROPERTIES COMPILE_OPTIONS "/W0")
@@ -89,11 +104,12 @@ if(IMPERIVM_BUILD_DLL)
 		"${MINHOOK_DIR}/include"
 		"${MINIAUDIO_DIR}"
 		"${MINIZ_DIR}"
+		"${LIBARCHIVE_DIR}/libarchive"
 		"${STEAMWORKS_SDK}/public")
 	target_compile_definitions(winmm PRIVATE $<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
 	target_compile_options(winmm PRIVATE $<$<NOT:$<CONFIG:Debug>>:/O2>)
 	target_link_libraries(winmm PRIVATE
-		rar_reader d3d11 dxgi d3dcompiler user32 gdi32 kernel32 ole32 bcrypt shell32 ws2_32 winhttp comdlg32 advapi32 windowscodecs strmiids)
+		d3d11 dxgi d3dcompiler user32 gdi32 kernel32 ole32 bcrypt shell32 ws2_32 winhttp comdlg32 advapi32 windowscodecs strmiids)
 endif()
 
 if(IMPERIVM_BUILD_TESTS)
@@ -110,7 +126,8 @@ if(IMPERIVM_BUILD_TESTS)
 
 	set(TR_SOURCES src/i18n/tr.cpp src/i18n/tr_data.cpp src/core/legacy.cpp tests/log_stub.cpp)
 	set(HASH_SOURCES src/core/sha256.cpp)
-	set(ZIP_SOURCES src/core/zipfile.cpp src/core/archivefs.cpp "${MINIZ_DIR}/miniz.c")
+	set(ZIP_SOURCES src/core/zipfile.cpp "${MINIZ_DIR}/miniz.c")
+	set(ARCHIVE_SOURCES src/core/archivefile.cpp ${ZIP_SOURCES} ${LIBARCHIVE_SOURCES} ${XZ_SOURCES} ${BZIP2_SOURCES})
 	set_source_files_properties("${MINIZ_DIR}/miniz.c" PROPERTIES COMPILE_OPTIONS "/W0")
 
 	imperivm_test(test_legacy src/core/legacy.cpp)
@@ -150,8 +167,13 @@ if(IMPERIVM_BUILD_TESTS)
 	imperivm_test(test_builtin src/hooks/builtin_data.cpp src/mods/patchxml.cpp ${TR_SOURCES})
 	imperivm_test(test_logreport src/core/logreport.cpp src/core/logfiles.cpp src/core/logredact.cpp ${ZIP_SOURCES} tests/log_stub.cpp)
 	imperivm_test(test_zip ${ZIP_SOURCES})
-	imperivm_test(test_rar src/core/rarfile.cpp ${ZIP_SOURCES})
-	target_link_libraries(test_rar PRIVATE rar_reader)
+	set(IMPERIVM_TEST_ARGS "${CMAKE_CURRENT_SOURCE_DIR}/tests/data/rar")
+	imperivm_test(test_rar ${ARCHIVE_SOURCES})
+	target_include_directories(test_rar PRIVATE "${LIBARCHIVE_DIR}/libarchive")
+	set(IMPERIVM_TEST_ARGS "${CMAKE_CURRENT_SOURCE_DIR}/tests/data/7z")
+	imperivm_test(test_7z ${ARCHIVE_SOURCES})
+	target_include_directories(test_7z PRIVATE "${LIBARCHIVE_DIR}/libarchive")
+	unset(IMPERIVM_TEST_ARGS)
 
 	find_program(NODE_EXE node)
 	if(NODE_EXE)

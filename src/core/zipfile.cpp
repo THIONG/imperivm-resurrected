@@ -9,16 +9,16 @@
 #include <cstring>
 #include <ctime>
 
-#include "core/archivefs.h"
 #include "core/pathsafe.h"
+#include "core/winpath.h"
 #include "miniz.h"
 
 namespace {
-using archivefs::FileTimeOf;
-using archivefs::LongPath;
-using archivefs::MakeDirs;
-using archivefs::Utf8;
-using archivefs::Widen;
+using winpath::FileTimeOf;
+using winpath::LongPath;
+using winpath::MakeDirs;
+using winpath::Utf8;
+using winpath::Widen;
 
 const char kUnreadable[] = "the archive could not be read (unsupported format or damaged file)";
 const char kDamaged[] = "could not extract (unsupported format or damaged file)";
@@ -35,7 +35,7 @@ const unsigned kMadeByUnix = 3;
 const unsigned kMadeByMac = 19;
 const mz_uint16 kUtf8Names = 1u << 11;
 const uint64_t kProgressStep = 1u << 20;
-const unsigned long long kUnixEpochAsFileTime = 116444736000000000ULL;
+using winpath::kUnixEpochAsFileTime;
 
 std::string EntryNameUtf8(const char *raw, mz_uint16 flags)
 {

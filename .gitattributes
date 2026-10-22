@@ -4,3 +4,5 @@
 *.png binary
 *.bmp binary
 *.zip binary
+*.rar binary
+*.7z binary
