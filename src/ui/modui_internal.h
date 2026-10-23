@@ -317,7 +317,7 @@ struct ShapePoint {
 	float x, y;
 };
 void FillShape(uint32_t *buf, int W, int H, const std::vector<std::vector<ShapePoint>> &shape, float x, float y, float scale, COLORREF c, float a);
-void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a);
+void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a, HFONT font = nullptr);
 std::wstring ClockText(unsigned ms);
 struct RectF {
 	float x = 0, y = 0, w = 0, h = 0;
@@ -325,7 +325,7 @@ struct RectF {
 };
 
 void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY);
-void DrawWatchersBadge(uint32_t *buf, int W, int H, float s);
+void DrawWatchersBadge(uint32_t *buf, int W, int H);
 struct CheatBtn {
 	int verb;
 	int amount;

@@ -112,7 +112,7 @@ void ModUiDraw(uint32_t *buf, int w, int h)
 	}
 	{
 		DrawSpectatorBar(buf, w, h, s, static_cast<int>(12 * s));
-		DrawWatchersBadge(buf, w, h, s);
+		DrawWatchersBadge(buf, w, h);
 		DrawCheatsPanel(buf, w, h, s);
 	}
 	const DownloadStatus dl = DlStatus();

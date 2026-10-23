@@ -16,6 +16,11 @@ using namespace modui_impl;
 
 namespace modui_impl {
 namespace {
+const int kHudTopBand = 80;
+const int kStatusTop = 10;
+const int kStatusLineHalf = 8;
+const int kStatusRightMargin = 14;
+const int kBadgeFontPx = 17;
 const ShapePoint kEyeOutline[] = {
 	{0.4945f, 0.0009f}, {0.4270f, 0.0092f}, {0.3588f, 0.0263f}, {0.2904f, 0.0518f}, {0.2222f, 0.0856f}, {0.1547f, 0.1276f},
 	{0.0883f, 0.1774f}, {0.0751f, 0.1884f}, {0.0620f, 0.1998f}, {0.0490f, 0.2113f}, {0.0365f, 0.2230f}, {0.0247f, 0.2345f},
@@ -278,22 +283,27 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 	g_spec.barShown = true;
 }
 
-void DrawWatchersBadge(uint32_t *buf, int W, int H, float s)
+void DrawWatchersBadge(uint32_t *buf, int W, int H)
 {
 	const int watchers = SteamRoomWatchers();
 	if (watchers <= 0 || !*reinterpret_cast<void **>(addr::kGame)) return;
 	SpectatorState watching;
 	if (SpectatorControls(watching)) return;
-	EnsureFonts(s);
+	static HFONT font = CreateFontW(-kBadgeFontPx, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
 	const COLORREF panel = pal::dialog, frame = kGold, ink = RGB(240, 226, 180);
 	wchar_t text[16];
 	swprintf_s(text, L"%d", watchers);
-	const float h = 26 * s, eyeW = 22 * s, textW = (6 + 8 * static_cast<float>(wcslen(text))) * s, w = 10 * s + eyeW + 6 * s + textW + 10 * s;
-	const float x = std::floor(static_cast<float>(W) - w - 14 * s), y = std::floor(96 * s);
-	FillRound(buf, W, H, x, y, w, h, 4 * s, panel, 0.88f);
-	StrokeRound(buf, W, H, x, y, w, h, 4 * s, std::max(1.0f, s), frame, 1.0f);
+	if (!g_spec.text.Ensure(400, 64)) return;
+	SelectObject(g_spec.text.dc, font);
+	SIZE size = {};
+	GetTextExtentPoint32W(g_spec.text.dc, text, static_cast<int>(wcslen(text)), &size);
+	const float pad = 9, gap = 6, eyeW = 21, h = 25, textW = static_cast<float>(size.cx), w = pad + eyeW + gap + textW + pad;
+	const float x = static_cast<float>(W - kStatusRightMargin) - w, y = static_cast<float>(kHudTopBand + kStatusTop + kStatusLineHalf) - h / 2;
+	FillRound(buf, W, H, x, y, w, h, 4, panel, 0.88f);
+	StrokeRound(buf, W, H, x, y, w, h, 4, 1.0f, frame, 1.0f);
 	const float eyeH = eyeW * 0.5172f;
-	FillShape(buf, W, H, EyeShape(), x + 10 * s, y + (h - eyeH) / 2, eyeW, ink, 1.0f);
-	DrawLabel(buf, W, H, text, x + 10 * s + eyeW + 6 * s, y, textW, h, DT_LEFT, ink, 1.0f);
+	FillShape(buf, W, H, EyeShape(), x + pad, y + (h - eyeH) / 2, eyeW, ink, 1.0f);
+	DrawLabel(buf, W, H, text, x + pad + eyeW + gap, y, textW + 2, h, DT_LEFT, ink, 1.0f, font);
 }
 }

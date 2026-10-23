@@ -159,13 +159,13 @@ void FillTriangle(uint32_t *buf, int W, int H, float ax, float ay, float bx, flo
 	}
 }
 
-void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a)
+void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a, HFONT font)
 {
 	const int x = static_cast<int>(fx), y = static_cast<int>(fy), w = std::min(static_cast<int>(fw), 400), h = std::min(static_cast<int>(fh), 64);
 	if (t.empty() || w <= 0 || h <= 0 || !g_spec.text.Ensure(400, 64)) return;
 	memset(g_spec.text.bits, 0, static_cast<size_t>(400) * h * 4);
 	HDC dc = g_spec.text.dc;
-	SelectObject(dc, g_fonts[3]);
+	SelectObject(dc, font ? font : g_fonts[3]);
 	SetBkMode(dc, TRANSPARENT);
 	SetTextColor(dc, RGB(255, 255, 255));
 	RECT r = {0, 0, w, h};
