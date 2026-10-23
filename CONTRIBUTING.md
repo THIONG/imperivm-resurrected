@@ -57,7 +57,7 @@ Addresses of `gbr.exe` are written only in `src/addr/*.h`, as `inline constexpr 
 
 Log with `LogI("channel", "text %s", value)`, `LogW`, `LogE` or `LogD`, never with `Log("Channel: text")`. The channel comes from the list in `src/core/logchannels.h`, and the message is English, without a trailing newline and never through `Tr()`. Use `LogE` when a feature failed and the player is affected, `LogW` for something unexpected that was handled, `LogI` for what happened in the session and `LogD` for detail. `tools/check-logs.js` checks all of this.
 
-There are no comments in `src/`; the check fails on them. The reason for a decision goes in the pull request, and the code is explained by its names.
+Comments are allowed where the code can't say why: an address, a patched byte, a workaround for the game. Don't restate what the code does; names do that.
 
 Formatting: UTF-8 without BOM, LF line ends, tabs, no trailing whitespace. Headers start with `#pragma once` and do not use `using namespace`. File names are lowercase letters, digits and underscores, and no two `.cpp` files share a name anywhere in `src/`, because the object files go to one folder. Project includes are written `"folder/file.h"` from `src/`. Functions and types are PascalCase, constants are `kName`, and file-private variables are `g_name` inside an anonymous namespace. Each file includes the standard headers it uses; `node tools/check-includes.js --fix` adds the missing ones.
 
