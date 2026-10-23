@@ -22,6 +22,10 @@ const out = option('--out');
 const keyFile = option('--key');
 const repo = option('--repo', 'THIONG/imperivm-resurrected');
 if (!dll || !steamApi || !out) fail('usage: node tools/build-release.js --dll <winmm.dll> --steam-api <steam_api.dll> --out <folder> [--key <pem>] [--repo owner/name]');
+if (process.platform !== 'win32') fail('it needs Windows (tar.exe makes the zip)');
+const outDir = path.resolve(out);
+const rel = path.relative(outDir, ROOT);
+if (rel === '' || !rel.startsWith('..') || fs.existsSync(path.join(outDir, '.git'))) fail(`--out ${out} holds the repository: give it a folder of its own, it is emptied first`);
 
 const m = fs.readFileSync(path.join(ROOT, 'src', 'core', 'version_info.h'), 'utf8').match(/IMPERIVM_VERSION_TEXT\s+"([^"]+)"/);
 if (!m) fail('IMPERIVM_VERSION_TEXT not found in src/core/version_info.h');
@@ -40,8 +44,8 @@ if (!fs.existsSync(steamApi)) fail(steamApi + ' is missing');
 const steamHash = crypto.createHash('sha256').update(fs.readFileSync(steamApi)).digest('hex');
 if (steamHash !== STEAM_API_SHA256) fail(`steam_api.dll has SHA-256 ${steamHash}, not the one of every release so far: if Valve's file changed on purpose, update STEAM_API_SHA256`);
 
-fs.rmSync(out, { recursive: true, force: true });
-const stage = path.join(out, 'content');
+fs.rmSync(outDir, { recursive: true, force: true });
+const stage = path.join(outDir, 'content');
 fs.mkdirSync(stage, { recursive: true });
 fs.copyFileSync(dll, path.join(stage, 'winmm.dll'));
 fs.copyFileSync(steamApi, path.join(stage, 'steam_api.dll'));

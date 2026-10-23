@@ -88,6 +88,8 @@ jobs:
     environment: release
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.build.outputs.version }}
@@ -111,6 +113,11 @@ jobs:
       - name: Linker map, to read the crash logs of this build
         shell: pwsh
         run: Compress-Archive build/winmm.map "release/winmm-$env:VERSION.map.zip"
+
+      - name: Attest that these files were built by this workflow from this commit
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/*
 
       - name: Draft release
         shell: bash

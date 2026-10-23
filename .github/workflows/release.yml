@@ -84,14 +84,17 @@ jobs:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
     steps:
-      - name: Download the mod zip of this release
-        run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'imperivm-resurrected-[0-9]*.zip' --dir vt
-
-      - name: Upload it to VirusTotal (the website links to the report by SHA-256)
+      - name: Download the mod zip and the installer of this release
         run: |
-          zip=$(ls vt/*.zip)
-          sha256sum "$zip"
-          curl -sS --fail-with-body -X POST https://www.virustotal.com/api/v3/files -H "x-apikey: $VT_API_KEY" -F "file=@$zip"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'imperivm-resurrected-[0-9]*.zip' --dir vt
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'imperivm-resurrected-setup-*.exe' --dir vt || echo "No installer in $TAG"
+
+      - name: Upload them to VirusTotal (the website links to the report by SHA-256)
+        run: |
+          for file in vt/*; do
+            sha256sum "$file"
+            curl -sS --fail-with-body -X POST https://www.virustotal.com/api/v3/files -H "x-apikey: $VT_API_KEY" -F "file=@$file"
+          done
 
   discord:
     needs: assets
