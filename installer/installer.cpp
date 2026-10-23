@@ -897,6 +897,7 @@ void PickFolder()
 
 enum { kIdInstall = 101, kIdUninstall, kIdPlay, kIdClose, kIdChange };
 enum { kLanguageDialog = 100, kIdLanguagePrompt = 201, kIdLanguageList = 202 };
+const int kLanguageFooterTop = 44;
 
 const int kWidth = 640, kHeight = 466;
 
@@ -976,9 +977,36 @@ void LanguageDialogTexts(HWND dlg)
 	SetDlgItemTextW(dlg, IDCANCEL, T(kCancel));
 }
 
-INT_PTR CALLBACK LanguageDialog(HWND dlg, UINT msg, WPARAM wp, LPARAM)
+void PaintLanguageDialog(HWND dlg, HDC dc)
+{
+	RECT client, footer = {0, kLanguageFooterTop, 0, 0};
+	GetClientRect(dlg, &client);
+	MapDialogRect(dlg, &footer);
+	RECT top = client, bottom = client;
+	top.bottom = footer.top;
+	bottom.top = footer.top;
+	FillRect(dc, &top, GetSysColorBrush(COLOR_WINDOW));
+	FillRect(dc, &bottom, GetSysColorBrush(COLOR_BTNFACE));
+	RECT line = bottom;
+	line.bottom = line.top + 1;
+	FillRect(dc, &line, GetSysColorBrush(COLOR_3DLIGHT));
+}
+
+INT_PTR CALLBACK LanguageDialog(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
 {
 	switch (msg) {
+	case WM_ERASEBKGND:
+		PaintLanguageDialog(dlg, reinterpret_cast<HDC>(wp));
+		SetWindowLongPtrW(dlg, DWLP_MSGRESULT, TRUE);
+		return TRUE;
+	case WM_PRINTCLIENT:
+		PaintLanguageDialog(dlg, reinterpret_cast<HDC>(wp));
+		return TRUE;
+	case WM_CTLCOLORSTATIC:
+		SetBkColor(reinterpret_cast<HDC>(wp), GetSysColor(COLOR_WINDOW));
+		return reinterpret_cast<INT_PTR>(GetSysColorBrush(COLOR_WINDOW));
+	case WM_CTLCOLORDLG:
+		return reinterpret_cast<INT_PTR>(GetSysColorBrush(COLOR_WINDOW));
 	case WM_INITDIALOG: {
 		HICON iconBig = nullptr, iconSmall = nullptr;
 		LoadIconMetric(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), LIM_LARGE, &iconBig);
