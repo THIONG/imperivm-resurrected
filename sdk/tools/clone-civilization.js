@@ -22,10 +22,10 @@ const Id = id[0].toUpperCase() + id.slice(1);
 
 // Letter of each game civilization and the name of its generic hero
 const BASES = {
-	Gaul: { letter: 'G', hero: 'GaulHero' }, RepublicanRome: { letter: 'R', hero: 'RomeHero' },
-	Carthage: { letter: 'C', hero: 'CarthageHero' }, Iberia: { letter: 'I', hero: 'IberiaHero' },
-	ImperialRome: { letter: 'M', hero: 'ImperialHero' }, Britain: { letter: 'B', hero: 'BritainHero' },
-	Egypt: { letter: 'E', hero: 'EgyptHero' }, Germany: { letter: 'T', hero: 'GermanHero' },
+	Gaul: { letter: 'G', hero: 'GaulHero' }, RepublicanRome: { letter: 'R', hero: 'RepublicanRomanHero' },
+	Carthage: { letter: 'C', hero: 'CarthaginianHero' }, Iberia: { letter: 'I', hero: 'IberianHero' },
+	ImperialRome: { letter: 'M', hero: 'ImperialRomanHero' }, Britain: { letter: 'B', hero: 'BritonHero' },
+	Egypt: { letter: 'E', hero: 'EgyptianHero' }, Germany: { letter: 'T', hero: 'GermanHero' },
 };
 if (!BASES[base]) { console.error('unknown base: ' + base); process.exit(1); }
 const bl = BASES[base].letter, blow = bl.toLowerCase();
@@ -115,7 +115,7 @@ const aliasOrders = {};  // name of the base order -> name of the cloned order (
 const shared = new Map();  // file -> [{name, srcs}]
 let nShared = 0;
 for (const f of fs.readdirSync(commandsDir)) {
-	const t = read(path.join(commandsDir, f));
+	const t = read(path.join(commandsDir, f)).replace(/<!--[\s\S]*?-->/g, '');  // commented-out orders do not exist
 	const re = /<cmd\b[\s\S]*?<\/cmd>/g;
 	let m;
 	while ((m = re.exec(t))) {
