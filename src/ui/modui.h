@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,7 @@ int ModUiUpdatesAvailable();
 void ModUiResetUpdates();
 void ModUiToast(const std::string &text, bool error = false);
 void ModUiNotice(const std::string &title, const std::string &text);
+void ModUiAsk(const std::string &title, const std::string &text, const std::string &yes, std::function<void()> onYes);
 
 bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp);
 bool ModUiHandleCornerMessage(UINT msg, WPARAM wp, LPARAM lp);

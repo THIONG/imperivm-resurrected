@@ -342,6 +342,14 @@ void __fastcall HookMsgExecute(void *cmd);
 typedef void(__fastcall *SetPosition_t)(void *self, void *edx, uint32_t *pt, int a, int b);
 
 void __fastcall HookSetPosition(void *self, void *edx, uint32_t *pt, int a, int b);
+typedef void(__fastcall *RemoveFromMap_t)(void *self);
+void __fastcall HookRemoveFromMap(void *self);
+const int kMovesTicksWritten = 40;
+const char kMovesFile[] = "logs/imperivm/rejoin/moves.txt";
+uint32_t PositionsHash();
+bool KeepLocalOutOfPositionsHash(void *obj, uint32_t before);
+void MovePush(char kind, void *obj, uint32_t before, void *from);
+bool WriteMoves(int from);
 typedef void(__cdecl *TraceTileLine_t)(int, int, int, int, void *);
 typedef void(__cdecl *SmoothPath_t)(int, void *, int);
 
@@ -359,6 +367,7 @@ struct HookOriginals {
 	AiUpdate_t aiUpdate = nullptr;
 	AiAddOrder_t aiAddOrder = nullptr;
 	SetPosition_t setPosition = nullptr;
+	RemoveFromMap_t removeFromMap = nullptr;
 	TraceTileLine_t traceTileLine = nullptr;
 	SmoothPath_t smoothPath = nullptr;
 	TileLineVisit_t tileLineVisit = nullptr;

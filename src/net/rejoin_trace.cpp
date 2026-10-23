@@ -32,6 +32,70 @@ TraceState g_trace;
 }
 
 namespace rejoin_impl {
+namespace {
+struct MoveRec {
+	int tick;
+	uint16_t handle;
+	char kind;
+	uint32_t vt, x, y, from, hash;
+};
+const size_t kMovesRing = 1 << 17;
+std::vector<MoveRec> g_moves;
+size_t g_movesNext = 0, g_movesCount = 0;
+int g_movesLastTick = -1;
+}
+
+uint32_t PositionsHash() { return *reinterpret_cast<uint32_t *>(addr::kSyncState + 8); }
+
+bool KeepLocalOutOfPositionsHash(void *obj, uint32_t before)
+{
+	const uint16_t kFirstLocalHandle = 40000;
+	const char *o = static_cast<const char *>(obj);
+	const uint16_t handle = *reinterpret_cast<const uint16_t *>(o + 8);
+	if (handle < kFirstLocalHandle || PositionsHash() == before) return false;
+	*reinterpret_cast<uint32_t *>(addr::kSyncState + 8) = before;
+	static bool logged = false;
+	if (!logged) {
+		logged = true;
+		LogI("match", "positions fingerprint: a local object (handle %u, class vtable %08x) moved and was left out, as the game does with its own effects", handle,
+			*reinterpret_cast<const uint32_t *>(o));
+	}
+	return true;
+}
+
+void MovePush(char kind, void *obj, uint32_t before, void *from)
+{
+	const uint32_t after = PositionsHash();
+	if (after == before || !InOnlineGame()) return;
+	char *t = Transport();
+	const int tick = t ? *reinterpret_cast<int *>(t + 0x54) : -1;
+	if (g_moves.size() != kMovesRing) g_moves.assign(kMovesRing, MoveRec{});
+	if (tick < g_movesLastTick) g_movesNext = g_movesCount = 0;
+	g_movesLastTick = tick;
+	const char *o = static_cast<const char *>(obj);
+	g_moves[g_movesNext] = {tick, *reinterpret_cast<const uint16_t *>(o + 8), kind, *reinterpret_cast<const uint32_t *>(o),
+		*reinterpret_cast<const uint32_t *>(o + 0x24), *reinterpret_cast<const uint32_t *>(o + 0x28), static_cast<uint32_t>(reinterpret_cast<uintptr_t>(from)), after};
+	g_movesNext = (g_movesNext + 1) % kMovesRing;
+	if (g_movesCount < kMovesRing) g_movesCount++;
+}
+
+bool WriteMoves(int from)
+{
+	if (!g_movesCount) return false;
+	EnsureLogDir();
+	FILE *f = _fsopen(DiskPath(kMovesFile).c_str(), "wb", _SH_DENYWR);
+	if (!f) return false;
+	fprintf(f, "# objects that changed the positions fingerprint (slots) since tick %d: tick kind(M moved, R removed) handle class-vtable x y caller fingerprint-after\n", from);
+	const size_t first = (g_movesNext + kMovesRing - g_movesCount) % kMovesRing;
+	for (size_t k = 0; k < g_movesCount; k++) {
+		const MoveRec &r = g_moves[(first + k) % kMovesRing];
+		if (r.tick < from) continue;
+		fprintf(f, "%d %c %u %08x %u %u %08x %08x\n", r.tick, r.kind, r.handle, r.vt, r.x, r.y, r.from, r.hash);
+	}
+	fclose(f);
+	return true;
+}
+
 uint32_t ThreadsHash() { return *reinterpret_cast<uint32_t *>(addr::kSyncState + 0xc); }
 
 void TraceStart(int)

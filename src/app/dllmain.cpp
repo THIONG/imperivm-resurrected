@@ -23,6 +23,7 @@
 #include "core/version.h"
 #include "hooks/media.h"
 #include "net/mpsave.h"
+#include "app/compat.h"
 #include "app/overlay.h"
 #include "app/render.h"
 #include "hooks/tweaks.h"
@@ -215,6 +216,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 		InstallQuickIcons(knownExe);
 		InstallZoomView(knownExe);
 		InstallSavesUi(knownExe);
+		CheckCompatibilityLayers();
 		if (knownExe && GetConfig().largeAddress && !ModsExeIsLargeAddressAware()) ModsPatchExeAtExit(1);
 		InstallMpUi(knownExe);
 		VnetInstallHooks(knownExe);

@@ -202,30 +202,19 @@ void PaintLobbyDetail(Painter &p, const State &st, const std::vector<int> &vis)
 	p.Font(2);
 	const int nameH = std::max(30, p.Measure(w, g.name));
 	p.TextWrapped(x, y, w, nameH, g.name, kGold);
-	y += nameH + 4;
-	p.Font(3);
-	p.Text(x, y, 76, 20, "Host", kDim);
-	p.Text(x + 76, y, w - 76, 20, g.friendHost ? g.host + Tr("  (friend)") : g.host, g.friendHost ? kGold : kText);
-	y += 26;
+	y += nameH;
 
-	int cx = x, cy = y;
-	auto chip = [&](const std::string &text, COLORREF color) {
-		p.Font(3);
-		const int cw = p.TextWidth(text) + 18;
-		if (cx > x && cx + cw > x + w) {
-			cx = x;
-			cy += 28;
-		}
-		p.Fill(cx, cy, cw, 22, RGB(40, 31, 20));
-		p.Frame(cx, cy, cw, 22, pal::divider);
-		p.Text(cx + 9, cy, cw - 12, 22, text, color, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-		cx += cw + 6;
-	};
-	chip(g.playing ? "In game" : std::to_string(g.players) + " / " + std::to_string(g.maxPlayers) + Tr(" players"), g.playing ? kDim : full ? kBad : kOk);
-	if (!g.mode.empty()) chip(g.mode, kText);
-	chip(g.map.empty() ? "In the room" : g.map, kText);
-	if (g.password) chip("Password protected", kGold);
-	y = cy + 32;
+	section("Game content");
+	y = PaintLinesInline(p, OnlineLobbyLines(st, g, true), x, y, w, 20) + 6;
+	if (!same) {
+		y += 2;
+		note(kBad, RGB(44, 26, 20),
+			missing.empty() ? "Your content doesn't match the room's. The game will restart with the room's."
+							: std::string(missing.size() == 1 ? Tr("You don't have the content this room needs. The game will download ")
+															  : Tr("You don't have the content this room needs. The game will download these: ")) +
+								std::to_string(missing.size()) + (missing.size() == 1 ? Tr(" content pack") : Tr(" content packs")) + " (" + HumanBytes(bytes) + Tr(") and restart."));
+	}
+	if (g.password) note(kGold, RGB(34, 27, 18), "Password protected");
 
 	if (!g.saveName.empty()) note(kGold, RGB(34, 27, 18), Tr("Continues the saved game \"") + g.saveName + "\"");
 	if (canReturn) note(kOk, RGB(26, 36, 22), "You were in this game and your seat is still free: you can return to it.");
@@ -271,8 +260,12 @@ void PaintLobbyDetail(Painter &p, const State &st, const std::vector<int> &vis)
 			from = to + 1;
 			if (line.empty()) continue;
 			const size_t colon = line.find(": ");
-			p.Text(x, y, w / 2, 20, colon == std::string::npos ? line : line.substr(0, colon), kDim);
-			if (colon != std::string::npos) p.Text(x + w / 2, y, w - w / 2, 20, line.substr(colon + 2), kText, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+			const std::string value = colon == std::string::npos ? std::string() : line.substr(colon + 2);
+			const bool yes = value == "yes", no = value == "no";
+			p.Text(x, y, (yes || no) ? w - Painter::kToggleW - 10 : w / 2, 20, colon == std::string::npos ? line : line.substr(0, colon), kDim,
+				DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+			if (yes || no) p.Toggle(x + w - Painter::kToggleW, y + (20 - Painter::kToggleH) / 2, yes, true, false);
+			else if (colon != std::string::npos) p.Text(x + w / 2, y, w - w / 2, 20, value, kText, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 			y += 22;
 		}
 		const bool watchable = g.specLobby != 0;
@@ -281,18 +274,6 @@ void PaintLobbyDetail(Painter &p, const State &st, const std::vector<int> &vis)
 		p.Text(x, y, w / 2, 20, "Spectators", kDim);
 		p.Text(x + w / 2, y, w - w / 2, 20, spec, watchable ? kText : kDim, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 		y += 22;
-	}
-
-	section("Game content");
-	y = PaintLinesInline(p, OnlineLobbyLines(st, g, true), x, y, w, 20) + 6;
-
-	if (!same) {
-		y += 2;
-		note(kBad, RGB(44, 26, 20),
-			missing.empty() ? "Your content doesn't match the room's. The game will restart with the room's."
-							: std::string(missing.size() == 1 ? Tr("You don't have the content this room needs. The game will download ")
-															  : Tr("You don't have the content this room needs. The game will download these: ")) +
-								std::to_string(missing.size()) + (missing.size() == 1 ? Tr(" content pack") : Tr(" content packs")) + " (" + HumanBytes(bytes) + Tr(") and restart."));
 	}
 	p.Unclip();
 

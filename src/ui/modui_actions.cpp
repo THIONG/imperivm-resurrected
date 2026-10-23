@@ -244,6 +244,13 @@ void DoAction(int action, int arg)
 			DoAction(kConfirmNo, 0);
 			break;
 		}
+		if (g_s.confirmKind == kConfirmAction) {
+			std::function<void()> action = std::move(g_s.action);
+			g_s.action = nullptr;
+			DoAction(kConfirmNo, 0);
+			if (action) action();
+			break;
+		}
 		if (g_s.confirmKind == kConfirmUninstall) {
 			g_s.confirm = false, g_s.confirmItems.clear();
 			const std::vector<std::string> targets = g_s.uninstallTargets;
@@ -274,7 +281,7 @@ void DoAction(int action, int arg)
 		break;
 	case kConfirmNo:
 		g_s.confirm = false, g_s.confirmItems.clear();
-		if ((g_s.confirmKind == kConfirmRestart || g_s.confirmKind == kConfirmNotice) && g_s.confirmOnly) {
+		if ((g_s.confirmKind == kConfirmRestart || g_s.confirmKind == kConfirmNotice || g_s.confirmKind == kConfirmAction) && g_s.confirmOnly) {
 			g_s.open = false;
 		}
 		g_s.confirmOnly = false;

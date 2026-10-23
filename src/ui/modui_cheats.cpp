@@ -714,7 +714,7 @@ void DrawCheatsPanel(uint32_t *frame, int frameW, int H, float s)
 		track = cTrack;
 		thumbH = cThumb;
 	}
-	if (hTab && !open) ModUiDrawHoverCard(buf, W, H, "Cheats", kGold, static_cast<int>(tab.x + tab.w + 8 * s), static_cast<int>(tab.y + tab.h / 2), KnownKeys({ControlsModKey(kModKeyCheats)}));
+	if (hTab) ModUiDrawHoverCard(buf, W, H, open ? "Hide cheats" : "Cheats", kGold, static_cast<int>(tab.x + tab.w + 8 * s), static_cast<int>(tab.y + tab.h / 2), KnownKeys({ControlsModKey(kModKeyCheats)}));
 	std::lock_guard<std::mutex> lock(g_lock);
 	g_ch.tab = toRect(tab);
 	g_ch.panel = open ? RECT{0, static_cast<LONG>(top), static_cast<LONG>(panelW), static_cast<LONG>(top + panelH)} : RECT{};

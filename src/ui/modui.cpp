@@ -655,6 +655,22 @@ void ModUiNotice(const std::string &title, const std::string &text)
 	g_s.confirmItems.clear();
 }
 
+void ModUiAsk(const std::string &title, const std::string &text, const std::string &yes, std::function<void()> onYes)
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	if (!g_s.open) {
+		g_s.open = true;
+		g_s.confirmOnly = true;
+	}
+	g_s.confirm = true;
+	g_s.confirmKind = kConfirmAction;
+	g_s.noticeTitle = title;
+	g_s.noticeText = text;
+	g_s.actionYes = yes;
+	g_s.action = std::move(onYes);
+	g_s.confirmItems.clear();
+}
+
 int ModUiUpdatesAvailable()
 {
 	return UpdatesAvailable();
