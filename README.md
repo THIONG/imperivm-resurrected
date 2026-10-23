@@ -24,12 +24,16 @@ online play with no port forwarding, one-click mods, rebindable controls and man
 
 ## Install
 
-1. Download the zip from the [latest release](https://github.com/THIONG/imperivm-resurrected/releases/latest).
-2. Extract it into the game folder, where `gbr.exe` is
-   (in Steam: right-click the game → Manage → Browse local files).
+1. Download `imperivm-resurrected-setup-<version>.exe` from the [latest release](https://github.com/THIONG/imperivm-resurrected/releases/latest) and open it.
+   If Windows says "Windows protected your PC", press More info → Run anyway (the installer is not signed).
+2. Press Install. It finds the Steam game, removes Windows compatibility modes, moves leftovers of other mods aside and resets the saved resolution.
 3. Start the game from Steam.
 
-To uninstall, delete `winmm.dll`, `steam_api.dll` and the `imperivm-resurrected` folder from the game folder. The mod does not change any game file.
+By hand: extract the zip of the same release into the game folder, where `gbr.exe` is (in Steam: right-click the game → Manage → Browse local files).
+
+If the `Logs\imperivm` folder does not appear when you open the game, the mod is not loading. Turn off the compatibility mode of `gbr.exe` (Properties → Compatibility, also under "Change settings for all users"), unblock `winmm.dll` (Properties → Unblock) and check your antivirus. More details in the [guide](https://www.imperivmresurrected.com/en/guide.html#not-loading).
+
+To uninstall, open the installer again and press Uninstall, or delete `winmm.dll`, `steam_api.dll` and the `imperivm-resurrected` folder from the game folder. The mod does not change any game file.
 
 You need your own copy of the game from Steam. This mod includes no game file.
 

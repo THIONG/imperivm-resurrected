@@ -1,0 +1,124 @@
+name: Publish
+
+# Builds a version from main and leaves it as a draft release: winmm.dll and the installer are built here, version.json is signed here
+# with the key of the release environment, and the three files are attached together with the linker map. Publishing the draft starts
+# the Release workflow, which verifies it again, attaches the SDK zip and the checksums, and announces it.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: checks
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version, notes and tag
+        id: version
+        shell: bash
+        run: |
+          version=$(sed -n 's/.*IMPERIVM_VERSION_TEXT[[:space:]]*"\([^"]*\)".*/\1/p' src/core/version_info.h)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ ! -f "release-notes/$version.md" ]]; then
+            echo "::error::release-notes/$version.md is missing: merge the notes of $version first"
+            exit 1
+          fi
+          if [[ "$(gh release view "v$version" --json isDraft --jq .isDraft 2>/dev/null)" == "false" ]]; then
+            echo "::error::v$version is already published: bump the version in src/core/version_info.h"
+            exit 1
+          fi
+
+      - name: Steamworks SDK headers (private repository, read only)
+        uses: actions/checkout@v4
+        with:
+          repository: imperivm-resurrected/steamworks-headers
+          ssh-key: ${{ secrets.STEAMWORKS_HEADERS_KEY }}
+          path: third_party/steamworks_sdk
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Build winmm.dll
+        shell: cmd
+        env:
+          STEAMWORKS_SDK: ${{ github.workspace }}\third_party\steamworks_sdk
+        run: build.bat
+
+      - name: Build the installer stub
+        shell: cmd
+        run: installer\build.bat
+
+      - name: steam_api.dll of the latest release (Valve's redistributable, the same file in every release)
+        shell: pwsh
+        run: |
+          gh release download --pattern 'imperivm-resurrected-[0-9]*.zip' --dir previous
+          Expand-Archive (Get-ChildItem previous/*.zip | Select-Object -First 1).FullName previous/content
+          Copy-Item previous/content/steam_api.dll build/steam_api.dll
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: |
+            build/winmm.dll
+            build/winmm.map
+            build/installer-stub.exe
+            build/steam_api.dll
+          if-no-files-found: error
+
+  sign:
+    needs: build
+    runs-on: windows-latest
+    environment: release
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: build
+
+      - name: Zip, signed version.json and installer
+        env:
+          UPDATES_PRIVATE_KEY: ${{ secrets.UPDATES_PRIVATE_KEY }}
+        run: node tools/build-release.js --dll build/winmm.dll --steam-api build/steam_api.dll --out release
+
+      - name: Linker map, to read the crash logs of this build
+        shell: pwsh
+        run: Compress-Archive build/winmm.map "release/winmm-$env:VERSION.map.zip"
+
+      - name: Draft release
+        shell: bash
+        run: |
+          tag="v$VERSION"
+          if [[ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)" == "true" ]]; then
+            gh release delete "$tag" --yes
+          fi
+          gh release create "$tag" release/* --draft --target "$GITHUB_SHA" \
+            --title "Imperivm Resurrected $VERSION" --notes-file "release-notes/$VERSION.md"
+          echo "Draft $tag ready: review it and publish it on GitHub, which starts the Release workflow." >> "$GITHUB_STEP_SUMMARY"

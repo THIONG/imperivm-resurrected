@@ -89,4 +89,4 @@ The SDK is in English only and lives directly in `sdk/`: guides, `tools/`, `exam
 - Write the PR title and the commit messages in English as [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): `type(scope): summary`, in the imperative and lowercase after the type (`fix(net): keep the rejoin slot after a drop`). Add a body when the why is not obvious. `AGENTS.md` lists the types and scopes.
 - In the description say what changes and why, how you tried it, and what you did not try.
 
-Releases are made by the maintainer. The update is signed with a key that never leaves their computer, so a pull request does not change the version number.
+Releases are made by the maintainer with the `Publish` workflow, whose signing key is in an environment that only they can approve, so a pull request does not change the version number.

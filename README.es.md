@@ -24,12 +24,16 @@ online sin abrir puertos, mods con un clic, controles a tu gusto y muchos arregl
 
 ## Instalar
 
-1. Descarga el zip de la [última versión](https://github.com/THIONG/imperivm-resurrected/releases/latest).
-2. Descomprímelo en la carpeta del juego, donde está `gbr.exe`
-   (en Steam: clic derecho en el juego → Administrar → Ver archivos locales).
+1. Descarga `imperivm-resurrected-setup-<versión>.exe` de la [última versión](https://github.com/THIONG/imperivm-resurrected/releases/latest) y ábrelo.
+   Si Windows dice «Windows protegió su PC», pulsa Más información → Ejecutar de todas formas (el instalador no está firmado).
+2. Pulsa Instalar. Encuentra el juego de Steam, quita los modos de compatibilidad de Windows, aparta restos de otros mods y restablece la resolución guardada.
 3. Abre el juego desde Steam.
 
-Para quitarlo, borra `winmm.dll`, `steam_api.dll` y la carpeta `imperivm-resurrected` de la carpeta del juego. No modifica ningún archivo del juego.
+A mano: descomprime el zip de la misma versión en la carpeta del juego, donde está `gbr.exe` (en Steam: clic derecho en el juego → Administrar → Ver archivos locales).
+
+Si al abrir el juego no aparece la carpeta `Logs\imperivm`, el mod no se está cargando. Quita el modo de compatibilidad de `gbr.exe` (Propiedades → Compatibilidad, también en «Cambiar la configuración para todos los usuarios»), desbloquea `winmm.dll` (Propiedades → Desbloquear) y revisa el antivirus. Más detalles en la [guía](https://www.imperivmresurrected.com/guide.html#not-loading).
+
+Para quitarlo, abre otra vez el instalador y pulsa Desinstalar, o borra `winmm.dll`, `steam_api.dll` y la carpeta `imperivm-resurrected` de la carpeta del juego. No modifica ningún archivo del juego.
 
 Hace falta el juego original de Steam. Este mod no incluye ningún archivo del juego.
 
