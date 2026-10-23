@@ -3,13 +3,14 @@
 //   - version.json: same version, the link of the zip points to this release, size and SHA-256 of the zip are the real ones, and the
 //     signature is valid for the public key that the mod has in src/mods/updater.cpp (the one the game checks before installing);
 //   - the zip holds winmm.dll, steam_api.dll and the imperivm-resurrected\ folder and nothing else, with no path that escapes;
+//   - the installer (imperivm-resurrected-setup-<version>.exe), if there is one, carries that same zip byte for byte;
 //   - release-notes/<version>.md is the one source of the notes: the notes in version.json and, with --body, the body of the release are the same text;
 //   - the SDK zip, if there is one, holds exactly the files of sdk/ at this commit;
 //   - SHA256SUMS.txt, if there is one, matches the files.
 //   node tools/verify-release.js <folder with the files> [--tag v0.31.54] [--repo THIONG/imperivm-resurrected] [--body release-body.md] [--write-sums]
 //   --body        the body of the release as published (gh release view --json body --jq .body), to compare with release-notes/<version>.md
 //   --write-sums  after verifying, writes SHA256SUMS.txt in the folder (zips and version.json)
-// publish-version.js runs it on the folder it prepares; the release workflow runs it on the files downloaded from the release.
+// build-release.js runs it on the folder it prepares; the release workflow runs it on the files downloaded from the release.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -91,6 +92,20 @@ if (fs.existsSync(zipPath) && info) {
   }
 }
 
+const setupName = `imperivm-resurrected-setup-${version}.exe`;
+const setupPath = path.join(dir, setupName);
+if (fs.existsSync(setupPath) && fs.existsSync(zipPath)) {
+  const setup = fs.readFileSync(setupPath);
+  const zip = fs.readFileSync(zipPath);
+  const trailer = setup.subarray(setup.length - 80);
+  const size = Number(trailer.readBigUInt64LE(8));
+  const inner = setup.subarray(setup.length - 80 - size, setup.length - 80);
+  if (trailer.toString('ascii', 0, 8) !== 'IRSETUP1') bad(`${setupName} has no installer trailer`);
+  else if (size !== zip.length || !inner.equals(zip)) bad(`${setupName} does not carry ${zipName} byte for byte`);
+  else if (trailer.subarray(16, 48).toString('hex') !== sha256(zip)) bad(`${setupName} carries a wrong SHA-256 of the zip`);
+  else if (trailer.toString('utf8', 48, 80).replace(/\0+$/, '') !== version) bad(`${setupName} says another version`);
+}
+
 const SDK_ROOT = fs.existsSync(path.join(ROOT, 'sdk')) ? path.join(ROOT, 'sdk') : path.resolve(ROOT, '..', 'sdk');
 const sdkChangelog = path.join(SDK_ROOT, 'CHANGELOG.md');
 const sdkVersion = fs.existsSync(sdkChangelog) ? (/^## (\d+\.\d+(?:\.\d+)?)/m.exec(fs.readFileSync(sdkChangelog, 'utf8')) || [])[1] : '';
@@ -125,7 +140,7 @@ if (problems.length) {
   process.exit(1);
 }
 if (args.includes('--write-sums')) {
-  const files = fs.readdirSync(dir).filter((f) => /\.zip$/.test(f) || f === 'version.json').sort();
+  const files = fs.readdirSync(dir).filter((f) => /\.zip$/.test(f) || f === 'version.json' || f === setupName).sort();
   fs.writeFileSync(sumsPath, files.map((f) => `${sha256(fs.readFileSync(path.join(dir, f)))}  ${f}`).join('\n') + '\n');
   console.log(`SHA256SUMS.txt written (${files.length} files)`);
 }
