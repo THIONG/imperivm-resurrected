@@ -951,6 +951,7 @@ extern const TrRow kTrRows[] = {
 	{"RULES", "REGLAS", "REGOLE"},
 	{"Spanish", "Español", "Spagnolo"},
 	{"English", "Inglés", "Inglese"},
+	{"## English", "## Español", "## Italiano"},
 	{"German", "Alemán", "Tedesco"},
 	{"French", "Francés", "Francese"},
 	{"Most liked", "Más gustados", "Più apprezzati"},
