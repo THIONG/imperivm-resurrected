@@ -1,0 +1,75 @@
+name: Draft release notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to write the notes for (for example 1.0.1)
+        required: true
+      from:
+        description: Tag to start from (empty = the latest release tag)
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    environment: release-notes
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      FROM: ${{ inputs.from }}
+    steps:
+      - name: Check the inputs
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must look like 1.0.1"
+            exit 1
+          fi
+          if [[ -n "$FROM" && ! "$FROM" =~ ^v[0-9][0-9A-Za-z.-]*$ ]]; then
+            echo "::error::from must be a tag like v1.0.0"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Draft the notes with a free LLM API
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          RELEASE_NOTES_MODELS: ${{ vars.RELEASE_NOTES_MODELS }}
+          RELEASE_NOTES_OPENROUTER_ALLOW: >-
+            ${{ vars.RELEASE_NOTES_OPENROUTER_ALLOW }}
+        run: |
+          node tools/draft-release-notes.js \
+            --version "$VERSION" ${FROM:+--from "$FROM"} \
+            --report "$RUNNER_TEMP/report.md"
+
+      - name: Open a draft pull request with the notes
+        env:
+          BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          branch="release-notes/$VERSION"
+          title="docs(release): release notes of $VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "$BOT_EMAIL"
+          git switch -c "$branch"
+          git add "release-notes/$VERSION.md"
+          git commit -m "docs(release): draft the release notes of $VERSION"
+          git push origin "$branch"
+          if ! gh pr create --draft --base main --head "$branch" \
+            --title "$title" --body-file "$RUNNER_TEMP/report.md"; then
+            echo "::warning::$branch is pushed but Actions cannot open PRs."
+            echo "Enable Settings > Actions > General > Allow GitHub Actions"
+            echo "to create and approve pull requests, or open it by hand."
+            cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
