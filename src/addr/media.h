@@ -7,6 +7,7 @@
 namespace addr {
 
 inline constexpr uintptr_t kChannelSetVolume = 0x00637260;
+inline constexpr uintptr_t kCurrentDisplayModeIndex = 0x00676bd0;
 inline constexpr uintptr_t kUpdateChannelVolumes = 0x006b0810;
 inline constexpr uintptr_t kSaveGameOptionsToIni = 0x006e73e0;
 inline constexpr uintptr_t kInitResolutionList = 0x006e8420;

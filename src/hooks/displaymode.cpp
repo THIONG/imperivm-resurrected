@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "MinHook.h"
+#include "addr/media.h"
 #include "hooks/hookcount.h"
 #include "hooks/audio.h"
 #include "core/config.h"
@@ -359,6 +360,25 @@ BOOL WINAPI HookEnumDisplaySettingsA(LPCSTR device, DWORD modeNum, DEVMODEA *mod
 	return ok;
 }
 
+typedef int(__fastcall *CurrentModeIndex_t)(void *os, void *edx);
+CurrentModeIndex_t g_origCurrentModeIndex = nullptr;
+
+int __fastcall HookCurrentModeIndex(void *os, void *edx)
+{
+	if (!g_faking) return g_origCurrentModeIndex(os, edx);
+	DEVMODEA dm = {};
+	for (DWORD i = 0;; i++) {
+		dm.dmSize = sizeof(dm);
+		dm.dmDriverExtra = 0;
+		if (!HookEnumDisplaySettingsA(nullptr, i, &dm)) break;
+		if (static_cast<int>(dm.dmPelsWidth) == g_logW && static_cast<int>(dm.dmPelsHeight) == g_logH && dm.dmBitsPerPel == g_logBpp) {
+			return static_cast<int>(i) + 1;
+		}
+	}
+	LogD("display", "current mode %dx%d %lubpp is not in the list; the game reads the monitor", g_logW, g_logH, g_logBpp);
+	return g_origCurrentModeIndex(os, edx);
+}
+
 int WINAPI HookGetSystemMetrics(int index)
 {
 	if (g_faking) {
@@ -505,6 +525,12 @@ bool InstallDisplayModeHooks()
 			Hook("MoveWindow", reinterpret_cast<void *>(&HookMoveWindow), reinterpret_cast<void **>(&g_origMoveWindow)) &&
 			Hook("GetCursorPos", reinterpret_cast<void *>(&HookGetCursorPos), reinterpret_cast<void **>(&g_origGetCursorPos)) &&
 			Hook("ClipCursor", reinterpret_cast<void *>(&HookClipCursor), reinterpret_cast<void **>(&g_origClipCursor));
+		void *current = reinterpret_cast<void *>(addr::kCurrentDisplayModeIndex);
+		if (ok && !(HookCreate(current, reinterpret_cast<void *>(&HookCurrentModeIndex), reinterpret_cast<void **>(&g_origCurrentModeIndex)) == MH_OK &&
+					  HookEnable(current) == MH_OK)) {
+			LogE("display", "could not intercept the game's current display mode");
+			ok = false;
+		}
 	}
 	LogAt(ok ? kLogInfo : kLogError, "display", "hooks %s (FakeModeChange=%d, mode %s)", ok ? "installed" : "with errors",
 		GetConfig().fakeModeChange, GetConfig().windowed ? "windowed" : "full screen");
