@@ -47,6 +47,9 @@ const Text kTitle = {L"Instalación de Imperivm Resurrected", L"Imperivm Resurre
 const Text kIntro = {L"Instala el mod en tu copia de Steam de Imperivm III HD y prepara el juego para que arranque: quita los modos de compatibilidad de Windows, guarda en una copia de seguridad los archivos de otros mods y restablece la resolución guardada. Tus partidas y mapas no se modifican.",
 	L"Installs the mod into your Steam copy of Imperivm III HD and prepares the game to start: it removes Windows compatibility modes, moves files of other mods to a backup folder and resets the saved resolution. Your saves and maps are not modified.",
 	L"Installa la mod nella tua copia Steam di Imperivm III HD e prepara il gioco all'avvio: rimuove le modalità di compatibilità di Windows, sposta i file di altre mod in una cartella di backup e ripristina la risoluzione salvata. Salvataggi e mappe non vengono modificati."};
+const Text kLanguagePrompt = {L"Elige el idioma de la instalación:", L"Select the language to use during setup:", L"Scegli la lingua dell'installazione:"};
+const Text kOk = {L"Aceptar", L"OK", L"OK"};
+const Text kCancel = {L"Cancelar", L"Cancel", L"Annulla"};
 const Text kFolderLabel = {L"Carpeta del juego:", L"Game folder:", L"Cartella del gioco:"};
 const Text kChange = {L"&Cambiar…", L"&Change…", L"&Cambia…"};
 const Text kInstall = {L"&Instalar", L"&Install", L"&Installa"};
@@ -83,8 +86,7 @@ const Text kConfirmUninstall = {L"¿Quitar el mod? winmm.dll, steam_api.dll y la
 
 std::wstring g_report;
 HWND g_wnd = nullptr, g_log = nullptr, g_folder = nullptr, g_install = nullptr, g_uninstall = nullptr, g_play = nullptr, g_change = nullptr, g_close = nullptr;
-HWND g_intro = nullptr, g_folderLabel = nullptr, g_language = nullptr;
-bool g_acted = false;
+
 std::wstring g_game;
 std::wstring g_localAppData;
 std::vector<unsigned char> g_payload;
@@ -679,14 +681,13 @@ void SetFolder(const std::wstring &game)
 	EnableWindow(g_install, !g_game.empty() && !g_payload.empty());
 	EnableWindow(g_change, TRUE);
 	EnableWindow(g_close, TRUE);
-	EnableWindow(g_language, TRUE);
 	SetWindowTextW(g_install, !g_game.empty() && ModInstalled() ? T(kRepair) : T(kInstall));
 	EnableWindow(g_uninstall, !g_game.empty() && !g_payload.empty() && ModInstalled());
 }
 
 void SetBusy()
 {
-	for (HWND b : {g_install, g_uninstall, g_play, g_change, g_close, g_language}) EnableWindow(b, FALSE);
+	for (HWND b : {g_install, g_uninstall, g_play, g_change, g_close}) EnableWindow(b, FALSE);
 }
 
 void WriteLog()
@@ -723,7 +724,6 @@ bool RelaunchElevated(const wchar_t *action)
 
 void DoInstall()
 {
-	g_acted = true;
 	g_report.clear();
 	g_backup.clear();
 	SetBusy();
@@ -767,7 +767,6 @@ void DoInstall()
 void DoUninstall()
 {
 	if (!g_elevated && MessageBoxW(g_wnd, T(kConfirmUninstall), T(kTitle), MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return;
-	g_acted = true;
 	g_report.clear();
 	SetBusy();
 	Say(T3(L"Quitando Imperivm Resurrected…", L"Removing Imperivm Resurrected…", L"Rimozione di Imperivm Resurrected…"));
@@ -806,24 +805,10 @@ void DoUninstall()
 
 void ShowStatus()
 {
-	g_acted = false;
 	g_report.clear();
 	if (g_payload.empty()) Say(T(kBadPayload));
 	else if (g_game.empty()) Say(T(kNotFound));
 	else Say(ModInstalled() ? T(kReadyRepair) : T(kReadyInstall));
-}
-
-void ApplyLanguage()
-{
-	SetWindowTextW(g_wnd, (std::wstring(T(kTitle)) + (g_version.empty() ? L"" : L" " + g_version)).c_str());
-	SetWindowTextW(g_intro, T(kIntro));
-	SetWindowTextW(g_folderLabel, T(kFolderLabel));
-	SetWindowTextW(g_change, T(kChange));
-	SetWindowTextW(g_uninstall, T(kUninstall));
-	SetWindowTextW(g_play, T(kPlay));
-	SetWindowTextW(g_close, T(kClose));
-	SetWindowTextW(g_install, !g_game.empty() && ModInstalled() ? T(kRepair) : T(kInstall));
-	if (!g_acted) ShowStatus();
 }
 
 void PickFolder()
@@ -846,7 +831,8 @@ void PickFolder()
 	ShowStatus();
 }
 
-enum { kIdInstall = 101, kIdUninstall, kIdPlay, kIdClose, kIdChange, kIdLanguage };
+enum { kIdInstall = 101, kIdUninstall, kIdPlay, kIdClose, kIdChange };
+enum { kLanguageDialog = 100, kIdLanguagePrompt = 201, kIdLanguageList = 202 };
 
 const int kWidth = 640, kHeight = 440;
 
@@ -893,13 +879,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		case kIdInstall: Activate(g_install, DoInstall); return 0;
 		case kIdUninstall: Activate(g_uninstall, DoUninstall); return 0;
 		case kIdChange: Activate(g_change, PickFolder); return 0;
-		case kIdLanguage:
-			if (HIWORD(wp) == CBN_SELCHANGE) {
-				const LRESULT sel = SendMessageW(g_language, CB_GETCURSEL, 0, 0);
-				if (sel >= kEs && sel <= kIt) g_lang = static_cast<Lang>(sel);
-				ApplyLanguage();
-			}
-			return 0;
 		case kIdPlay: ShellExecuteW(hwnd, L"open", (std::wstring(L"steam://rungameid/") + kAppId).c_str(), nullptr, nullptr, SW_SHOWNORMAL); return 0;
 		case IDCANCEL:
 		case kIdClose:
@@ -923,6 +902,45 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		return 0;
 	}
 	return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+void LanguageDialogTexts(HWND dlg)
+{
+	SetWindowTextW(dlg, T(kTitle));
+	SetDlgItemTextW(dlg, kIdLanguagePrompt, T(kLanguagePrompt));
+	SetDlgItemTextW(dlg, IDOK, T(kOk));
+	SetDlgItemTextW(dlg, IDCANCEL, T(kCancel));
+}
+
+INT_PTR CALLBACK LanguageDialog(HWND dlg, UINT msg, WPARAM wp, LPARAM)
+{
+	switch (msg) {
+	case WM_INITDIALOG: {
+		HICON iconBig = nullptr, iconSmall = nullptr;
+		LoadIconMetric(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), LIM_LARGE, &iconBig);
+		LoadIconMetric(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), LIM_SMALL, &iconSmall);
+		SendMessageW(dlg, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(iconBig));
+		SendMessageW(dlg, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(iconSmall));
+		HWND list = GetDlgItem(dlg, kIdLanguageList);
+		for (const wchar_t *name : kLangNames) SendMessageW(list, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(name));
+		SendMessageW(list, CB_SETCURSEL, g_lang, 0);
+		LanguageDialogTexts(dlg);
+		return TRUE;
+	}
+	case WM_COMMAND:
+		if (LOWORD(wp) == kIdLanguageList && HIWORD(wp) == CBN_SELCHANGE) {
+			const LRESULT sel = SendDlgItemMessageW(dlg, kIdLanguageList, CB_GETCURSEL, 0, 0);
+			if (sel >= kEs && sel <= kIt) g_lang = static_cast<Lang>(sel);
+			LanguageDialogTexts(dlg);
+			return TRUE;
+		}
+		if (LOWORD(wp) == IDOK || LOWORD(wp) == IDCANCEL) {
+			EndDialog(dlg, LOWORD(wp));
+			return TRUE;
+		}
+		break;
+	}
+	return FALSE;
 }
 
 void PickLanguage()
@@ -958,6 +976,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
 		}
 	}
 	if (argv) LocalFree(argv);
+	if (!g_elevated && DialogBoxParamW(inst, MAKEINTRESOURCEW(kLanguageDialog), nullptr, LanguageDialog, 0) != IDOK) {
+		CoUninitialize();
+		return 0;
+	}
 	if (!g_elevated) {
 		wchar_t local[MAX_PATH];
 		if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, local))) g_localAppData = local;
@@ -982,11 +1004,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
 	AdjustWindowRectExForDpi(&rc, style, FALSE, WS_EX_CONTROLPARENT, dpi);
 	SetWindowPos(g_wnd, nullptr, 0, 0, rc.right - rc.left, rc.bottom - rc.top, SWP_NOMOVE | SWP_NOZORDER);
 
-	g_intro = Child(L"STATIC", T(kIntro), 0, 20, 16, 600, 64, 0);
-	g_folderLabel = Child(L"STATIC", T(kFolderLabel), 0, 20, 90, 380, 18, 0);
-	g_language = Child(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 522, 82, 98, 120, kIdLanguage);
-	for (const wchar_t *name : kLangNames) SendMessageW(g_language, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(name));
-	SendMessageW(g_language, CB_SETCURSEL, g_lang, 0);
+	Child(L"STATIC", T(kIntro), 0, 20, 16, 600, 64, 0);
+	Child(L"STATIC", T(kFolderLabel), 0, 20, 90, 600, 18, 0);
 	g_folder = Child(L"EDIT", L"", ES_READONLY | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 20, 110, 494, 24, 0);
 	g_change = Child(L"BUTTON", T(kChange), BS_PUSHBUTTON | WS_TABSTOP, 522, 109, 98, 26, kIdChange);
 	g_log = Child(L"EDIT", L"", ES_READONLY | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 20, 146, 600, 236, 0);
