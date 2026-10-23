@@ -3,6 +3,17 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      announce:
+        type: boolean
+        default: false
+      withdraw:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       tag:
@@ -64,11 +75,11 @@ jobs:
 
   withdraw:
     needs: [checks, assets]
-    if: always() && github.event_name == 'release' && (needs.checks.result == 'failure' || needs.assets.result == 'failure')
+    if: always() && (github.event_name == 'release' || inputs.withdraw) && (needs.checks.result == 'failure' || needs.assets.result == 'failure')
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ github.event.release.tag_name }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - name: Back to draft (a release that failed verification must not be the latest one)
         run: gh release edit "$TAG" --draft --repo "$GITHUB_REPOSITORY"

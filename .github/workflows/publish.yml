@@ -1,10 +1,14 @@
 name: Publish
 
-# Builds a version from main and leaves it as a draft release: winmm.dll and the installer are built here, version.json is signed here
-# with the key of the release environment, and the three files are attached together with the linker map. Publishing the draft starts
-# the Release workflow, which verifies it again, attaches the SDK zip and the checksums, and announces it.
+# Pushing a tag v<version> publishes that version: winmm.dll and the installer are built here, version.json is signed here with the key
+# of the release environment (it waits for the maintainer's approval), and the release is created with the notes of
+# release-notes/<version>.md, the three files and the linker map. Then the Release workflow verifies it again, attaches the SDK zip and
+# the checksums, uploads the files to VirusTotal and announces the version on Discord; if the verification fails, the release goes back
+# to draft. The tag must match IMPERIVM_VERSION_TEXT and point to a commit of main.
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -16,7 +20,7 @@ concurrency:
 
 jobs:
   checks:
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/ci.yml
 
   build:
@@ -24,23 +28,34 @@ jobs:
     runs-on: windows-latest
     env:
       GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Version, notes and tag
+      - name: Tag, version, notes and branch
         id: version
         shell: bash
         run: |
           version=$(sed -n 's/.*IMPERIVM_VERSION_TEXT[[:space:]]*"\([^"]*\)".*/\1/p' src/core/version_info.h)
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" != "v$version" ]]; then
+            echo "::error::the tag is $TAG but src/core/version_info.h says $version: tag the commit that has the version (v$version)"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$TAG is not on main: tag a commit of main"
+            exit 1
+          fi
           if [[ ! -f "release-notes/$version.md" ]]; then
             echo "::error::release-notes/$version.md is missing: merge the notes of $version first"
             exit 1
           fi
-          if [[ "$(gh release view "v$version" --json isDraft --jq .isDraft 2>/dev/null)" == "false" ]]; then
-            echo "::error::v$version is already published: bump the version in src/core/version_info.h"
+          if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" == "false" ]]; then
+            echo "::error::$TAG is already published"
             exit 1
           fi
 
@@ -92,6 +107,7 @@ jobs:
       attestations: write
     env:
       GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
       VERSION: ${{ needs.build.outputs.version }}
     steps:
       - uses: actions/checkout@v4
@@ -105,7 +121,7 @@ jobs:
           name: build
           path: build
 
-      - name: Zip, signed version.json and installer
+      - name: Zip, signed version.json and installer (verified with tools/verify-release.js)
         env:
           UPDATES_PRIVATE_KEY: ${{ secrets.UPDATES_PRIVATE_KEY }}
         run: node tools/build-release.js --dll build/winmm.dll --steam-api build/steam_api.dll --out release
@@ -119,13 +135,26 @@ jobs:
         with:
           subject-path: release/*
 
-      - name: Draft release
+      - name: Create the release (as a draft until every file is attached, then published as the latest)
         shell: bash
         run: |
-          tag="v$VERSION"
-          if [[ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)" == "true" ]]; then
-            gh release delete "$tag" --yes
+          if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" == "true" ]]; then
+            gh release delete "$TAG" --yes
           fi
-          gh release create "$tag" release/* --draft --target "$GITHUB_SHA" \
+          gh release create "$TAG" release/* --draft --verify-tag \
             --title "Imperivm Resurrected $VERSION" --notes-file "release-notes/$VERSION.md"
-          echo "Draft $tag ready: review it and publish it on GitHub, which starts the Release workflow." >> "$GITHUB_STEP_SUMMARY"
+          gh release edit "$TAG" --draft=false --latest
+          echo "Published $TAG: the Release workflow verifies it and announces it." >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    needs: sign
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ github.ref_name }}
+      announce: true
+      withdraw: true
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    secrets: inherit
