@@ -1,6 +1,9 @@
 // Clones a game civilization as a new civilization in a mod (Imperivm Resurrected SDK).
 //
-//   node clone-civilization.js <DATA folder of the extracted data.pak> <mod folder> <id> <letter> [base=Gaul] [index=10]
+//   node clone-civilization.js <DATA folder of the extracted data.pak> <mod folder> <id> <letter> [base=Gaul] [index=10] [--all-orders]
+//
+// With --all-orders every order of the base's classes is copied under a name of its own ("<order> <Id>"), not only the ones that name
+// a class. Use it when the copy must change what a shared order costs or does without touching the base's.
 //
 // Writes to the mod folder:
 //   civs\<id>.json                     the civilization declaration
@@ -9,7 +12,8 @@
 //   patches\data\commands\*.xml        adds the new classes to the shared orders (repair, upgrades...)
 const fs = require('fs'), path = require('path');
 
-const [dataDir, modDir, id, letter, base = 'Gaul', indexArg = '10'] = process.argv.slice(2);
+const CLONE_ALL = process.argv.includes('--all-orders');  // also copy the orders that name no class (research, repair...), not only patch them
+const [dataDir, modDir, id, letter, base = 'Gaul', indexArg = '10'] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 if (!dataDir || !modDir || !id || !letter) {
 	console.error('usage: node clone-civilization.js <DATA> <mod folder> <id> <letter> [base=Gaul] [index=10]');
 	process.exit(1);
@@ -132,7 +136,7 @@ for (const f of fs.readdirSync(commandsDir)) {
 			if (!mine.length || !name) continue;
 		const head = body.replace(/<src\b[\s\S]*$/, '');
 		const refs = new RegExp(classRe.source).test(head);
-		if (refs || mapName(name) !== name || /^trainpeasant|^hirehero/i.test(name)) {
+		if (refs || CLONE_ALL || mapName(name) !== name || /^trainpeasant|^hirehero/i.test(name)) {
 			// the order names base classes: copy it with the new classes
 			let nn = mapName(name);
 			if (nn === name) nn = name + ' ' + Id;
