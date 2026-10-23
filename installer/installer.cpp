@@ -50,6 +50,18 @@ const Text kIntro = {L"Instala el mod en tu copia de Steam de Imperivm III HD y 
 const Text kLanguagePrompt = {L"Elige el idioma de la instalación:", L"Select the language to use during setup:", L"Scegli la lingua dell'installazione:"};
 const Text kOk = {L"Aceptar", L"OK", L"OK"};
 const Text kCancel = {L"Cancelar", L"Cancel", L"Annulla"};
+const Text kStepExtract = {L"Extrayendo los archivos del mod…", L"Extracting the mod files…", L"Estrazione dei file della mod…"};
+const Text kStepLayers = {L"Revisando los modos de compatibilidad de Windows…", L"Checking Windows compatibility modes…", L"Controllo delle modalità di compatibilità di Windows…"};
+const Text kStepForeign = {L"Revisando archivos de otros mods…", L"Checking files from other mods…", L"Controllo dei file di altre mod…"};
+const Text kStepVirtualStore = {L"Revisando VirtualStore…", L"Checking VirtualStore…", L"Controllo di VirtualStore…"};
+const Text kStepDisplay = {L"Revisando la configuración de pantalla…", L"Checking display settings…", L"Controllo delle impostazioni dello schermo…"};
+const Text kStepCopy = {L"Copiando los archivos del mod…", L"Copying the mod files…", L"Copia dei file della mod…"};
+const Text kStepCheck = {L"Comprobaciones finales…", L"Final checks…", L"Controlli finali…"};
+const Text kStepDone = {L"Instalación completada", L"Setup complete", L"Installazione completata"};
+const Text kStepFailed = {L"La instalación no se ha completado", L"Setup did not complete", L"Installazione non completata"};
+const Text kStepRemove = {L"Quitando los archivos del mod…", L"Removing the mod files…", L"Rimozione dei file della mod…"};
+const Text kStepRemoved = {L"Desinstalación completada", L"Uninstall complete", L"Disinstallazione completata"};
+const Text kStepRemoveFailed = {L"La desinstalación no se ha completado", L"Uninstall did not complete", L"Disinstallazione non completata"};
 const Text kFolderLabel = {L"Carpeta del juego:", L"Game folder:", L"Cartella del gioco:"};
 const Text kChange = {L"&Cambiar…", L"&Change…", L"&Cambia…"};
 const Text kInstall = {L"&Instalar", L"&Install", L"&Installa"};
@@ -85,6 +97,7 @@ const Text kConfirmUninstall = {L"¿Quitar el mod? winmm.dll, steam_api.dll y la
 	L"Rimuovere la mod? winmm.dll, steam_api.dll e la cartella imperivm-resurrected verranno spostati nel Cestino. Salvataggi, mappe e impostazioni restano."};
 
 std::wstring g_report;
+HWND g_step = nullptr, g_progress = nullptr;
 HWND g_wnd = nullptr, g_log = nullptr, g_folder = nullptr, g_install = nullptr, g_uninstall = nullptr, g_play = nullptr, g_change = nullptr, g_close = nullptr;
 
 std::wstring g_game;
@@ -102,6 +115,39 @@ void Say(const std::wstring &line)
 		SendMessageW(g_log, EM_SCROLLCARET, 0, 0);
 		UpdateWindow(g_log);
 	}
+}
+
+void SetProgress(int percent)
+{
+	if (percent >= 100) {
+		SendMessageW(g_progress, PBM_SETRANGE32, 0, 101);
+		SendMessageW(g_progress, PBM_SETPOS, 101, 0);
+		SendMessageW(g_progress, PBM_SETRANGE32, 0, 100);
+	}
+	else SendMessageW(g_progress, PBM_SETPOS, percent + 1, 0);
+	SendMessageW(g_progress, PBM_SETPOS, percent, 0);
+	UpdateWindow(g_progress);
+}
+
+void Step(const Text &text, int percent)
+{
+	SetWindowTextW(g_step, T(text));
+	UpdateWindow(g_step);
+	SetProgress(percent);
+}
+
+void StartProgress()
+{
+	SendMessageW(g_progress, PBM_SETSTATE, PBST_NORMAL, 0);
+	SendMessageW(g_progress, PBM_SETRANGE32, 0, 100);
+	SendMessageW(g_progress, PBM_SETPOS, 0, 0);
+	SetWindowTextW(g_step, L"");
+}
+
+void EndProgress(bool ok, const Text &done, const Text &failed)
+{
+	if (!ok) SendMessageW(g_progress, PBM_SETSTATE, PBST_ERROR, 0);
+	Step(ok ? done : failed, 100);
 }
 
 std::wstring Widen(const std::string &s)
@@ -339,6 +385,7 @@ bool StageFiles(std::vector<std::wstring> &staged)
 	bool ok = true;
 	const mz_uint n = mz_zip_reader_get_num_files(&zip);
 	for (mz_uint i = 0; i < n && ok; i++) {
+		SetProgress(5 + static_cast<int>(40 * i / n));
 		mz_zip_archive_file_stat st;
 		if (!mz_zip_reader_file_stat(&zip, i, &st)) {
 			ok = false;
@@ -727,34 +774,46 @@ void DoInstall()
 	g_report.clear();
 	g_backup.clear();
 	SetBusy();
+	StartProgress();
 	Say(T3(L"Instalando Imperivm Resurrected ", L"Installing Imperivm Resurrected ", L"Installazione di Imperivm Resurrected ") + g_version + L"…");
 	if (!WaitGameClosed()) {
+		StartProgress();
 		SetFolder(g_game);
 		return;
 	}
+	Step(kStepLayers, 2);
 	bool layers = false;
 	if (!g_elevated) layers = FixUserLayers();
 	if (!g_elevated && !CanWrite(g_game)) {
 		Say(T(kNeedAdmin));
 		if (RelaunchElevated(L"install")) return;
 		Say(T(kDenied));
+		StartProgress();
 		SetFolder(g_game);
 		return;
 	}
 	const bool fresh = !ModInstalled();
 	std::vector<std::wstring> staged;
+	Step(kStepExtract, 5);
 	bool ok = StageFiles(staged);
 	if (ok) {
+		Step(kStepLayers, 50);
 		layers = FixMachineLayers() || layers;
 		if (!layers && !g_elevated) Say(T3(L"  ✓ No hay modos de compatibilidad de Windows", L"  ✓ No Windows compatibility modes", L"  ✓ Nessuna modalità di compatibilità di Windows"));
+		Step(kStepForeign, 60);
 		MoveForeignDlls();
 		if (fresh) MoveForeignModFiles();
+		Step(kStepVirtualStore, 68);
 		FixVirtualStore();
+		Step(kStepDisplay, 76);
 		FixDisplay();
+		Step(kStepCopy, 84);
 		ok = CommitFiles(staged);
 		for (const wchar_t *name : {L"winmm.dll", L"steam_api.dll"}) Unblock(g_game + L"\\" + name);
+		Step(kStepCheck, 94);
 		Warnings();
 	}
+	EndProgress(ok, kStepDone, kStepFailed);
 	if (!g_backup.empty()) Say(T3(L"Copia de seguridad de los archivos modificados: ", L"Backup of changed files: ", L"Backup dei file modificati: ") + g_backup);
 	Say(L"");
 	Say(ok ? T(kDone) : T(kInstallFailed));
@@ -769,8 +828,10 @@ void DoUninstall()
 	if (!g_elevated && MessageBoxW(g_wnd, T(kConfirmUninstall), T(kTitle), MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return;
 	g_report.clear();
 	SetBusy();
+	StartProgress();
 	Say(T3(L"Quitando Imperivm Resurrected…", L"Removing Imperivm Resurrected…", L"Rimozione di Imperivm Resurrected…"));
 	if (!WaitGameClosed()) {
+		StartProgress();
 		SetFolder(g_game);
 		return;
 	}
@@ -778,9 +839,11 @@ void DoUninstall()
 		Say(T(kNeedAdmin));
 		if (RelaunchElevated(L"uninstall")) return;
 		Say(T(kDenied));
+		StartProgress();
 		SetFolder(g_game);
 		return;
 	}
+	Step(kStepRemove, 30);
 	std::wstring from;
 	for (const wchar_t *name : {L"winmm.dll", L"steam_api.dll", L"imperivm-resurrected"}) {
 		const std::wstring p = g_game + L"\\" + name;
@@ -796,6 +859,7 @@ void DoUninstall()
 		op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT;
 		ok = SHFileOperationW(&op) == 0 && !op.fAnyOperationsAborted;
 	}
+	EndProgress(ok, kStepRemoved, kStepRemoveFailed);
 	Say(ok ? T(kUninstalled) : T(kUninstallFailed));
 	WriteLog();
 	SetFolder(g_game);
@@ -834,7 +898,7 @@ void PickFolder()
 enum { kIdInstall = 101, kIdUninstall, kIdPlay, kIdClose, kIdChange };
 enum { kLanguageDialog = 100, kIdLanguagePrompt = 201, kIdLanguageList = 202 };
 
-const int kWidth = 640, kHeight = 440;
+const int kWidth = 640, kHeight = 466;
 
 struct Placed {
 	HWND hwnd;
@@ -959,7 +1023,7 @@ void PickLanguage()
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
 {
 	PickLanguage();
-	INITCOMMONCONTROLSEX icc = {sizeof(icc), ICC_STANDARD_CLASSES};
+	INITCOMMONCONTROLSEX icc = {sizeof(icc), ICC_STANDARD_CLASSES | ICC_PROGRESS_CLASS};
 	InitCommonControlsEx(&icc);
 	CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
@@ -1008,11 +1072,14 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
 	Child(L"STATIC", T(kFolderLabel), 0, 20, 90, 600, 18, 0);
 	g_folder = Child(L"EDIT", L"", ES_READONLY | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 20, 110, 494, 24, 0);
 	g_change = Child(L"BUTTON", T(kChange), BS_PUSHBUTTON | WS_TABSTOP, 522, 109, 98, 26, kIdChange);
-	g_log = Child(L"EDIT", L"", ES_READONLY | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 20, 146, 600, 236, 0);
-	g_install = Child(L"BUTTON", T(kInstall), BS_DEFPUSHBUTTON | WS_TABSTOP, 20, 396, 130, 30, kIdInstall);
-	g_uninstall = Child(L"BUTTON", T(kUninstall), BS_PUSHBUTTON | WS_TABSTOP, 158, 396, 130, 30, kIdUninstall);
-	g_play = Child(L"BUTTON", T(kPlay), BS_PUSHBUTTON | WS_TABSTOP, 352, 396, 150, 30, kIdPlay);
-	g_close = Child(L"BUTTON", T(kClose), BS_PUSHBUTTON | WS_TABSTOP, 510, 396, 110, 30, kIdClose);
+	g_log = Child(L"EDIT", L"", ES_READONLY | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 20, 146, 600, 196, 0);
+	g_step = Child(L"STATIC", L"", SS_LEFTNOWORDWRAP | SS_ENDELLIPSIS, 20, 352, 600, 18, 0);
+	g_progress = Child(PROGRESS_CLASSW, L"", 0, 20, 372, 600, 16, 0);
+	Child(L"STATIC", L"", SS_ETCHEDHORZ, 0, 404, kWidth, 2, 0);
+	g_install = Child(L"BUTTON", T(kInstall), BS_DEFPUSHBUTTON | WS_TABSTOP, 20, 420, 130, 30, kIdInstall);
+	g_uninstall = Child(L"BUTTON", T(kUninstall), BS_PUSHBUTTON | WS_TABSTOP, 158, 420, 130, 30, kIdUninstall);
+	g_play = Child(L"BUTTON", T(kPlay), BS_PUSHBUTTON | WS_TABSTOP, 352, 420, 150, 30, kIdPlay);
+	g_close = Child(L"BUTTON", T(kClose), BS_PUSHBUTTON | WS_TABSTOP, 510, 420, 110, 30, kIdClose);
 	Layout(dpi);
 	EnableWindow(g_play, FALSE);
 
