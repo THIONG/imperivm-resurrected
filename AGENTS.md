@@ -49,7 +49,7 @@ Passing them doesn't prove the game works. If the change affects what the player
 
 ## Code in `src/`
 
-- No comments. The check fails on them; the reason goes in the PR or the commit body.
+- Comments are allowed where the code can't say why: an address, a patched byte, a workaround for the game. Don't restate what the code does; names do that.
 - Folders are ordered `addr`, `core`/`i18n`, `hooks`, `mods`, `game`, `net`, `ui`, `app`. A file only includes its own folder and the ones before it. Go up with a registered callback or function table.
 - Addresses of `gbr.exe` only in `src/addr/*.h` as `kName`.
 - Logs with `LogI/W/E/D("channel", ...)`, in English, never through `Tr()`.
