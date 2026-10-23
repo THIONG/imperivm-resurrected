@@ -355,7 +355,7 @@ for (const f of files.filter(f => /^civs\/[^/]+\.json$/i.test(f))) {
 		}
 	}
 	const letter = j.letter;
-	if (letter !== undefined && !/^[A-Za-z]$/.test(String(letter))) error(f, 0, '"letra" is a single letter');
+	if (letter !== undefined && !/^[A-Za-z0-9]$/.test(String(letter))) error(f, 0, '"letra" is a single letter or digit');
 	// With "sustituyeBase", the letter and the template become those of the game's base civilization for the whole game
 	if (j.replacesBase === true && GAME_CIVS.includes(j.base || 'Gaul')) {
 		const b = j.base || 'Gaul';

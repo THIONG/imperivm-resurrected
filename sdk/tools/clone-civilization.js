@@ -14,7 +14,7 @@ if (!dataDir || !modDir || !id || !letter) {
 	console.error('usage: node clone-civilization.js <DATA> <mod folder> <id> <letter> [base=Gaul] [index=10]');
 	process.exit(1);
 }
-if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(id) || !/^[A-Za-z]$/.test(letter)) {
+if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(id) || !/^[A-Za-z0-9]$/.test(letter)) {
 	console.error('invalid id or letter'); process.exit(1);
 }
 const L = letter.toUpperCase(), l = letter.toLowerCase();
