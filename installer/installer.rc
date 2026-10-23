@@ -17,7 +17,7 @@ BEGIN
 		BLOCK "040904B0"
 		BEGIN
 			VALUE "CompanyName", "Imperivm Resurrected"
-			VALUE "FileDescription", "Imperivm Resurrected setup"
+			VALUE "FileDescription", "Imperivm Resurrected Setup"
 			VALUE "FileVersion", IMPERIVM_VERSION_TEXT
 			VALUE "InternalName", "imperivm-resurrected-setup"
 			VALUE "LegalCopyright", "Copyright (C) 2026 THIONG. GPL-3.0-or-later."
