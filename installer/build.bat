@@ -7,7 +7,7 @@ cd /d "%~dp0.."
 if not exist build\installer mkdir build\installer
 set MZ=..\tools\miniz
 if exist third_party\miniz\miniz.c set MZ=third_party\miniz
-rc /nologo /Isrc /Iinstaller /fo build\installer\installer.res installer\installer.rc || exit /b 1
+rc /nologo /Isrc /Iinstaller /Iassets /fo build\installer\installer.res installer\installer.rc || exit /b 1
 cl /nologo /c /O2 /MT /W0 /DNDEBUG /I%MZ% /Fobuild\installer\ %MZ%\miniz.c || exit /b 1
 cl /nologo /c /O2 /MT /W3 /EHsc /std:c++17 /utf-8 /DNDEBUG /DUNICODE /D_UNICODE /I%MZ% /Fobuild\installer\ installer\installer.cpp || exit /b 1
 link /nologo /SUBSYSTEM:WINDOWS /OUT:build\installer-stub.exe build\installer\*.obj build\installer\installer.res user32.lib gdi32.lib shell32.lib ole32.lib advapi32.lib comctl32.lib bcrypt.lib || exit /b 1

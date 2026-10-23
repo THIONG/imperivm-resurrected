@@ -147,6 +147,19 @@ std::wstring TrimSlashes(std::wstring path)
 	return path;
 }
 
+std::wstring RealCase(const std::wstring &path)
+{
+	HANDLE h = CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+	if (h == INVALID_HANDLE_VALUE) return path;
+	wchar_t buf[MAX_PATH * 2];
+	const DWORD n = GetFinalPathNameByHandleW(h, buf, MAX_PATH * 2, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+	CloseHandle(h);
+	if (n == 0 || n >= MAX_PATH * 2) return path;
+	std::wstring real = buf;
+	if (real.rfind(L"\\\\?\\", 0) == 0 && real.rfind(L"\\\\?\\UNC\\", 0) != 0) real = real.substr(4);
+	return _wcsicmp(real.c_str(), path.c_str()) == 0 ? real : path;
+}
+
 bool ReadAll(const std::wstring &path, std::string &out)
 {
 	HANDLE f = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
@@ -656,7 +669,7 @@ bool WaitGameClosed()
 
 void SetFolder(const std::wstring &game)
 {
-	g_game = TrimSlashes(game);
+	g_game = RealCase(TrimSlashes(game));
 	if (g_game.size() > 1 && g_game[1] == L':') g_game[0] = static_cast<wchar_t>(towupper(g_game[0]));
 	SetWindowTextW(g_folder, g_game.empty() ? L"—" : g_game.c_str());
 	EnableWindow(g_install, !g_game.empty() && !g_payload.empty());
@@ -919,6 +932,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int)
 	wc.hInstance = inst;
 	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
 	wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
+	LoadIconMetric(inst, MAKEINTRESOURCEW(1), LIM_LARGE, &wc.hIcon);
+	LoadIconMetric(inst, MAKEINTRESOURCEW(1), LIM_SMALL, &wc.hIconSm);
 	wc.lpszClassName = L"ImperivmResurrectedSetup";
 	RegisterClassExW(&wc);
 	const std::wstring title = std::wstring(T(kTitle)) + (g_version.empty() ? L"" : L" " + g_version);
