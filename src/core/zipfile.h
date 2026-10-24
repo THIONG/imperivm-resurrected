@@ -17,4 +17,5 @@ using ZipProgress = std::function<bool(uint64_t done, uint64_t total)>;
 bool IsZipFile(const std::string &path);
 bool ZipEntryPath(const std::string &name, std::string &rel);
 std::string ZipExtract(const std::string &zip, const std::string &dest, const ZipLimits &limits, const ZipProgress &progress = nullptr);
+bool ZipNotUnderstood(const std::string &error);
 bool ZipCreate(const std::string &zip, const std::string &folder, const std::vector<std::string> &names);

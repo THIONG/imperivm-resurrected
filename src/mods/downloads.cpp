@@ -957,9 +957,12 @@ std::string Extract(const std::string &archive, const std::string &dest, const Z
 	ZipLimits limits;
 	limits.maxEntries = kMaxArchiveEntries;
 	limits.maxBytes = kMaxArchiveBytes;
-	if (IsZipFile(archive)) return ZipExtract(archive, dest, limits, progress);
 	std::string ownError;
-	if (IsArchiveFile(archive)) {
+	if (IsZipFile(archive)) {
+		ownError = ZipExtract(archive, dest, limits, progress);
+		if (!ZipNotUnderstood(ownError)) return ownError;
+	}
+	else if (IsArchiveFile(archive)) {
 		ownError = ArchiveExtract(archive, dest, limits, progress);
 		if (!ArchiveNotUnderstood(ownError)) return ownError;
 	}

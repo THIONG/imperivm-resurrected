@@ -186,6 +186,24 @@ void NoticesDamage(const std::string &dir)
 	CHECK(!ZipExtract(dir + "\\notzip.zip", dir + "\\notzip", ZipLimits()).empty());
 }
 
+void KnowsWhenToTryTarExe(const std::string &dir)
+{
+	std::string zip = MakeZip({{"data.bin", Pattern(1000)}});
+	const size_t local = zip.find(std::string("PK\x03\x04", 4));
+	const size_t central = zip.find(std::string("PK\x01\x02", 4));
+	zip[local + 8] = 14;
+	zip[central + 10] = 14;
+	test::WriteFile(dir + "\\lzma.zip", zip);
+	const std::string error = ZipExtract(dir + "\\lzma.zip", dir + "\\lzma", ZipLimits());
+	CHECK_EQ(error, std::string(kDamaged));
+	CHECK(ZipNotUnderstood(error));
+	CHECK(!ZipNotUnderstood(""));
+	CHECK(!ZipNotUnderstood(kOutside));
+	CHECK(!ZipNotUnderstood(kSpecial));
+	CHECK(!ZipNotUnderstood(kTooLarge));
+	CHECK(!ZipNotUnderstood("canceled"));
+}
+
 void HandlesLongPaths(const std::string &dir)
 {
 	const std::string first(120, 'd'), second(120, 'e'), file = std::string(60, 'f') + ".txt";
@@ -231,6 +249,7 @@ int main()
 	AppliesTheLimits(dir);
 	StopsWhenCanceled(dir);
 	NoticesDamage(dir);
+	KnowsWhenToTryTarExe(dir);
 	HandlesLongPaths(dir);
 	ReadsWindowsZips(dir);
 	test::RemoveTree(dir);
