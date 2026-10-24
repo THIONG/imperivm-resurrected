@@ -7,7 +7,9 @@ The game ships with 8 civilizations, numbered 0 to 7: Gaul, Republican Rome, Car
 Imperivm Resurrected lets you declare new civilizations, numbered from 10 up. Each one inherits everything your mod doesn't define from a game civilization (its
 *base*). The tools need Node.js.
 
-Ready-to-copy example: [`examples/civilization-example`](examples/civilization-example).
+Ready-to-copy example: [`examples/civilization-example`](examples/civilization-example), which keeps the legacy prefix `D`. For a new civilization with its own classes, follow [Cloning a civilization](#cloning-a-civilization).
+
+A new civilization appears **alongside** its base by default: Dacia adds a choice; Gaul remains available. `variant` and `replacesBase` are independent, optional settings, not steps required to create a civilization.
 
 ## Declaring a civilization
 
@@ -19,7 +21,7 @@ A `civs\<id>.json` file in your mod:
   "index": 10,
   "base": "Gaul",
   "name": {"spanish": "Dacia", "english": "Dacia", "italian": "Dacia"},
-  "letter": "D"
+  "letter": "Dac"
 }
 ```
 
@@ -29,7 +31,7 @@ A `civs\<id>.json` file in your mod:
 | `index` | A number from 10 to 99. Don't change it once published: saved games remember it. Two mods can't use the same one. |
 | `base` | The game civilization it inherits from: `Gaul`, `RepublicanRome`, `Carthage`, `Iberia`, `ImperialRome`, `Britain`, `Egypt` or `Germany`. Defaults to `Gaul`. |
 | `name` | Its name in each language, or a single string. |
-| `letter` | The letter that prefixes its classes and commands (`DSwordsman`, `trainDSwordsman`). If you leave it out, it uses the base's. Set your own only if you have classes and commands with that letter: the game builds names from it, such as the peasant training one. It can also be a digit (`2Archer`, `train2Archer`), tried in game: with several civilization mods the 26 letters run out, and two civilizations cannot share one. |
+| `letter` | Class and command prefix, 1 to 4 characters: an uppercase letter followed by letters or digits (`Dac`, `Ga`, `Dac2`). Existing single letters (including lowercase, normalized to uppercase) and single digits (`2Archer`) still work. Omit it to inherit the base's prefix. Only set your own if your classes and commands use it: the game builds names such as the peasant training command from it. See the convention and [registry](prefixes.md). |
 | `template` | (Optional) Prefix of your city and village templates, so the random map doesn't use the base's. See [Templates](city-templates.md). |
 | `internalName` | (Optional) The name the game uses to find the civilization's interface files; defaults to the base's. |
 | `folder` | (Optional) The name shown in selection texts. |
@@ -37,11 +39,23 @@ A `civs\<id>.json` file in your mod:
 | `biome` | (Optional) A game civilization: the terrain, trees and objects the random map places around its start are that civilization's. Without it, the base's. See *The biome*. |
 | `ai` | (Optional) With `true`, the AI plays with your classes and commands. Otherwise it plays as the base civilization. The cloning tool sets it to `true`. See *The AI*. |
 | `ownAi` | (Optional, with `ai`) For mods that ship all their own AI scripts and want to see the civilization as itself (`Dacia`, not its base). |
-| `alias` | (Optional, written by the cloning tool) `classes` and `commands`: name in the base to name in your civilization (`"GArcher": "DArcher"`, `"trainGSwordsman": "trainGSwordsman Dacia"`). The AI uses them to translate. |
+| `alias` | (Optional, written by the cloning tool) `classes` and `commands`: name in the base to name in your civilization (`"GArcher": "DacArcher"`, `"trainGSwordsman": "trainGSwordsman Dacia"`). The AI uses them to translate. |
 | `variant` | (Optional) With `true`, it's a variant of its base: it plays with the base's classes and scripts see it as the base. See *Variants*. |
 | `replacesBase` | (Optional) With `true`, the base no longer shows in the lobby and this civilization takes its place. See *Variants*. |
 
-With just `id`, `index` and `base` you get a copy of the base under another name. From there, change whatever you like.
+With just `id`, `index` and `base` you get a playable copy using the base's existing classes under another name. The declaration above instead asks for your own `Dac` classes and commands: the JSON alone does not create them. Generate those with the cloning tool before testing it. Changing `letter` later does not rename existing files or references.
+
+## Prefix convention
+
+Keep the historical field name `letter`, even for a multi-character prefix. Prefer the first three letters of the id, with only the first capitalized: `dacia` → `Dac`. The clone tool removes underscores and takes up to three letters/digits (`new_rome` → `New`, `a` → `A`). You can choose another prefix of up to four characters explicitly.
+
+Class names start with the **whole prefix followed by an uppercase letter**: `DacTownhall`, `DacSwordsman`, `GaTownhall`, `GalTownhall`. When matching a prefix, check that next uppercase character: `GTownhall` belongs to `G`, but `GaTownhall` and `GalTownhall` do not. Keep the game's legacy lowercase `house` names working too (`Rhouse03`). Do not replace every occurrence of a prefix in a file: image paths and unrelated class names must stay unchanged.
+
+The uppercase API (`GetRaceStrPref` and `Obj::raceStrPref`, also the engine's `GetRaceLetter`) returns the prefix **as written**, except that a legacy lowercase single letter is capitalized: `Dac` stays `Dac`, not `DAC`. The lowercase API (`GetRaceStrPrefLow`, `Obj::raceStrPrefLow`) lowers the **entire** prefix: `Dac` → `dac`. Commands built from those values must match (`trainpeasantdac`, `hireheroDac`).
+
+Prefixes therefore clash case-insensitively: `Dac` and `DaC` cannot coexist. The first loaded civilization owns its prefix; a second one with the same own prefix is ignored, and the content manager names the owner and its pack. The eight game prefixes are reserved even when their bases are replaced. Omitting `letter`, or explicitly using your own base's single letter, still inherits that base and can be shared by variants. Using another base's letter is rejected. Check [prefixes.md](prefixes.md) before publishing; existing community civilizations keep their single-character prefixes.
+
+A `Dac` clone has passed an initial Linux/Wine gameplay test with units, a hero and sentries. Test your own pack too: validation does not run the game, and this does not establish every prefix or replacement configuration. Multi-character prefixes need a matching Imperivm Resurrected build with this feature; older releases reject them.
 
 ## Using it in your classes and scripts
 
@@ -72,11 +86,11 @@ civilization an object really plays as, use `Mod_TrueRace(objeto)`.
 ## In the lobby and on the map
 
 Declared civilizations appear in the multiplayer lobby's dropdowns, after the game's. On a random map, yours uses its biome's terrain and starts with a city and a village built from its classes
-(`DTownhall`, `DBarracks`…). If you don't give it templates, the building layout is the base's. The player's interface (command bars, corners, quick icons and the
+(`DacTownhall`, `DacBarracks`…). If you don't give it templates, the building layout is the base's. The player's interface (command bars, corners, quick icons and the
 end screen) is the base's.
 
 If something doesn't show up, check `Logs\imperivm\imperivm-mod.log`: the lines tagged `civilizations` say what was registered and what failed (an invalid `id`,
-a missing or duplicate `index`, a `base` that doesn't exist). Errors also appear on the mod's card in the manager.
+a missing or duplicate `index`, a `base` that doesn't exist, an invalid or conflicting prefix). Errors also appear on the mod's card in the manager.
 
 ## Variants
 
@@ -111,8 +125,8 @@ With `"variant": true`:
 - With `"replacesBase": true` the base no longer shows in the lobby and its variants take its place. In the random draw, the base's
   share is split among them. A player who had the base chosen moves to the first variant. Maps and saved games that fix the base still
   use it.
-- A variant with `"replacesBase": true` can also change its base's letter and templates for the whole game. With `letter`, the game
-  builds the names of the base's classes and commands with that letter (`GetRaceStrPref`, peasant training, barracks, sentries, hero
+- A variant with `"replacesBase": true` can also change its base's prefix and templates for the whole game. With `letter`, the game
+  builds the names of the base's classes and commands with that whole prefix (`GetRaceStrPref`, peasant training, barracks, sentries, hero
   hiring). With `template`, the base's towns and villages, including the neutral ones of the random map, come from your
   `<template> Town N` and `<template> Village N` templates. This is what replacing a whole civilization takes. For example, Greece takes
   the place of Imperial Rome with `"base": "ImperialRome"`, `"letter": "H"` and `"template": "Greek"`, and its classes have
@@ -122,18 +136,34 @@ With `"variant": true`:
 ## Cloning a civilization
 
 Writing a civilization's dozens of classes and commands by hand is no fun. `tools/clone-civilization.js` clones one from the game.
-It needs the game's `DATA` folder, which you get with [`extract-data.js`](tools/extract-data.js):
+Start with a copy of the [civilization template](templates/civilization), edit its `mod.json`, and run these commands **from the SDK root**, the folder containing `tools`. The tool needs the game's `DATA` folder, which you get with [`extract-data.js`](tools/extract-data.js):
 
 ```
-node extract-data.js "<game folder>" <output folder>
-node clone-civilization.js <output folder>\DATA <mod folder> Dacia D Gaul 10
+node tools/extract-data.js "<game folder>" "<output folder>"
+node tools/clone-civilization.js "<output folder>\DATA" "<mod folder>" dacia --base Gaul --index 10
+node tools/validate-mod.js "<mod folder>" --data "<output folder>\DATA"
 ```
 
-It generates `civs\dacia.json`, a copy of each of the base's classes (`DSwordsman` is a copy of `GSwordsman`, with `race="Dacia"`), the commands that
-name base classes (`trainGSwordsman Dacia`, `trainpeasantd`, `hireheroD`…) and patches that add the new classes to the
+Without `--letter`, this derives `Dac`. To override it, add `--letter Dac2`. The old positional form still works unchanged, including single digits:
+
+```
+node tools/clone-civilization.js "<output folder>\DATA" "<mod folder>" Dacia D Gaul 10
+node tools/clone-civilization.js "<output folder>\DATA" "<mod folder>" Dacia 2 Gaul 10 --all-orders
+```
+
+The optional flags are `--letter`, `--base`, `--index` and `--all-orders` (clone even shared orders that name no class). Use the flag form when omitting the positional letter. Defaults are base `Gaul` and index `10`; the index is not automatically allocated. Choose an unused index before publishing and never change it in a published pack.
+
+The eight game prefixes (`G R C I M B E T`) are rejected by the cloner, even the base's own prefix: new classes with those ids would overwrite the originals. A registered community conflict produces a warning with the owner and pack, but keeps your prefix; it does not silently select another one. Check [the registry](prefixes.md) and choose another with `--letter`.
+
+Generation refuses to overwrite any of its target files and stops before writing if one already exists. To regenerate with different identifiers, use a fresh output folder; do not change only the JSON or copy over edited classes. To combine several generated civilizations into a pack, merge their classes, declarations and commands and combine the operations in shared patch files rather than overwriting those files. The validator checks only that pack; conflicts with other active packs are reported by the content manager at runtime.
+
+With the derived `Dac`, it generates `civs\dacia.json`, a copy of each of the base's classes (`DacSwordsman` is a copy of `GSwordsman`, with `race="Dacia"`), the commands that
+name base classes (`trainGSwordsman Dacia`, `trainpeasantdac`, `hireheroDac`…) and patches that add the new classes to the
 shared commands. It also clones the heroes `GHero1`…`GHero7`, which hang from `GaulHero` and have no `race`: without heroes that have a model, hiring one
 crashes the game. From there you edit whatever you want. The sample result is in
-[`examples/civilization-example`](examples/civilization-example).
+[`examples/civilization-example`](examples/civilization-example), which keeps the legacy prefix `D`.
+
+The generated declaration has `"ai": true` and the AI aliases, but no `variant` or `replacesBase`: it is an independent civilization. It looks like the base until you edit it. Enable it in an isolated test profile, restart, and test it in a local room with a random map: recruitment, heroes, sentries, AI, then saving/loading. Do this before publishing.
 
 The tool doesn't write the `template` field. If you want your own templates, add it yourself ([Templates](city-templates.md)).
 
@@ -147,8 +177,8 @@ decide based on the civilization of the central building and build names from it
 translates what they ask for:
 
 - The commands and research they ask for by name (`trainGSwordsman`, `Gaul Axeman`, `hireheroG`…) are mapped to your civilization's, according to
-  `alias.ordenes`, only on objects of an AI of your civilization.
-- Your classes count as the base's: `DArcher` is a `GArcher` for counts, barracks, temples and counter-units.
+  `alias.commands`, only on objects of an AI of your civilization.
+- Your classes count as the base's: `DacArcher` is a `GArcher` for counts, barracks, temples and counter-units.
 
 The cloning tool fills in both tables. If you write your classes by hand, fill them in yourself. Nothing changes for the human player.
 

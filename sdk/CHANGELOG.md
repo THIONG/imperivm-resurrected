@@ -2,6 +2,12 @@
 
 The SDK version and which mods you can make with each one. The script API version (`Mod_ApiVersion()`) is separate: it's currently 7.
 
+## Unreleased
+
+Multi-character prefixes require a matching Imperivm Resurrected build with this feature; they are not supported by the original 1.0 release.
+
+- **Civilization prefixes**: `letter` accepts 1–4 characters (uppercase letter followed by letters/digits); single letters and single digits stay compatible. The uppercase API preserves suffix case, the lowercase API lowers the whole prefix, and conflicting own prefixes are rejected case-insensitively, including the reserved game prefixes. `clone-civilization.js` derives `dacia` → `Dac`, accepts `--letter` overrides and the old positional form, and warns on community conflicts in the new [prefix registry](prefixes.md). It rejects reserved game prefixes and refuses to overwrite generated files. The template and guides now walk through creating an independent civilization, not replacing its base. The validator also catches duplicate civilization ids and non-integer indices. See [Civilizations](civilizations.md#cloning-a-civilization). An initial `Dac` gameplay test passed on Linux/Wine; test your own pack before publishing.
+
 ## 1.0
 
 Needs Imperivm Resurrected 1.0 or later.

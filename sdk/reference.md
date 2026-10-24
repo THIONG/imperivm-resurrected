@@ -81,7 +81,7 @@ Guide: [Civilizations](civilizations.md).
 | `index` | integer 10-99 | — | Yes | The civilization's number |
 | `base` | text | `Gaul` | No | Game civilization it inherits from: `Gaul`, `RepublicanRome`, `Carthage`, `Iberia`, `ImperialRome`, `Britain`, `Egypt`, `Germany` (also `Rome`, `Roman`, `Briton`) |
 | `name` | text, or object per language | the `id`, capitalized | No | Name in the lobby |
-| `letter` | one letter | the base's | No | Prefix for classes and orders |
+| `letter` | text, 1–4 characters | the base's | No | Uppercase letter followed by letters/digits (`Dac`); legacy single letters and digits still work. Uppercase API preserves suffix case; lowercase API lowers the whole prefix. See [prefix convention](civilizations.md#prefix-convention) |
 | `template` | text | empty | No | Prefix of your city and village templates |
 | `internalName` | text | the base's | No | Name the game uses to look for interface files. Also valid in `race=` if it's not the base's |
 | `folder` | text | the base's | No | Name in the selection texts |
@@ -94,7 +94,8 @@ Guide: [Civilizations](civilizations.md).
 | `replacesBase` | boolean | `false` | No | The base doesn't show in the lobby: this civilization takes its place and its share of the random draw |
 
 - `race="<id>"` in a class's `<properties>` uses the civilization by its `id` or its `internalName`.
-- Repeated `id` or `index`: the one from the mod that comes first wins; the others are ignored with a warning.
+- A new civilization is independent by default: without `replacesBase`, the base remains selectable. `variant` is a separate opt-in for sharing the base's script identity.
+- Repeated `id`, `index` or own prefix: the one from the mod that comes first wins; the others are ignored with a warning. Prefixes compare case-insensitively; game prefixes are reserved, except when inheriting your own base's prefix without cloning its classes.
 - English aliases: `index`, `name`, `letter`, `template`, `internalName`, `folder`, `random`, `biome`, `ai`, `ownAi`.
 
 ## 4. `specials\*.json`

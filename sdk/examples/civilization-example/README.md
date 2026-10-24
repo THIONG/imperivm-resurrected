@@ -3,11 +3,11 @@
 Dacia: a new civilization (index 10, letter `D`) cloned from Gaul with [`tools/clone-civilization.js`](../../tools/clone-civilization.js).
 
 ```
-node extract-data.js "<game folder>" <output folder>
-node clone-civilization.js <output folder>\DATA <mod folder> Dacia D Gaul 10
+node tools/extract-data.js "<game folder>" "<output folder>"
+node tools/clone-civilization.js "<output folder>\DATA" "<new mod folder>" Dacia D Gaul 10
 ```
 
-`extract-data.js` extracts `data.pak` to `<output folder>\DATA`, the folder the tool asks for.
+Run those commands from the SDK root, with a fresh output folder based on the [civilization template](../../templates/civilization). `extract-data.js` extracts `data.pak` to `<output folder>\DATA`, the folder the tool asks for. This example deliberately keeps `D` for compatibility; for a new civilization omit the positional letter to derive `Dac`, or choose `--letter Dac2` as described in [Cloning a civilization](../../civilizations.md#cloning-a-civilization). The generated civilization is independent: it does not set `variant` or `replacesBase`, so Gaul stays selectable.
 
 | File | What it is |
 |---|---|

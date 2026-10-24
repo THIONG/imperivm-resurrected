@@ -29,6 +29,11 @@ struct Civ {
 	std::string modFolder;
 };
 
+inline constexpr char kGameCivPrefixes[] = "grcimbet";
+bool CivSetPrefix(Civ &c, const std::string &prefix);
+// Returns the owner's civilization index, or -1 when the prefix is available.
+int CivPrefixClash(const Civ &c, const std::vector<const Civ *> &accepted);
+
 void CivsRebuild();
 const Civ *CivByIndex(int index);
 const Civ *CivByName(const std::string &name);
