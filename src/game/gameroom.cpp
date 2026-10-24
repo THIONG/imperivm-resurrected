@@ -837,7 +837,7 @@ void EnforceModeRaces()
 		int type = 0, color = 0, ready = 0, race = 0, team = 0xff, extra = 0;
 		if (!reinterpret_cast<GetSlotInfo_t>(addr::kGetSlotInfo)(g_dlg, nullptr, i, &name, &type, &color, &ready, &race, &team, &extra) || (type != 1 && type != 3)) continue;
 		const int now = CivsRaceOfRoomItem(static_cast<unsigned char>(choice[i]));
-		if (now < 0 || ((!mode || GameModeAllows(*mode, now)) && (!sets || g_scenarioRace[i] >= 0 || CivsRoomAllows(now)))) continue;
+		if (now < 0 || ((!mode || GameModeAllows(*mode, now)) && (!sets || CivsRoomAllows(now)))) continue;
 		int item = -1;
 		for (int shown : CivsRoomOrder(10 + static_cast<int>(CivsList().size()))) {
 			const int race = CivsRaceOfRoomItem(shown);
