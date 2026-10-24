@@ -657,6 +657,13 @@ void DoAction(int action, int arg)
 				-1, profileMods, "Content that will be loaded:");
 			break;
 		}
+		if (g_s.createSave >= 0 && g_s.createSave < static_cast<int>(g_s.saves.size())) {
+			const std::string problem = ModsCheckCivIndices(g_s.saves[g_s.createSave].vfsPath);
+			if (!problem.empty()) {
+				ModUiToast(problem);
+				break;
+			}
+		}
 		if (!g_s.ready) {
 			ModUiToast(Tr("Online is not available: ") + g_s.status);
 			break;

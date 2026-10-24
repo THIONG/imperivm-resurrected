@@ -127,7 +127,7 @@ std::vector<std::string> ComboItems(void *combo)
 	if (!list) return out;
 	const unsigned count = *reinterpret_cast<unsigned *>(list + 0x58);
 	char *items = *reinterpret_cast<char **>(list + 0x94);
-	for (unsigned i = 0; items && i < count && i < 64; i++) {
+	for (unsigned i = 0; items && i < count && i < 128; i++) {
 		const char *text = *reinterpret_cast<const char **>(items + i * 0x14);
 		out.push_back(text ? text : "");
 	}

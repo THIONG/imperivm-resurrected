@@ -12,6 +12,7 @@
 #include "core/json.h"
 #include "core/log.h"
 #include "mods/mods.h"
+#include "mods/civindices.h"
 #include "i18n/tr.h"
 #include "mods/features.h"
 #include "hooks/diag.h"
@@ -55,7 +56,6 @@ typedef void *(__cdecl *GenerateRandomMap_t)(unsigned params, int *out);
 GenerateRandomMap_t g_origGenerateMap = nullptr;
 
 const char *const kGameNames[8] = {"Gaul", "RepublicanRome", "Carthage", "Iberia", "ImperialRome", "Britain", "Egypt", "Germany"};
-const char kGameLetters[] = "grcimbet";
 
 std::mutex g_lock;
 std::vector<const Civ *> g_civs;
@@ -63,7 +63,7 @@ std::map<std::string, std::vector<std::string>> g_errors;
 bool g_ready = false;
 
 struct BaseOverride {
-	char letterUp[2] = {}, letterLow[2] = {};
+	std::string letterUp, letterLow;
 	char prefix[48] = {};
 	char neutralPrefix[48] = {};
 };
@@ -88,9 +88,9 @@ std::string Lower(std::string s)
 
 bool ValidId(const std::string &s)
 {
-	if (s.empty() || s.size() > 24 || !isalpha(static_cast<unsigned char>(s[0]))) return false;
+	if (s.empty() || s.size() > 24 || s[0] < 'a' || s[0] > 'z') return false;
 	for (char c : s) {
-		if (!isalnum(static_cast<unsigned char>(c)) && c != '_') return false;
+		if (!(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '_') return false;
 	}
 	return true;
 }
@@ -146,7 +146,7 @@ const char *__cdecl HookGetRaceLetter(int race, int lower)
 	if (race >= 10) {
 		if (const Civ *c = FindByIndex(race)) return lower ? c->letterLow.c_str() : c->letterUp.c_str();
 	}
-	if (race >= 0 && race < 8 && g_baseOverride[race].letterUp[0]) return lower ? g_baseOverride[race].letterLow : g_baseOverride[race].letterUp;
+	if (race >= 0 && race < 8 && !g_baseOverride[race].letterUp.empty()) return lower ? g_baseOverride[race].letterLow.c_str() : g_baseOverride[race].letterUp.c_str();
 	return g_origLetter(race, lower);
 }
 
@@ -203,9 +203,9 @@ int __cdecl HookRaceLetterNative(int *pSP)
 			return 0;
 		}
 	}
-	if (race >= 0 && race < 8 && g_baseOverride[race].letterUp[0]) {
+	if (race >= 0 && race < 8 && !g_baseOverride[race].letterUp.empty()) {
 		*pSP -= obj ? 8 : 4;
-		PushScriptString(pSP, lower ? g_baseOverride[race].letterLow : g_baseOverride[race].letterUp);
+		PushScriptString(pSP, lower ? g_baseOverride[race].letterLow.c_str() : g_baseOverride[race].letterUp.c_str());
 		return 0;
 	}
 	Native_t orig = obj ? (lower ? g_origObjStrPrefLow : g_origObjStrPref) : (lower ? g_origGetStrPrefLow : g_origGetStrPref);
@@ -435,7 +435,7 @@ bool ScopedName(const char *name, std::string &out)
 {
 	const Civ *c = t_cityScope;
 	if (!c || !name || !name[0] || c->base < 0 || c->base > 7) return false;
-	const char baseLetter = static_cast<char>(toupper(static_cast<unsigned char>(kGameLetters[c->base])));
+	const char baseLetter = static_cast<char>(toupper(static_cast<unsigned char>(kGameCivPrefixes[c->base])));
 	if (name[0] != baseLetter || !(isupper(static_cast<unsigned char>(name[1])) || strncmp(name + 1, "house", 5) == 0)) return false;
 	out = c->letterUp + (name + 1);
 	return true;
@@ -639,7 +639,7 @@ void *__cdecl HookGenerateRandomMap(unsigned params, int *out)
 	return r;
 }
 
-void LoadCivFile(const std::string &folder, const std::string &path, const std::string &fileName, std::vector<const Civ *> &out)
+void LoadCivFile(const std::string &folder, const std::string &path, const std::string &fileName, std::vector<Civ *> &out)
 {
 	Json j;
 	std::string err;
@@ -658,10 +658,14 @@ void LoadCivFile(const std::string &folder, const std::string &path, const std::
 	}
 	civ->constant = spelled;
 	civ->constant[0] = static_cast<char>(toupper(static_cast<unsigned char>(civ->constant[0])));
-	civ->index = static_cast<int>(j.GetNumber("index", 0));
-	if (civ->index < 10 || civ->index > 99) {
-		AddError(folder, TrFmt("%s: \"index\" is missing or not between 10 and 99 (numbers 0 to 9 belong to the game's civilizations)", {fileName}));
-		return;
+	const Json *index = j.Get("index");
+	civ->automaticIndex = !index;
+	if (index) {
+		if (index->type != Json::Number || !(index->num >= kCivIndexFirst && index->num <= kCivIndexLast) || index->num != static_cast<int>(index->num)) {
+			AddError(folder, TrFmt("%s: \"index\" must be a whole number between 10 and 127, or omitted for automatic assignment", {fileName}));
+			return;
+		}
+		civ->index = static_cast<int>(index->num);
 	}
 	const std::string base = j.GetString("base", "Gaul");
 	civ->base = GameCivByName(base);
@@ -680,15 +684,11 @@ void LoadCivFile(const std::string &folder, const std::string &path, const std::
 	civ->templatePrefix = j.GetString("template");
 	std::string name = j.GetString("internalName");
 	civ->internalName = name.empty() ? kGameNames[civ->base] : name;
-	std::string letter = j.GetString("letter");
-	if (letter.size() > 1) {
-		AddError(folder, TrFmt("%s: \"letter\" is a single letter", {fileName}));
+	const Json *letter = j.Get("letter");
+	if ((letter && letter->type != Json::String) || !CivSetPrefix(*civ, letter ? letter->str : std::string(1, kGameCivPrefixes[civ->base]))) {
+		AddError(folder, TrFmt("%s: \"letter\" must be 1 to 4 characters (uppercase letter then letters or digits; a single letter or digit also works)", {fileName}));
 		return;
 	}
-	civ->ownLetter = !letter.empty() && tolower(static_cast<unsigned char>(letter[0])) != kGameLetters[civ->base];
-	if (letter.empty()) letter = std::string(1, kGameLetters[civ->base]);
-	civ->letterLow = std::string(1, static_cast<char>(tolower(static_cast<unsigned char>(letter[0]))));
-	civ->letterUp = std::string(1, static_cast<char>(toupper(static_cast<unsigned char>(letter[0]))));
 	civ->folder = j.GetString("folder");
 	civ->random = j.GetBool("random", true);
 	civ->variant = j.GetBool("variant");
@@ -770,7 +770,11 @@ int GameCivByName(const std::string &name)
 
 void CivsRebuild()
 {
-	std::vector<const Civ *> found;
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		g_errors.clear();
+	}
+	std::vector<Civ *> found;
 	std::vector<std::string> dirs = ModsMountedDirs();
 	std::vector<std::pair<std::string, std::string>> roots;
 	for (const std::string &dir : dirs) roots.push_back({dir.substr(dir.find_last_of('\\') + 1), dir + "\\civs"});
@@ -788,14 +792,44 @@ void CivsRebuild()
 	for (const Civ *c : found) {
 		bool dup = false;
 		for (const Civ *u : unique) {
-			if (u->id == c->id || u->index == c->index) {
-				AddError(c->modFolder, TrFmt("\"%s\" (index %s) clashes with \"%s\" from content pack %s: ignored", {c->id, std::to_string(c->index), u->id, u->modFolder}));
+			if (u->id == c->id || (c->index != 0 && u->index == c->index)) {
+				AddError(c->modFolder, TrFmt("\"%s\" (index %s) clashes with \"%s\" from content pack %s: ignored", {c->id, c->automaticIndex ? Tr("Automatic") : std::to_string(c->index), u->id, u->modFolder}));
 				dup = true;
 				break;
 			}
 		}
-		if (!dup) unique.push_back(c);
+		if (dup) continue;
+		const int owner = CivPrefixClash(*c, unique);
+		if (owner >= 0) {
+			std::string name = GameCivName(owner);
+			std::string pack = Tr("Original game");
+			for (const Civ *u : unique) {
+				if (!u->ownLetter || u->letterLow != c->letterLow) continue;
+				name = CivDisplayName(*u);
+				pack = u->modFolder.empty() ? "imperivm-resurrected\\civs" : u->modFolder;
+				break;
+			}
+			AddError(c->modFolder, TrFmt("\"%s\": prefix \"%s\" is already used by %s from content pack %s: ignored", {c->id, c->letterUp, name, pack}));
+			continue;
+		}
+		unique.push_back(c);
 	}
+	std::vector<CivIndex> indices;
+	for (const Civ *c : unique) indices.push_back({c->id, c->index});
+	for (const std::string &id : CivIndicesAssign(indices)) {
+		for (const Civ *c : unique) {
+			if (c->id == id) AddError(c->modFolder, TrFmt("\"%s\": no free civilization index (up to 118 custom civilizations per profile): ignored", {id}));
+		}
+	}
+	for (Civ *c : found) {
+		if (c->index != 0) continue;
+		const auto slot = std::find_if(indices.begin(), indices.end(), [&](const CivIndex &entry) { return entry.id == c->id; });
+		if (slot != indices.end()) c->index = slot->index;
+	}
+	unique.erase(std::remove_if(unique.begin(), unique.end(), [](const Civ *c) { return c->index == 0; }), unique.end());
+	indices.erase(std::remove_if(indices.begin(), indices.end(), [](const CivIndex &c) { return c.index == 0; }), indices.end());
+	const bool automatic = std::any_of(unique.begin(), unique.end(), [](const Civ *c) { return c->automaticIndex; });
+	CivIndicesSet(indices, automatic);
 	BaseOverride overrides[8];
 	const Civ *letterFrom[8] = {}, *prefixFrom[8] = {};
 	for (const Civ *c : unique) {
@@ -808,8 +842,8 @@ void CivsRebuild()
 			}
 			else if (!letterFrom[c->base]) {
 				letterFrom[c->base] = c;
-				o.letterUp[0] = c->letterUp[0];
-				o.letterLow[0] = c->letterLow[0];
+				o.letterUp = c->letterUp;
+				o.letterLow = c->letterLow;
 			}
 		}
 		if (!c->templatePrefix.empty()) {
