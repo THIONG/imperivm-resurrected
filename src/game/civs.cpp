@@ -12,6 +12,7 @@
 #include "core/json.h"
 #include "core/log.h"
 #include "mods/mods.h"
+#include "mods/civindices.h"
 #include "i18n/tr.h"
 #include "mods/features.h"
 #include "hooks/diag.h"
@@ -87,9 +88,9 @@ std::string Lower(std::string s)
 
 bool ValidId(const std::string &s)
 {
-	if (s.empty() || s.size() > 24 || !isalpha(static_cast<unsigned char>(s[0]))) return false;
+	if (s.empty() || s.size() > 24 || s[0] < 'a' || s[0] > 'z') return false;
 	for (char c : s) {
-		if (!isalnum(static_cast<unsigned char>(c)) && c != '_') return false;
+		if (!(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '_') return false;
 	}
 	return true;
 }
@@ -638,7 +639,7 @@ void *__cdecl HookGenerateRandomMap(unsigned params, int *out)
 	return r;
 }
 
-void LoadCivFile(const std::string &folder, const std::string &path, const std::string &fileName, std::vector<const Civ *> &out)
+void LoadCivFile(const std::string &folder, const std::string &path, const std::string &fileName, std::vector<Civ *> &out)
 {
 	Json j;
 	std::string err;
@@ -657,10 +658,14 @@ void LoadCivFile(const std::string &folder, const std::string &path, const std::
 	}
 	civ->constant = spelled;
 	civ->constant[0] = static_cast<char>(toupper(static_cast<unsigned char>(civ->constant[0])));
-	civ->index = static_cast<int>(j.GetNumber("index", 0));
-	if (civ->index < 10 || civ->index > 99) {
-		AddError(folder, TrFmt("%s: \"index\" is missing or not between 10 and 99 (numbers 0 to 9 belong to the game's civilizations)", {fileName}));
-		return;
+	const Json *index = j.Get("index");
+	civ->automaticIndex = !index;
+	if (index) {
+		if (index->type != Json::Number || !(index->num >= kCivIndexFirst && index->num <= kCivIndexLast) || index->num != static_cast<int>(index->num)) {
+			AddError(folder, TrFmt("%s: \"index\" must be a whole number between 10 and 127, or omitted for automatic assignment", {fileName}));
+			return;
+		}
+		civ->index = static_cast<int>(index->num);
 	}
 	const std::string base = j.GetString("base", "Gaul");
 	civ->base = GameCivByName(base);
@@ -769,7 +774,7 @@ void CivsRebuild()
 		std::lock_guard<std::mutex> lock(g_lock);
 		g_errors.clear();
 	}
-	std::vector<const Civ *> found;
+	std::vector<Civ *> found;
 	std::vector<std::string> dirs = ModsMountedDirs();
 	std::vector<std::pair<std::string, std::string>> roots;
 	for (const std::string &dir : dirs) roots.push_back({dir.substr(dir.find_last_of('\\') + 1), dir + "\\civs"});
@@ -787,8 +792,8 @@ void CivsRebuild()
 	for (const Civ *c : found) {
 		bool dup = false;
 		for (const Civ *u : unique) {
-			if (u->id == c->id || u->index == c->index) {
-				AddError(c->modFolder, TrFmt("\"%s\" (index %s) clashes with \"%s\" from content pack %s: ignored", {c->id, std::to_string(c->index), u->id, u->modFolder}));
+			if (u->id == c->id || (c->index != 0 && u->index == c->index)) {
+				AddError(c->modFolder, TrFmt("\"%s\" (index %s) clashes with \"%s\" from content pack %s: ignored", {c->id, c->automaticIndex ? Tr("Automatic") : std::to_string(c->index), u->id, u->modFolder}));
 				dup = true;
 				break;
 			}
@@ -799,7 +804,7 @@ void CivsRebuild()
 			std::string name = GameCivName(owner);
 			std::string pack = Tr("Original game");
 			for (const Civ *u : unique) {
-				if (u->index != owner) continue;
+				if (!u->ownLetter || u->letterLow != c->letterLow) continue;
 				name = CivDisplayName(*u);
 				pack = u->modFolder.empty() ? "imperivm-resurrected\\civs" : u->modFolder;
 				break;
@@ -809,6 +814,22 @@ void CivsRebuild()
 		}
 		unique.push_back(c);
 	}
+	std::vector<CivIndex> indices;
+	for (const Civ *c : unique) indices.push_back({c->id, c->index});
+	for (const std::string &id : CivIndicesAssign(indices)) {
+		for (const Civ *c : unique) {
+			if (c->id == id) AddError(c->modFolder, TrFmt("\"%s\": no free civilization index (up to 118 custom civilizations per profile): ignored", {id}));
+		}
+	}
+	for (Civ *c : found) {
+		if (c->index != 0) continue;
+		const auto slot = std::find_if(indices.begin(), indices.end(), [&](const CivIndex &entry) { return entry.id == c->id; });
+		if (slot != indices.end()) c->index = slot->index;
+	}
+	unique.erase(std::remove_if(unique.begin(), unique.end(), [](const Civ *c) { return c->index == 0; }), unique.end());
+	indices.erase(std::remove_if(indices.begin(), indices.end(), [](const CivIndex &c) { return c.index == 0; }), indices.end());
+	const bool automatic = std::any_of(unique.begin(), unique.end(), [](const Civ *c) { return c->automaticIndex; });
+	CivIndicesSet(indices, automatic);
 	BaseOverride overrides[8];
 	const Civ *letterFrom[8] = {}, *prefixFrom[8] = {};
 	for (const Civ *c : unique) {

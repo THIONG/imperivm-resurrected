@@ -1,6 +1,6 @@
 // Clones a game civilization as a new civilization in a mod (Imperivm Resurrected SDK).
 //
-//   node clone-civilization.js <DATA> <mod folder> <id> [letter] [base=Gaul] [index=10] [--all-orders]
+//   node clone-civilization.js <DATA> <mod folder> <id> [letter] [base=Gaul] [index] [--all-orders]
 //   node clone-civilization.js <DATA> <mod folder> <id> [--letter Dac] [--base Gaul] [--index 10] [--all-orders]
 //
 // With --all-orders every order of the base's classes is copied under a name of its own ("<order> <Id>"), not only the ones that name
@@ -29,16 +29,16 @@ for (let i = 0; i < args.length; i++) {
 const CLONE_ALL = opt.allOrders;
 const [dataDir, modDir, id, positionalLetter, positionalBase, positionalIndex] = positional;
 if (!dataDir || !modDir || !id || positional.length > 6) {
-	fail('usage: node clone-civilization.js <DATA> <mod folder> <id> [letter] [base=Gaul] [index=10]\n' +
+	fail('usage: node clone-civilization.js <DATA> <mod folder> <id> [letter] [base=Gaul] [index]\n' +
 		'       node clone-civilization.js <DATA> <mod folder> <id> [--letter Dac] [--base Gaul] [--index 10] [--all-orders]');
 }
 if (opt.letter !== undefined && positionalLetter !== undefined) fail('use either a positional letter or --letter, not both');
 if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(id)) fail('invalid id');
 const derived = id.replace(/_/g, '').slice(0, 3).toLowerCase();
 const letter = opt.letter ?? positionalLetter ?? (derived[0].toUpperCase() + derived.slice(1));
-const base = opt.base ?? positionalBase ?? 'Gaul', indexArg = opt.index ?? positionalIndex ?? '10';
+const base = opt.base ?? positionalBase ?? 'Gaul', indexArg = opt.index ?? positionalIndex;
 if (!/^(?:[A-Za-z0-9]|[A-Z][A-Za-z0-9]{1,3})$/.test(letter)) fail('invalid letter: use 1 to 4 characters (uppercase letter then letters or digits; a single letter or digit also works)');
-if (!Number.isInteger(Number(indexArg)) || Number(indexArg) < 10 || Number(indexArg) > 99) fail('index must be a whole number from 10 to 99');
+if (indexArg !== undefined && (!Number.isInteger(Number(indexArg)) || Number(indexArg) < 10 || Number(indexArg) > 127)) fail('index must be a whole number from 10 to 127');
 const L = letter[0].toUpperCase() + letter.slice(1), l = letter.toLowerCase();
 const Id = id[0].toUpperCase() + id.slice(1);
 
@@ -208,7 +208,7 @@ for (const [f, list] of shared) {
 // 4. Declaration
 fs.mkdirSync(path.join(modDir, 'civs'), { recursive: true });
 fs.writeFileSync(path.join(modDir, 'civs', id.toLowerCase() + '.json'), JSON.stringify({
-	id: id.toLowerCase(), index: Number(indexArg), base, name: { spanish: Id, english: Id, italian: Id }, letter: L, ai: true,
+	id: id.toLowerCase(), ...(indexArg === undefined ? {} : { index: Number(indexArg) }), base, name: { spanish: Id, english: Id, italian: Id }, letter: L, ai: true,
 		// With "ia": true the AI plays the civilization using the game's scripts, which see the base: these tables translate what they ask for
 		// (base classes and orders) into what was cloned. Do not delete them if you enable "ia"
 		alias: { classes: Object.fromEntries(rename), commands: aliasOrders },

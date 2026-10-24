@@ -4,7 +4,7 @@ Check this list before choosing `letter` for a [civilization](civilizations.md).
 
 The cloning tool rejects the eight game prefixes: using one for new classes would overwrite the game's classes, even if it is your base's own prefix. For a registered community conflict it warns but keeps the requested or derived prefix; it never silently picks an alternative. Choose another explicitly with `--letter` before generating your final mod. The registry is advisory, not a list of every mod in existence; the runtime rejects conflicting own prefixes among active packs and reserves the eight game prefixes. A hand-written variant may inherit its own base's prefix (omitting `letter`, or explicitly using that base's letter) without cloning its classes. This is different from asking the cloning tool to generate new classes with that reserved prefix.
 
-The registry covers prefixes only. You must also choose a distinct civilization `id` and numeric `index` (10–99); neither the derived prefix nor an entry here allocates an index.
+The registry covers prefixes only and reserves **no numeric slots**. Choose a distinct civilization `id`; omit `index` for automatic engine assignment within the active profile (10–127, at most 118 custom civilizations). Explicit indices are an advanced legacy option: keep existing published numbers unchanged. Automatic indices and multi-character prefixes need the matching new DLL build. See [numeric indices and saved games](civilizations.md#numeric-indices-and-saved-games) before changing a profile's civilization set.
 
 Class names start with the prefix followed by an uppercase letter: `GaTownhall` and `GalTownhall` are distinct from `GTownhall`. See the [naming convention](civilizations.md#prefix-convention).
 

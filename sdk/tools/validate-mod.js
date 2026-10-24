@@ -334,9 +334,11 @@ for (const f of files.filter(f => /^civs\/[^/]+\.json$/i.test(f))) {
 	else if (myCivs.has(lower(id))) error(f, 0, `id "${id}" is already used by another civilization in this mod`);
 	else myCivs.add(lower(id));
 	const idx = j.index;
-	if (!Number.isInteger(idx) || idx < 10 || idx > 99) error(f, 0, '"index" must be a whole number between 10 and 99');
-	else if (civIndexes.has(idx)) error(f, 0, `index ${idx} is already used by ${civIndexes.get(idx)}`);
-	else civIndexes.set(idx, f);
+	if (idx !== undefined) {
+		if (!Number.isInteger(idx) || idx < 10 || idx > 127) error(f, 0, '"index" must be a whole number between 10 and 127');
+		else if (civIndexes.has(idx)) error(f, 0, `index ${idx} is already used by ${civIndexes.get(idx)}`);
+		else civIndexes.set(idx, f);
+	}
 	if (!GAME_CIVS.includes(j.base || 'Gaul')) error(f, 0, `unknown "base": ${j.base} (${GAME_CIVS.join(', ')})`);
 	const biome = j.biome;
 	if (biome !== undefined && !GAME_CIVS.includes(biome)) error(f, 0, `unknown "bioma": ${biome} (${GAME_CIVS.join(', ')})`);

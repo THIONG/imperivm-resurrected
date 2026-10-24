@@ -18,7 +18,6 @@ A `civs\<id>.json` file in your mod:
 ```json
 {
   "id": "dacia",
-  "index": 10,
   "base": "Gaul",
   "name": {"spanish": "Dacia", "english": "Dacia", "italian": "Dacia"},
   "letter": "Dac"
@@ -28,7 +27,7 @@ A `civs\<id>.json` file in your mod:
 | Field | What it is |
 |---|---|
 | `id` | The name: letters, numbers and `_`, starting with a letter, up to 24 characters. You use it in `race="..."` and in scripts. |
-| `index` | A number from 10 to 99. Don't change it once published: saved games remember it. Two mods can't use the same one. |
+| `index` | (Advanced, optional) An explicit integer from 10 to 127 for legacy packs. Omit it for automatic engine assignment; `null`, strings and fractions are errors. Keep published explicit numbers unchanged: saves remember them, and two active civilizations cannot share one. |
 | `base` | The game civilization it inherits from: `Gaul`, `RepublicanRome`, `Carthage`, `Iberia`, `ImperialRome`, `Britain`, `Egypt` or `Germany`. Defaults to `Gaul`. |
 | `name` | Its name in each language, or a single string. |
 | `letter` | Class and command prefix, 1 to 4 characters: an uppercase letter followed by letters or digits (`Dac`, `Ga`, `Dac2`). Existing single letters (including lowercase, normalized to uppercase) and single digits (`2Archer`) still work. Omit it to inherit the base's prefix. Only set your own if your classes and commands use it: the game builds names such as the peasant training command from it. See the convention and [registry](prefixes.md). |
@@ -43,7 +42,17 @@ A `civs\<id>.json` file in your mod:
 | `variant` | (Optional) With `true`, it's a variant of its base: it plays with the base's classes and scripts see it as the base. See *Variants*. |
 | `replacesBase` | (Optional) With `true`, the base no longer shows in the lobby and this civilization takes its place. See *Variants*. |
 
-With just `id`, `index` and `base` you get a playable copy using the base's existing classes under another name. The declaration above instead asks for your own `Dac` classes and commands: the JSON alone does not create them. Generate those with the cloning tool before testing it. Changing `letter` later does not rename existing files or references.
+With just `id` you get a playable copy using Gaul's existing classes under another name (`base` defaults to `Gaul`, and `index` is assigned automatically). The declaration above instead asks for your own `Dac` classes and commands: the JSON alone does not create them. Generate those with the cloning tool before testing it. Changing `letter` later does not rename existing files or references.
+
+## Numeric indices and saved games
+
+Keep `id` as the civilization's stable identity; new packs should omit `index`. For each active profile, the engine first reserves all explicit indices, then sorts the remaining civilizations by normalized (lowercase) `id` and assigns each the lowest free number from 10 through 127. Multiple declarations without `index` are valid, including within one pack. The [prefix registry](prefixes.md) reserves no numeric slots.
+
+There are **118 custom civilization slots per active profile**, shared by automatic and explicit indices. The old ceiling of 99 was policy; 127 is the engine's signed-byte constraint. Automatic assignment and multi-character prefixes both require the matching new `winmm.dll` build; older releases do not support them.
+
+Allocation is canonical for the effective profile, not a persisted allocation ledger: adding or removing civilizations can change automatic numbers. Saves using automatic civilizations require their accompanying `.mods.json` saved index table and the same effective civilization mapping. Missing or mismatched tables fail closed; restore the original profile and content to load the save. Do not expect transparent migration after changing the civilization set. Replays also require their original civilization set and mapping; the saved-game sidecar guard does not migrate replay files. Keep the sidecar with the save when copying or backing it up. Its `civSaveHash` binds the table to the completed binary save (SHA-256): an old sidecar cannot authorize a different overwritten file, and a metadata-write failure is reported rather than silently trusting a stale table. Multiplayer compatibility also includes the effective mapping; players must use matching content and DLL builds.
+
+For an existing pack with an explicit `index`, preserve that number rather than removing or renumbering it. The flag `--index` and the legacy positional argument are available for that purpose; new authors do not need to find a free numeric slot.
 
 ## Prefix convention
 
@@ -90,7 +99,7 @@ Declared civilizations appear in the multiplayer lobby's dropdowns, after the ga
 end screen) is the base's.
 
 If something doesn't show up, check `Logs\imperivm\imperivm-mod.log`: the lines tagged `civilizations` say what was registered and what failed (an invalid `id`,
-a missing or duplicate `index`, a `base` that doesn't exist, an invalid or conflicting prefix). Errors also appear on the mod's card in the manager.
+an invalid or duplicate explicit `index`, exhausted numeric slots, a `base` that doesn't exist, an invalid or conflicting prefix). Errors also appear on the mod's card in the manager.
 
 ## Variants
 
@@ -100,7 +109,6 @@ where Rome chooses at the start between republican, imperial and punic can offer
 ```json
 {
   "id": "RomeImperial",
-  "index": 21,
   "base": "RepublicanRome",
   "name": {"spanish": "Roma imperial", "english": "Roman Empire", "italian": "Roma imperiale"},
   "variant": true,
@@ -112,7 +120,7 @@ With `"variant": true`:
 
 - It plays with the base's classes and commands. It has no classes of its own and no `letter`, unless it replaces the whole base (see below).
 - `GetPlayerRace` returns the base, so the game's and other mods' scripts treat it like the base (ships, sentries, AI).
-- `Mod_PlayerCiv(player)` returns the civilization chosen in the lobby (21 in the example). What sets it apart goes in a
+- `Mod_PlayerCiv(player)` returns the civilization chosen in the lobby (its assigned index, exposed as `RomeImperial` in the example). What sets it apart goes in a
   [script patch](patches.md), for example researching the right Rome at the start:
 
 ```
@@ -140,7 +148,7 @@ Start with a copy of the [civilization template](templates/civilization), edit i
 
 ```
 node tools/extract-data.js "<game folder>" "<output folder>"
-node tools/clone-civilization.js "<output folder>\DATA" "<mod folder>" dacia --base Gaul --index 10
+node tools/clone-civilization.js "<output folder>\DATA" "<mod folder>" dacia --base Gaul
 node tools/validate-mod.js "<mod folder>" --data "<output folder>\DATA"
 ```
 
@@ -151,7 +159,7 @@ node tools/clone-civilization.js "<output folder>\DATA" "<mod folder>" Dacia D G
 node tools/clone-civilization.js "<output folder>\DATA" "<mod folder>" Dacia 2 Gaul 10 --all-orders
 ```
 
-The optional flags are `--letter`, `--base`, `--index` and `--all-orders` (clone even shared orders that name no class). Use the flag form when omitting the positional letter. Defaults are base `Gaul` and index `10`; the index is not automatically allocated. Choose an unused index before publishing and never change it in a published pack.
+The optional flags are `--letter`, `--base`, `--index` and `--all-orders` (clone even shared orders that name no class). Use the flag form when omitting the positional letter. The base defaults to `Gaul`. Without `--index` or its positional equivalent, the generated JSON omits `index` so the engine assigns it. Explicit indices (10–127) are an advanced legacy option; preserve numbers already published in existing packs.
 
 The eight game prefixes (`G R C I M B E T`) are rejected by the cloner, even the base's own prefix: new classes with those ids would overwrite the originals. A registered community conflict produces a warning with the owner and pack, but keeps your prefix; it does not silently select another one. Check [the registry](prefixes.md) and choose another with `--letter`.
 
@@ -194,7 +202,7 @@ AI limits:
 `Mod_TrueRace(set.GetCentralBuilding)`. The example [`examples/ai-tactic-example`](examples/ai-tactic-example) makes Dacia use a game tactic
 that no AI uses. Patches from several mods add up, so two civilizations can pick their tactic at the same time.
 
-With `"ownAi": true` the mod has to ship all the AI scripts, because the game's see civilization 10 and their tables don't know it.
+With `"ownAi": true` the mod has to ship all the AI scripts, because the game's see the custom civilization's numeric index and their tables don't know it.
 Normally you leave `"ai": true` and change only the tactic.
 
 ## The biome
@@ -203,7 +211,7 @@ On a random map, what surrounds each player's start (grass, sand, trees, decorat
 `base`'s, or whatever you set in `biome`:
 
 ```json
-{ "id": "dacia", "index": 10, "base": "Gaul", "biome": "Britain" }
+{ "id": "dacia", "base": "Gaul", "biome": "Britain" }
 ```
 
 The game only has four terrain-and-tree biomes, so civilizations share them in pairs:

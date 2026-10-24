@@ -10,12 +10,12 @@ A new civilization that can be picked in the lobby, with its units, buildings an
 4. Clone a civilization from the game:
 
    ```
-   node tools\clone-civilization.js "<output folder>\DATA" "<your mod folder>" myciv --base Gaul --index 10
+   node tools\clone-civilization.js "<output folder>\DATA" "<your mod folder>" myciv --base Gaul
    ```
 
    It derives the prefix `Myc` and writes `civs\myciv.json`, classes such as `MycTownhall`, commands such as `trainpeasantmyc`, and AI aliases. Your civilization appears **alongside Gaul**, not instead of it: the tool does not enable `variant` or `replacesBase`. Only add those if you deliberately want the behavior in [Variants](../../civilizations.md#variants).
 
-   Choose an unused `index` (10–99) and check the [prefix registry](../../prefixes.md); `10` is only a starting example, not an automatically reserved number. To choose another prefix before generating, add `--letter Myc2`. The game letters `G R C I M B E T` are reserved and the cloner rejects them. The tool refuses to overwrite generated files: to try different identifiers later, use a fresh output folder and merge deliberately rather than rerunning over your edits.
+   The required `id` (`myciv`) identifies your civilization; `base` defaults to Gaul. The JSON omits `index`: the engine assigns a free number automatically. Check the [prefix registry](../../prefixes.md), which reserves no numeric slots. `--index 10` (or the old positional argument) is an advanced legacy option only: keep already published explicit numbers unchanged. To choose another prefix before generating, add `--letter Myc2`. The game letters `G R C I M B E T` are reserved and the cloner rejects them. The tool refuses to overwrite generated files: to try different identifiers later, use a fresh output folder and merge deliberately rather than rerunning over your edits.
 5. Optional: its own city and village for random maps. `create-template.js` writes them in `patches\randommapsettlements\` ([City and village templates](../../city-templates.md)).
 6. Delete the `PUT-YOUR-FILES-HERE.txt` notes and validate the mod with the command below. Enable it in a test profile, restart, and pick the civilization in a local room with a random map. Check recruitment, heroes, sentries, an AI explicitly set to your civilization, and saving/loading before publishing. It initially looks and plays like Gaul; edit its classes and commands to make it different.
 
@@ -40,7 +40,9 @@ my-civilization\
 
 ## Notes
 
-- A civilization changes what happens in the game: everyone in the room needs the mod.
+- A civilization changes what happens in the game: everyone in the room needs the mod and the same effective civilization mapping.
+- Automatic indices and multi-character prefixes require the matching new DLL build. A profile supports at most 118 custom civilizations (10–127).
+- Keep the save's `.mods.json` index table and original profile/content. Adding or removing civilizations can change automatic numbers; a missing or mismatched table prevents loading. See [numeric indices and saved games](../../civilizations.md#numeric-indices-and-saved-games).
 - The finished example is [civilization-example](../../examples/civilization-example).
 
 ## Check and publish

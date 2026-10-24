@@ -33,12 +33,24 @@ try {
 		assert.match(r.text, /already used by civ10 in civs\/civ10.json/);
 	}
 	assert.equal(validate([civ('Ga'), civ('Gal', 11), civ('G', 12)]).status, 0);
-	for (const index of [10.5, '10', null, true, 9, 100]) {
+	for (const index of [10, 100, 127]) {
+		const r = validate([{ ...civ('Dac'), index }]);
+		assert.equal(r.status, 0, r.text);
+	}
+	const autoCiv = (id, letter) => ({ id, base: 'Gaul', letter });
+	const automatic = validate([autoCiv('dacia', 'Dac'), autoCiv('galatia', 'Gal'), civ('New')]);
+	assert.equal(automatic.status, 0, automatic.text);
+	validate([autoCiv('dacia', 'Dac')]);
+	write(path.join(mod, 'civs', 'duplicate.json'), JSON.stringify(autoCiv('DACIA', 'Gal')));
+	assert.match(run('validate-mod.js', [mod]).text, /id "DACIA" is already used/);
+	for (const index of [10.5, '10', null, true, 9, 128]) {
 		const r = validate([{ ...civ('Dac'), index }]);
 		assert.equal(r.status, 1, r.text);
-		assert.match(r.text, /"index" must be a whole number between 10 and 99/);
+		assert.match(r.text, /"index" must be a whole number between 10 and 127/);
 	}
-	assert.equal(validate([civ('Dac'), { ...civ('Gal'), id: 'other' }]).status, 1);
+	const duplicateIndex = validate([civ('Dac'), { ...civ('Gal'), id: 'other' }]);
+	assert.equal(duplicateIndex.status, 1, duplicateIndex.text);
+	assert.match(duplicateIndex.text, /index 10 is already used/);
 	validate([civ('Dac')]);
 	write(path.join(mod, 'civs', 'other.json'), JSON.stringify({ ...civ('Gal', 11), id: 'CIV10' }));
 	assert.match(run('validate-mod.js', [mod]).text, /id "CIV10" is already used/);
@@ -84,6 +96,7 @@ try {
 	};
 	const d = clone('dacia');
 	assert.equal(d.j.letter, 'Dac');
+	assert.equal(Object.hasOwn(d.j, 'index'), false);
 	assert.equal(d.j.alias.classes.GTownhall, 'DacTownhall');
 	assert.equal(d.j.alias.classes.GSentry1, 'DacSentry1');
 	assert.equal(d.j.alias.classes.GaulHero, 'DaciaHero');
@@ -106,8 +119,22 @@ try {
 	assert.equal(mixed.j.alias.commands.hireheroG, 'hireheroDaC2');
 	assert.equal(mixed.j.alias.commands.shared, 'shared Mixed');
 	assert.equal(run('validate-mod.js', [mixed.dest, '--data', data]).status, 0);
-	assert.equal(clone('legacy', ['d', 'Gaul', '14']).j.letter, 'D');
-	assert.equal(clone('digit', ['2', 'Gaul', '15', '--all-orders']).j.letter, '2');
+	for (const index of [100, 127]) {
+		const explicit = clone('explicit' + index, ['--letter', 'Exp', '--index', String(index)]);
+		assert.equal(explicit.j.index, index);
+		assert.equal(run('validate-mod.js', [explicit.dest, '--data', data]).status, 0);
+	}
+	const legacy = clone('legacy', ['d', 'Gaul', '14']);
+	assert.equal(legacy.j.letter, 'D');
+	assert.equal(legacy.j.index, 14);
+	const digit = clone('digit', ['2', 'Gaul', '15', '--all-orders']);
+	assert.equal(digit.j.letter, '2');
+	assert.equal(digit.j.index, 15);
+	assert.equal(digit.j.alias.commands.shared, 'shared Digit');
+	const positionalAuto = clone('positional', ['Pos', 'Gaul', '--all-orders']);
+	assert.equal(Object.hasOwn(positionalAuto.j, 'index'), false);
+	assert.equal(positionalAuto.j.alias.commands.shared, 'shared Positional');
+	assert.equal(clone('positional127', ['Pos', 'Gaul', '127']).j.index, 127);
 	assert.equal(clone('roman', ['--letter', 'Rom', '--base', 'RepublicanRome']).j.alias.classes.Rhouse03, 'Romhouse03');
 	const registered = clone('h'); // Derived H is already Greece's prefix; never silently choose another.
 	assert.equal(registered.j.letter, 'H');
@@ -123,13 +150,14 @@ try {
 	const firstMod = path.join(temp, 'my first civilization');
 	fs.cpSync(path.join(root, 'sdk/templates/civilization'), firstMod, { recursive: true });
 	const manifest = fs.readFileSync(path.join(firstMod, 'mod.json'));
-	const firstArgs = ['myciv', '--base', 'Gaul', '--index', '10'];
+	const firstArgs = ['myciv', '--base', 'Gaul'];
 	assert.ok(fs.readFileSync(path.join(firstMod, 'README.md'), 'utf8').includes(firstArgs.join(' ')));
 	const first = run('clone-civilization.js', [data, firstMod, ...firstArgs]);
 	assert.equal(first.status, 0, first.text);
 	const myciv = JSON.parse(fs.readFileSync(path.join(firstMod, 'civs/myciv.json')));
 	assert.equal(myciv.letter, 'Myc');
 	assert.equal(myciv.base, 'Gaul');
+	assert.equal(Object.hasOwn(myciv, 'index'), false);
 	assert.equal(myciv.ai, true);
 	assert.equal(myciv.variant, undefined);
 	assert.equal(myciv.replacesBase, undefined);
@@ -164,9 +192,14 @@ try {
 		assert.match(r.text, /DATA folder/);
 		assert.equal(fs.existsSync(invalidDest), false);
 	}
-	for (const args of [['--letter'], ['--letter', 'dac'], ['--letter', '123'], ['--index', '100'], ['--unknown']]) {
-		assert.equal(run('clone-civilization.js', [data, path.join(temp, 'bad'), 'bad', ...args]).status, 1);
+	for (const args of [['--letter'], ['--letter', 'dac'], ['--letter', '123'], ['--unknown'],
+		...['128', '9', '10.5', 'null', '"10"'].flatMap(index => [['--index', index], ['Bad', 'Gaul', index]])]) {
+		const dest = path.join(temp, 'bad');
+		const r = run('clone-civilization.js', [data, dest, 'bad', ...args]);
+		assert.equal(r.status, 1, r.text);
+		assert.equal(fs.existsSync(dest), false);
 	}
-	console.log('SDK civilization prefixes: validation, collisions, clone expansion, legacy CLI and registry warnings passed');
+	assert.equal(run('clone-civilization.js', [data, path.join(temp, 'missing-id')]).status, 1);
+	console.log('SDK civilization prefixes: optional indices, validation, collisions, clone expansion, legacy CLI and registry warnings passed');
 }
 finally { fs.rmSync(temp, { recursive: true, force: true }); }

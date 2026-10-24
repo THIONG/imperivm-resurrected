@@ -11,6 +11,7 @@ struct Civ {
 	std::string id;
 	std::string constant;
 	int index = 0;
+	bool automaticIndex = false;
 	int base = 0;
 	std::string internalName;
 	std::string letterUp, letterLow;

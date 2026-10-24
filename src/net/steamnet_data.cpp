@@ -10,6 +10,7 @@
 #include "core/log.h"
 #include "i18n/tr.h"
 #include "mods/mods.h"
+#include "mods/civindices.h"
 #include "net/modlist.h"
 #include "net/scenvalue.h"
 
@@ -92,7 +93,8 @@ std::string EncodeMods(const std::string &scenModId, int &optional)
 std::string OwnKey()
 {
 	const std::string h = ModsProfileGameplayHash(ModsMountedProfile());
-	return h.substr(0, 16);
+	const Json indices = CivIndicesToJson();
+	return indices.obj.empty() ? h.substr(0, 16) : Fnv(h + "\n" + indices.Dump());
 }
 
 bool IsBanned(uint64 lobby, uint64 id)
