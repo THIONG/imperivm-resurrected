@@ -851,6 +851,8 @@ void EnforceModeRaces()
 		LogI("room", "slot %d: the room does not allow civilization %d; it is changed to %d", i + 1, now, CivsRaceOfRoomItem(item));
 		choice[i] = static_cast<char>(item);
 		reinterpret_cast<UpdateRow_t>(addr::kUpdateSlotRow)(g_dlg, nullptr, static_cast<unsigned>(i));
+		// The dropdown is what the room shows and sends; changing the stored choice alone does not move it.
+		SelectCombo(Combo(g_dlg, ((i + 1) << 12) | 0x22), item);
 	}
 }
 
