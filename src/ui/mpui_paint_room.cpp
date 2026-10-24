@@ -506,13 +506,14 @@ void PaintGameRoom(Painter &p, const State &st)
 			if (g.online) {
 				section("CONTENT");
 				y = PaintLinesInline(p, OnlineLobbyLines(st, st.room.info, false), ix, y, iw, 20) + 4;
-				if (const std::vector<std::string> sets = CivRoomSets(); !sets.empty()) {
-					const std::vector<CivSet> known = CivsSets();
-					std::vector<ListLine> lines;
-					for (const std::string &id : sets) {
-						const auto it = std::find_if(known.begin(), known.end(), [&](const CivSet &s) { return s.id == id; });
-						lines.push_back({"\xE2\x80\xA2  " + (it != known.end() ? it->name : id), kText, false});
-					}
+				// The sets the room offers: every one the content has, or the ones the host left. Nothing to say when only the game has civilizations.
+				const std::vector<CivSet> known = CivsSets();
+				const std::vector<std::string> sets = CivRoomSets();
+				std::vector<ListLine> lines;
+				for (const CivSet &s : known) {
+					if (CivSetsAllow(sets, s.id)) lines.push_back({"\xE2\x80\xA2  " + s.name, kText, false});
+				}
+				if (known.size() > 1 && !lines.empty()) {
 					section("CIVILIZATIONS");
 					y = PaintLinesInline(p, lines, ix, y, iw, 20) + 4;
 				}
