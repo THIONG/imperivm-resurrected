@@ -95,7 +95,7 @@ Guide: [Civilizations](civilizations.md).
 
 - `race="<id>"` in a class's `<properties>` uses the civilization by its `id` or its `internalName`.
 - A new civilization is independent by default: without `replacesBase`, the base remains selectable. `variant` is a separate opt-in for sharing the base's script identity.
-- Explicit indices are reserved first; remaining civilizations, sorted by normalized (lowercase) `id`, receive the lowest free indices from 10–127 (118 custom civilizations per active profile). No allocation ledger is persisted. Saves with automatic civilizations require the `.mods.json` index table and the same effective mapping; missing or mismatched tables fail closed. Restore the original profile/content, not a renumbered set. Multiplayer compatibility includes the mapping. See [numeric indices and saved games](civilizations.md#numeric-indices-and-saved-games).
+- Explicit indices are reserved first; remaining civilizations, sorted by normalized (lowercase) `id`, receive the lowest free indices from 10–127 (118 slots in theory; tested only with a few civilizations, and the room list may fit fewer). No allocation ledger is persisted. Saves with automatic civilizations require the `.mods.json` index table and the same effective mapping; missing or mismatched tables fail closed. Restore the original profile/content, not a renumbered set. Multiplayer compatibility includes the mapping. See [numeric indices and saved games](civilizations.md#numeric-indices-and-saved-games).
 - Repeated `id`, explicit `index` or own prefix: the one from the mod that comes first wins; the others are ignored with a warning. Prefixes compare case-insensitively; game prefixes are reserved, except when inheriting your own base's prefix without cloning its classes.
 - English aliases: `index`, `name`, `letter`, `template`, `internalName`, `folder`, `random`, `biome`, `ai`, `ownAi`.
 
@@ -257,7 +257,7 @@ It's in the game folder. It's read at startup.
 | Values in an option list | 2 to 16 | Code |
 | Option `id` | up to 32; letters, numbers, `_`, `-` | Code |
 | Civilization and unit special `id` | up to 24; letters, numbers, `_`; starts with a letter | Code |
-| Civilization `index` | 10 to 127; 118 custom civilizations per active profile | Engine signed byte (99 was policy) |
+| Civilization `index` | 10 to 127 (118 slots in theory; tested only with a few) | Signed bytes in the random-map parameters (99 was policy). Above 127 is unsupported |
 | Civilization `letter` | 1 to 4 characters | Code |
 | Unit special `bit` | 36 to 63 | Code |
 | `bit` in `Mod_HasSpecial` and `Mod_SetSpecial` | 0 to 63 (out of range: `false` / does nothing) | Code |

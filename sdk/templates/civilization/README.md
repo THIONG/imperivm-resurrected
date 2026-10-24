@@ -41,7 +41,7 @@ my-civilization\
 ## Notes
 
 - A civilization changes what happens in the game: everyone in the room needs the mod and the same effective civilization mapping.
-- Automatic indices and multi-character prefixes require the matching new DLL build. A profile supports at most 118 custom civilizations (10–127).
+- Automatic indices and multi-character prefixes require the matching new DLL build. Indices run from 10 to 127 (118 slots in theory); only a few civilizations at a time have been tested.
 - Keep the save's `.mods.json` index table and original profile/content. Adding or removing civilizations can change automatic numbers; a missing or mismatched table prevents loading. See [numeric indices and saved games](../../civilizations.md#numeric-indices-and-saved-games).
 - The finished example is [civilization-example](../../examples/civilization-example).
 
