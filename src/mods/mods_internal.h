@@ -46,8 +46,15 @@ struct MountedState {
 	std::vector<std::string> localDirs;
 	std::vector<std::string> dirs;
 	std::map<std::string, std::string> chosen;
+	std::map<std::string, std::string> signatures;
+	void *layerList = nullptr;
+	std::map<std::string, void *> looseLayers;
 };
 extern MountedState g_mount;
+inline std::string ModSignature(const ModInfo &m)
+{
+	return m.version + "|" + std::to_string(m.fileCount) + "|" + std::to_string(m.totalBytes);
+}
 extern std::atomic<bool> g_hashing;
 std::string GameDir();
 std::string ModsDir();

@@ -242,25 +242,28 @@ std::string SteamOwnGameplayKey()
 	return OwnKey();
 }
 
-RoomContent SteamRoomContent(const OnlineLobby &lobby, const std::string &ownKey)
+RoomContent SteamRoomContent(const OnlineLobby &lobby, const std::string &ownKey, bool strictMap, bool watching)
 {
 	RoomContentFacts facts;
 	facts.roomKey = lobby.gameplayKey;
 	facts.ownKey = ownKey;
 	facts.mapModId = lobby.scenModId;
 	facts.haveMapMod = !lobby.scenModId.empty() && ModsMountedHasExact(lobby.scenModId, lobby.scenModVersion);
+	const bool viewer = watching || lobby.spectate || lobby.specOnly;
+	facts.mapSimple = !strictMap && lobby.scenSimple && (viewer || (!lobby.playing && !lobby.started));
 	return CompareRoomContent(facts);
 }
 
-void SteamLeaveForContent()
+void SteamLeaveForContent(bool strictMap)
 {
 	if (!SteamOnlineReady()) return;
-	Post([] {
+	Post([strictMap] {
 		if (!g_lobby) return;
 		const uint64 lobby = g_lobby;
 		const OnlineLobby info = ReadLobby(lobby);
-		const RoomContent content = SteamRoomContent(info, OwnKey());
+		const RoomContent content = SteamRoomContent(info, OwnKey(), strictMap);
 		if (!RoomContentDiffers(content)) return;
+		if (!info.spectate) RememberLobby(lobby);
 		Leave();
 		RefuseForContent(lobby, info, content);
 	});
@@ -418,6 +421,26 @@ OnlineMapStatus SteamSaveStatus()
 {
 	std::lock_guard<std::mutex> lock(g_lock);
 	return g_share.saveStatus;
+}
+
+void SteamPublishWatchers(int count)
+{
+	if (!SteamOnlineReady()) return;
+	Post([count] {
+		static int last = -1;
+		static uint64 lastLobby = 0;
+		if (!g_lobby || S.SteamAPI_ISteamMatchmaking_GetLobbyOwner(g_steam.mm, g_lobby) != g_steam.me) return;
+		if (count == last && g_lobby == lastLobby) return;
+		last = count;
+		lastLobby = g_lobby;
+		S.SteamAPI_ISteamMatchmaking_SetLobbyData(g_steam.mm, g_lobby, "watching", count > 0 ? std::to_string(count).c_str() : "");
+	});
+}
+
+int SteamRoomWatchers()
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	return g_room.info.watching;
 }
 
 void SteamSetPlaying(bool playing)

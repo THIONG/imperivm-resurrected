@@ -29,7 +29,7 @@ A `civs\<id>.json` file in your mod:
 | `index` | A number from 10 to 99. Don't change it once published: saved games remember it. Two mods can't use the same one. |
 | `base` | The game civilization it inherits from: `Gaul`, `RepublicanRome`, `Carthage`, `Iberia`, `ImperialRome`, `Britain`, `Egypt` or `Germany`. Defaults to `Gaul`. |
 | `name` | Its name in each language, or a single string. |
-| `letter` | The letter that prefixes its classes and commands (`DSwordsman`, `trainDSwordsman`). If you leave it out, it uses the base's. Set your own only if you have classes and commands with that letter: the game builds names from it, such as the peasant training one. |
+| `letter` | The letter that prefixes its classes and commands (`DSwordsman`, `trainDSwordsman`). If you leave it out, it uses the base's. Set your own only if you have classes and commands with that letter: the game builds names from it, such as the peasant training one. It can also be a digit (`2Archer`, `train2Archer`), tried in game: with several civilization mods the 26 letters run out, and two civilizations cannot share one. |
 | `template` | (Optional) Prefix of your city and village templates, so the random map doesn't use the base's. See [Templates](city-templates.md). |
 | `internalName` | (Optional) The name the game uses to find the civilization's interface files; defaults to the base's. |
 | `folder` | (Optional) The name shown in selection texts. |

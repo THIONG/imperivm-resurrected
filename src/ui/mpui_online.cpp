@@ -150,8 +150,34 @@ bool CanReturnToGame(const State &st, const OnlineLobby &g)
 	return false;
 }
 
-void TryJoinNow(const OnlineLobby &g, const std::string &password, bool watch)
+namespace {
+OnlineLobby WithMapPack(const OnlineLobby &lobby)
 {
+	OnlineLobby out = lobby;
+	if (lobby.scenModId.empty()) return out;
+	for (const OnlineMod &m : lobby.mods) {
+		if (m.id == lobby.scenModId) return out;
+	}
+	OnlineMod pack;
+	pack.id = lobby.scenModId;
+	pack.name = lobby.scenModName;
+	pack.version = lobby.scenModVersion;
+	pack.gameplay = false;
+	pack.kind = 1;
+	pack.bytes = lobby.scenMapSize;
+	pack.redistributable = lobby.scenShareable;
+	pack.gbId = lobby.scenGbId;
+	out.mods.push_back(pack);
+	return out;
+}
+}
+
+void TryJoinNow(const OnlineLobby &lobby, const std::string &password, bool watch)
+{
+	const bool strictMap = g_s.forcePackLobby && g_s.forcePackLobby == lobby.id;
+	if (strictMap) g_s.forcePackLobby = 0;
+	const OnlineLobby withPack = strictMap ? WithMapPack(lobby) : OnlineLobby();
+	const OnlineLobby &g = strictMap ? withPack : lobby;
 	if (watch && !g.specLobby) {
 		ModUiToast("This game does not allow spectators.");
 		return;
@@ -180,7 +206,7 @@ void TryJoinNow(const OnlineLobby &g, const std::string &password, bool watch)
 	OnlineLobby target = g;
 	if (watch) target.id = g.specLobby;
 	if (g_s.ownKey.empty()) g_s.ownKey = SteamOwnGameplayKey();
-	const RoomContent content = SteamRoomContent(g, g_s.ownKey);
+	const RoomContent content = SteamRoomContent(g, g_s.ownKey, strictMap, watch);
 	if (content == RoomContent::kChecking) {
 		ModUiToast("Your content is still being checked: try again in a few seconds.");
 		return;

@@ -44,7 +44,12 @@ void PaintConfirm(Painter &p, const State &st)
 	int cw, ch;
 	ConfirmSize(st, cw, ch);
 	std::string title, text, yes;
-	if (st.confirmKind == kConfirmUninstall) {
+	if (st.confirmKind == kConfirmNotice || st.confirmKind == kConfirmAction) {
+		title = st.noticeTitle;
+		text = Tr(st.noticeText);
+		yes = st.actionYes;
+	}
+	else if (st.confirmKind == kConfirmUninstall) {
 		const std::vector<std::string> &targets = st.uninstallTargets;
 		bool mounted = false;
 		for (const std::string &f : ModsMountedProfile().mods) {
@@ -87,6 +92,7 @@ void PaintConfirm(Painter &p, const State &st)
 		ListState ls = st.confirmList;
 		ListPaint(p, d.BodyX(), d.BodyTop() + textH + 4, d.BodyW(), rows * kConfirmRowH + 8, lines, ls, g_confirmGeomOut, 0, kConfirmRowH, mx, my);
 	}
-	DialogButtons(p, d, {{yes, kConfirmYes, 0, true}, {st.confirmKind == kConfirmRestart ? "Later" : "Cancel", kConfirmNo}}, mx, my);
+	if (st.confirmKind == kConfirmNotice) DialogButtons(p, d, {{"OK", kConfirmNo, 0, true}}, mx, my);
+	else DialogButtons(p, d, {{yes, kConfirmYes, 0, true}, {st.confirmKind == kConfirmRestart ? "Later" : "Cancel", kConfirmNo}}, mx, my);
 }
 }

@@ -98,6 +98,45 @@ void FillDisc(uint32_t *buf, int W, int H, float cx, float cy, float r, COLORREF
 	FillRound(buf, W, H, cx - r, cy - r, r * 2, r * 2, r, c, a);
 }
 
+void FillShape(uint32_t *buf, int W, int H, const std::vector<std::vector<ShapePoint>> &shape, float x, float y, float scale, COLORREF c, float a)
+{
+	float minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
+	for (const std::vector<ShapePoint> &poly : shape) {
+		for (const ShapePoint &pt : poly) {
+			minX = std::min(minX, pt.x);
+			maxX = std::max(maxX, pt.x);
+			minY = std::min(minY, pt.y);
+			maxY = std::max(maxY, pt.y);
+		}
+	}
+	if (minX > maxX || scale <= 0) return;
+	const int x0 = std::max(std::max(0, g_clip.x0), static_cast<int>(std::floor(x + minX * scale)));
+	const int x1 = std::min(std::min(W, g_clip.x1), static_cast<int>(std::ceil(x + maxX * scale)) + 1);
+	const int y0 = std::max(std::max(0, g_clip.y0), static_cast<int>(std::floor(y + minY * scale)));
+	const int y1 = std::min(std::min(H, g_clip.y1), static_cast<int>(std::ceil(y + maxY * scale)) + 1);
+	const int kSub = 4;
+	for (int j = y0; j < y1; j++) {
+		for (int i = x0; i < x1; i++) {
+			int hits = 0;
+			for (int sy = 0; sy < kSub; sy++) {
+				const float py = (j + (sy + 0.5f) / kSub - y) / scale;
+				for (int sx = 0; sx < kSub; sx++) {
+					const float px = (i + (sx + 0.5f) / kSub - x) / scale;
+					bool inside = false;
+					for (const std::vector<ShapePoint> &poly : shape) {
+						for (size_t k = 0, m = poly.size() - 1; k < poly.size(); m = k++) {
+							const ShapePoint &p = poly[k], &q = poly[m];
+							if ((p.y > py) != (q.y > py) && px < (q.x - p.x) * (py - p.y) / (q.y - p.y) + p.x) inside = !inside;
+						}
+					}
+					if (inside) hits++;
+				}
+			}
+			if (hits) BlendPx(buf[static_cast<size_t>(j) * W + i], c, a * hits / (kSub * kSub));
+		}
+	}
+}
+
 void FillTriangle(uint32_t *buf, int W, int H, float ax, float ay, float bx, float by, float cx, float cy, COLORREF c, float a)
 {
 	const float area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
@@ -120,13 +159,13 @@ void FillTriangle(uint32_t *buf, int W, int H, float ax, float ay, float bx, flo
 	}
 }
 
-void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a)
+void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a, HFONT font)
 {
 	const int x = static_cast<int>(fx), y = static_cast<int>(fy), w = std::min(static_cast<int>(fw), 400), h = std::min(static_cast<int>(fh), 64);
 	if (t.empty() || w <= 0 || h <= 0 || !g_spec.text.Ensure(400, 64)) return;
 	memset(g_spec.text.bits, 0, static_cast<size_t>(400) * h * 4);
 	HDC dc = g_spec.text.dc;
-	SelectObject(dc, g_fonts[3]);
+	SelectObject(dc, font ? font : g_fonts[3]);
 	SetBkMode(dc, TRANSPARENT);
 	SetTextColor(dc, RGB(255, 255, 255));
 	RECT r = {0, 0, w, h};

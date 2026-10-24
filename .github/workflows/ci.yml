@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Source checks
         shell: bash
@@ -29,6 +29,7 @@ jobs:
           node tools/check-conventions.js
           node tools/check-includes.js
           node tools/check-logs.js
+          node tools/draft-release-notes.js --self-test
 
       - name: SDK checks (links between guides, every example and template validates)
         shell: bash

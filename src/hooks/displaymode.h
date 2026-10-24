@@ -29,3 +29,11 @@ LRESULT DisplayForwardMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 bool DisplayIsWindowed();
 
 std::vector<std::string> DisplayMonitorLabels();
+
+void DisplayTargetSize(int &w, int &h);
+
+std::vector<POINT> DisplayExtendedSizes();
+
+bool DisplayModeAllowed(int w, int h);
+
+bool DisplayFakesModeChange();

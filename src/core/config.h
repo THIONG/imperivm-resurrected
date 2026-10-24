@@ -19,6 +19,8 @@ struct Config {
 	int windowH = 900;
 	bool trapMouse = true;
 	int monitor = 0;
+	int resolutionW = 0;
+	int resolutionH = 0;
 	bool allResolutions = true;
 	bool extendedView = true;
 	bool showPerf = false;

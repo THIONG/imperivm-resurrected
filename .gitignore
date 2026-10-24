@@ -1,4 +1,6 @@
 build/
+release/
+previous/
 *.obj
 *.map
 *.pdb

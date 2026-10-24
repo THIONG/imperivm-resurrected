@@ -8,6 +8,7 @@
 
 struct UiPort {
 	void (*toast)(const std::string &text, bool error) = nullptr;
+	void (*notice)(const std::string &title, const std::string &text) = nullptr;
 	void (*askRestart)(const std::string &reason, int largeAddress, const std::vector<std::string> &items, const std::string &itemsTitle) = nullptr;
 	bool (*modManagerOpen)() = nullptr;
 	bool (*multiplayerOpen)() = nullptr;
@@ -24,6 +25,7 @@ struct UiPort {
 void UiPortSet(const UiPort &port);
 
 void UiToast(const std::string &text, bool error = false);
+void UiNotice(const std::string &title, const std::string &text);
 void UiAskRestart(const std::string &reason = "", int largeAddress = -1, const std::vector<std::string> &items = {},
 	const std::string &itemsTitle = "");
 bool UiModManagerOpen();

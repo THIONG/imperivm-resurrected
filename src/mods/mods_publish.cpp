@@ -164,38 +164,3 @@ void ModsOnSaveWritten(const std::string &gamePath, bool online)
 		WriteJsonFile(side, j);
 	}
 }
-
-void ModsOnMapWritten(const std::string &gamePath)
-{
-	const std::string side = GameDir() + "\\" + gamePath + ".mods.json";
-	const ModProfile p = ModsMountedProfile();
-	Json j = Json::MakeObject();
-	j.Set("profile", Json::MakeString(p.name));
-	j.Set("gameplayFingerprint", Json::MakeString(ModsProfileGameplayHash(p)));
-	j.Set("schema", Json::MakeNumber(kRulesSchema));
-	Json mods = Json::MakeArray();
-	for (const std::string &folder : p.mods) {
-		ModInfo m;
-		Json e = Json::MakeObject();
-		e.Set("folder", Json::MakeString(folder));
-		if (ModsFind(folder, m)) {
-			e.Set("id", Json::MakeString(m.id));
-			e.Set("name", Json::MakeString(m.name));
-			e.Set("version", Json::MakeString(m.version));
-			if (!m.gameplayHash.empty()) e.Set("fingerprint", Json::MakeString(m.gameplayHash));
-			e.Set("gameplay", Json::MakeBool(m.gameplay));
-			e.Set("kind", Json::MakeString(ModsKindId(m.kind)));
-			GbKeyToJson(e, m.gbId);
-		}
-		mods.arr.push_back(e);
-	}
-	j.Set("mods", mods);
-	j.Set("map", Json::MakeBool(true));
-	const std::string dir = side.substr(0, side.find_last_of('\\'));
-	if (IsDir(dir)) {
-		Json old;
-		if (ReadJsonFile(side, old) && old.Dump() == j.Dump()) return;
-		WriteJsonFile(side, j);
-		LogI("content", "map \"%s\" saved with profile \"%s\" (%u mods)", gamePath.c_str(), p.name.c_str(), static_cast<unsigned>(p.mods.size()));
-	}
-}

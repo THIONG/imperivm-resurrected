@@ -31,6 +31,15 @@ std::atomic<int> g_installedRows{12};
 
 namespace modui_impl {
 namespace {
+bool IsDateVersion(const std::string &v)
+{
+	if (v.size() != 10 || v[4] != '.' || v[7] != '.') return false;
+	for (size_t i = 0; i < v.size(); i++) {
+		if (i != 4 && i != 7 && !isdigit(static_cast<unsigned char>(v[i]))) return false;
+	}
+	return true;
+}
+
 struct Tip {
 	std::string text;
 	int x = 0, y = 0;
@@ -711,8 +720,8 @@ void PaintInstalled(Painter &p, const State &st)
 		if (img) p.Image(thumbX, y + 3, 40, 22, img->bgra.data(), img->width, img->height);
 		else p.Fill(thumbX, y + 3, 40, 22, m && m->gameplay ? RGB(70, 54, 26) : m && m->kind == kModContent ? RGB(34, 60, 52) : RGB(44, 40, 36));
 
-		std::string name = !m ? r.folder + Tr(" (missing)")
-			: m->version.empty() || m->name.find(m->version) != std::string::npos ? m->name : m->name + " " + m->version;
+		std::string name = !m ? r.folder + Tr(" (not installed)")
+			: m->version.empty() || IsDateVersion(m->version) || m->name.find(m->version) != std::string::npos ? m->name : m->name + " " + m->version;
 		p.Font(r.active ? 1 : 0);
 		p.Text(kListX + 80, y, 250, kRowH, name, pending || !m ? kBad : kText, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 		p.Font(3);
@@ -741,7 +750,13 @@ void PaintInstalled(Painter &p, const State &st)
 			if (FindUpdateFor(st, *m, upd)) icon("\xE2\x86\x91", RGB(255, 226, 140), Tr("Update available: version ") + upd.version);
 			if (m->newSinceStart) icon("\xE2\x9C\xA6", kOk, "Recently installed content");
 		}
-		if (!pending) {
+		if (!pending && !m) {
+			p.Font(1);
+			p.Text(switchX - 6, y, Painter::kToggleW + 12, kRowH, "\xE2\x9C\x95", kBad, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+			if (p.Hover(switchX - 6, y, Painter::kToggleW + 12, kRowH, mx, my)) SetTip("Not installed: click to remove it from the profile", switchX - 240, y + kRowH);
+			p.AddHit(switchX - 6, y, Painter::kToggleW + 12, kRowH, kForget, i);
+		}
+		else if (!pending) {
 			const bool hov = p.Hover(switchX - 6, y, Painter::kToggleW + 12, kRowH, mx, my);
 			p.Toggle(switchX, y + (kRowH - Painter::kToggleH) / 2, r.active, true, hov);
 			if (hov) SetTip(r.active ? "Enabled: click to disable" : "Disabled: click to enable", switchX - 120, y + kRowH);
@@ -810,6 +825,13 @@ void PaintInstalled(Painter &p, const State &st)
 		m = FindModIn(st.mods, st.rows[st.selected].folder);
 	}
 	const int btnY = kSelectionBarY + 4;
+	if (!m && st.selected >= 0 && st.selected < static_cast<int>(st.rows.size())) {
+		p.Font(0);
+		p.TextWrapped(dx, kContentY, dw, 80, "This content pack is in the profile, but its folder is no longer in the content folder (it was probably deleted by hand).", kBad);
+		p.Button(dx, btnY, 200, 28, "Remove from the profile", kForget, st.selected, mx, my, true, false, 0);
+		p.Button(dx + 210, btnY, 170, 28, "Open folder", kOpenMod, 0, mx, my, true, false, 0);
+		return;
+	}
 	if (!m) {
 		p.Font(0);
 		p.TextWrapped(dx, kContentY, dw, 80, "Select a content pack to see what it is, or open the content folder to add one by hand.", kDim);
@@ -907,7 +929,7 @@ void PaintInstalled(Painter &p, const State &st)
 		std::string notes, noteVersion;
 		if (m->gbId) GbChangelog(m->gbId, m->version, notes, noteVersion);
 		p.Fill(dx, y + 2, dw, 1, pal::lineDim);
-		const bool own = !m->description.empty();
+		const bool own = !m->description.empty() && (m->hasManifest || !io || io->descriptionHtml.empty());
 		PaintRich(p, st, dx, y + 8, dw, textBottom - y - 8, own || !io ? "" : io->descriptionHtml,
 			own ? m->description : io ? (!io->description.empty() ? io->description : io->summary) : "",
 			Tr("What's new in version ") + noteVersion, notes, 3);
@@ -920,9 +942,11 @@ void PaintInstalled(Painter &p, const State &st)
 		p.Text(dx, btnY - 32, dw, 26, "It will be uninstalled when the game restarts", kBad);
 	}
 	else {
-		const int mainW = hasUpdate ? 150 : dw;
+		const bool repair = m->noGameFiles && m->gbId && !hasUpdate;
+		const int mainW = hasUpdate || repair ? 150 : dw;
 		p.Button(dx, btnY - 32, mainW, 26, active ? "Disable" : "Enable", kSetActive, 0, mx, my, !st.busy, !active);
 		if (hasUpdate) p.Button(dx + mainW + 6, btnY - 32, dw - mainW - 6, 26, Tr("Update to version ") + update.version, kUpdateMod, 0, mx, my, !st.dl.active, true);
+		if (repair) p.Button(dx + mainW + 6, btnY - 32, dw - mainW - 6, 26, "Reinstall from GameBanana", kReinstall, 0, mx, my, !st.dl.active, true);
 	}
 	const int moreW = 40;
 	const int pageW = m->gbId ? 130 : 0;

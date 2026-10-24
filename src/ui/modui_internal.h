@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <atomic>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -14,6 +15,7 @@
 #include "core/transferrate.h"
 #include "mods/downloads.h"
 #include "ui/widgets.h"
+#include "ui/keycaps.h"
 #include "ui/modui.h"
 #include "ui/richtext.h"
 #include "mods/mods.h"
@@ -58,7 +60,7 @@ enum Action {
 	kRichLink, kShowProblems, kUpdateAll,
 	kIoFilterOpen, kIoFilterClose, kIoFilterToggle, kIoFilterClear,
 	kUseFiles,
-	kRowClick, kMark, kStateFilter, kCatChip, kCatPanel, kCatClear, kBulkOn, kBulkOff, kBulkUninstall, kClearMarks, kSetActive,
+	kRowClick, kMark, kStateFilter, kCatChip, kCatPanel, kCatClear, kBulkOn, kBulkOff, kBulkUninstall, kClearMarks, kSetActive, kForget, kReinstall,
 };
 
 enum Field { kNoField, kSearchField, kNameField, kIoSearchField };
@@ -77,7 +79,7 @@ const int kIoPerPage = 8;
 std::string IoTagsText(const GbMod &m);
 enum NameMode { kNameNone, kNameSaveAs, kNameRename, kNameNew };
 
-enum Confirm { kConfirmRestart, kConfirmUninstall, kConfirmDelete };
+enum Confirm { kConfirmRestart, kConfirmUninstall, kConfirmDelete, kConfirmNotice, kConfirmAction };
 
 const char *const kSortNames[] = {"Name", "Active first", "Recently installed", "Size"};
 const int kSortCount = 4;
@@ -157,6 +159,9 @@ struct State {
 
 	std::string restartReason;
 	int restartLargeAddress = -1;
+	std::string noticeTitle, noticeText;
+	std::string actionYes;
+	std::function<void()> action;
 };
 
 extern std::mutex g_lock;
@@ -262,6 +267,7 @@ struct Card {
 	bool corner = false;
 	int fixedW = 0;
 	int atX = -1, atCenterY = 0;
+	std::vector<ControlKey> keys;
 };
 
 RECT DrawCard(Canvas &canvas, uint32_t *buf, int w, int h, const Card &c, float s, int alpha);
@@ -307,7 +313,11 @@ void FillRound(uint32_t *buf, int W, int H, float x, float y, float w, float h, 
 void StrokeRound(uint32_t *buf, int W, int H, float x, float y, float w, float h, float r, float thick, COLORREF c, float a);
 void FillDisc(uint32_t *buf, int W, int H, float cx, float cy, float r, COLORREF c, float a);
 void FillTriangle(uint32_t *buf, int W, int H, float ax, float ay, float bx, float by, float cx, float cy, COLORREF c, float a);
-void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a);
+struct ShapePoint {
+	float x, y;
+};
+void FillShape(uint32_t *buf, int W, int H, const std::vector<std::vector<ShapePoint>> &shape, float x, float y, float scale, COLORREF c, float a);
+void DrawLabel(uint32_t *buf, int W, int H, const std::wstring &t, float fx, float fy, float fw, float fh, UINT align, COLORREF col, float a, HFONT font = nullptr);
 std::wstring ClockText(unsigned ms);
 struct RectF {
 	float x = 0, y = 0, w = 0, h = 0;
@@ -315,6 +325,7 @@ struct RectF {
 };
 
 void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY);
+void DrawWatchersBadge(uint32_t *buf, int W, int H);
 struct CheatBtn {
 	int verb;
 	int amount;

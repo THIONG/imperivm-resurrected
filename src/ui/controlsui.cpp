@@ -13,6 +13,7 @@
 
 #include "game/controls.h"
 #include "ui/controlsui.h"
+#include "ui/keycaps.h"
 #include "core/log.h"
 #include "ui/widgets.h"
 #include "i18n/tr.h"
@@ -34,7 +35,7 @@ const DWORD kUndoMs = 15000;
 enum Action {
 	kNone = 0, kClose, kNav, kCell, kRowReset, kSearchField, kClearSearch, kSwap, kAssignAnyway,
 	kCancelPending, kModeLetter, kModePosition, kPresetOpen, kPresetPick, kUndo, kViewList, kViewKeys, kKbKey, kKbLayer, kKbGo,
-	kBarLetters, kCopyConfig, kPasteConfig,
+	kBarLetters, kCopyConfig, kPasteConfig, kBoxMode,
 };
 const int kSearchAction = 7301;
 
@@ -48,6 +49,7 @@ struct State {
 	std::vector<Ref> clash;
 	bool grid = false;
 	bool barLetters = true;
+	int boxMode = 0;
 	int preset = 0;
 	int page = kPageCamera;
 	ListState list;
@@ -130,6 +132,7 @@ void Refresh(State &st)
 	st.rows = ControlsList();
 	st.grid = ControlsGridMode();
 	st.barLetters = ControlsBarLetters();
+	st.boxMode = ControlsZoomBoxMode();
 	st.preset = ControlsCurrentPreset();
 	st.clash.assign(st.rows.size() * 2, Ref());
 	for (size_t i = 0; i < st.rows.size(); i++) {
@@ -357,82 +360,6 @@ int ChangedOnPage(const State &st, int page)
 		if (r.page == page && !IsDefault(r)) n++;
 	}
 	return n;
-}
-
-void ArrowGlyph(Painter &p, int cx, int cy, unsigned short vk, COLORREF c)
-{
-	const int r = 4;
-	POINT pts[3];
-	const int x = p.S(cx), y = p.S(cy), d = p.S(r), e = p.S(r + 1);
-	switch (vk) {
-	case VK_LEFT: pts[0] = {x - e, y}; pts[1] = {x + d, y - e}; pts[2] = {x + d, y + e}; break;
-	case VK_RIGHT: pts[0] = {x + e, y}; pts[1] = {x - d, y - e}; pts[2] = {x - d, y + e}; break;
-	case VK_UP: pts[0] = {x, y - e}; pts[1] = {x - e, y + d}; pts[2] = {x + e, y + d}; break;
-	default: pts[0] = {x, y + e}; pts[1] = {x - e, y - d}; pts[2] = {x + e, y - d}; break;
-	}
-	HBRUSH b = CreateSolidBrush(c);
-	HPEN pen = CreatePen(PS_SOLID, 1, c);
-	HGDIOBJ ob = SelectObject(p.dc, b), op = SelectObject(p.dc, pen);
-	Polygon(p.dc, pts, 3);
-	SelectObject(p.dc, ob);
-	SelectObject(p.dc, op);
-	DeleteObject(b);
-	DeleteObject(pen);
-}
-
-bool IsArrow(unsigned short vk)
-{
-	return vk == VK_LEFT || vk == VK_UP || vk == VK_RIGHT || vk == VK_DOWN;
-}
-
-std::vector<std::string> CapTexts(ControlKey k)
-{
-	std::vector<std::string> caps;
-	if (k.mods & kKeyCtrl) caps.push_back("Ctrl");
-	if (k.mods & kKeyShift) caps.push_back("Shift");
-	if (k.mods & kKeyAlt) caps.push_back("Alt");
-	caps.push_back(IsArrow(k.vk) ? "" : ControlsKeyLabel({k.vk, 0}));
-	return caps;
-}
-
-int CapWidth(Painter &p, const std::string &text)
-{
-	return text.empty() ? 28 : std::max(28, p.TextWidth(text) + 16);
-}
-
-void DrawCap(Painter &p, int x, int y, int w, int h, const std::string &text, unsigned short vk, COLORREF edge, COLORREF fg,
-	COLORREF face = RGB(60, 47, 32))
-{
-	p.RoundRect(x, y + 2, w, h - 2, 7, RGB(12, 9, 6));
-	p.RoundRect(x, y, w, h - 2, 7, edge);
-	p.RoundRect(x + 1, y + 1, w - 2, h - 4, 6, face);
-	p.Fill(x + 5, y + 2, w - 10, 1, RGB(86, 69, 48));
-	if (text.empty() && IsArrow(vk)) ArrowGlyph(p, x + w / 2, y + (h - 2) / 2, vk, fg);
-	else p.Text(x, y, w, h - 2, text, fg, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-}
-
-void DrawKey(Painter &p, int x, int y, int w, int h, ControlKey k, COLORREF edge, COLORREF fg, COLORREF face = RGB(60, 47, 32))
-{
-	p.Font(4);
-	const std::vector<std::string> caps = CapTexts(k);
-	const int plusW = 12;
-	int total = 0;
-	for (size_t i = 0; i < caps.size(); i++) total += CapWidth(p, caps[i]) + (i ? plusW : 0);
-	const int capH = h - 6, cy = y + 3;
-	if (total > w - 8) {
-		DrawCap(p, x + 4, cy, w - 8, capH, ControlsKeyLabel(k), k.vk, edge, fg, face);
-		return;
-	}
-	int cx = x + (w - total) / 2;
-	for (size_t i = 0; i < caps.size(); i++) {
-		if (i) {
-			p.Text(cx, cy, plusW, capH, "+", kDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-			cx += plusW;
-		}
-		const int cw = CapWidth(p, caps[i]);
-		DrawCap(p, cx, cy, cw, capH, caps[i], k.vk, edge, fg, face);
-		cx += cw;
-	}
 }
 
 void ResetGlyph(Painter &p, int cx, int cy, COLORREF c)
@@ -1097,8 +1024,27 @@ void ControlsUiDraw(uint32_t *buf, int w, int h)
 	DrawNav(p, st, mx, my);
 	p.Fill(kListX - 8, kTop, 1, listBottom - kTop, RGB(56, 43, 28));
 
-	const bool banner = st.search.empty() && ControlsPageIsOrders(st.page);
-	if (banner) {
+	const bool ordersBanner = st.search.empty() && ControlsPageIsOrders(st.page);
+	const bool boxBanner = st.search.empty() && st.page == kPageMod;
+	const bool banner = ordersBanner || boxBanner;
+	if (boxBanner) {
+		const int bx = kListX + 8, bw = kListW - 16, by = kTop, bh = kBannerH - 10;
+		p.Fill(bx, by, bw, bh, RGB(36, 28, 19));
+		p.Frame(bx, by, bw, bh, pal::divider);
+		p.Font(1);
+		p.Text(bx + 14, by + 8, bw - 28, 28, "Box selection on the big map (M)", kText);
+		static const char *const kBoxLabels[kZoomBoxModes] = {"Ctrl + drag", "Alt + drag", "Shift + drag", "Off"};
+		const int segW = 120, segX = bx + 14;
+		for (int i = 0; i < kZoomBoxModes; i++) {
+			p.Button(segX + i * segW, by + 46, segW, 28, kBoxLabels[i], kBoxMode, i, mx, my, true, st.boxMode == i, 4);
+		}
+		p.Font(3);
+		p.TextWrapped(bx + 14, by + 82, bw - 28, 34,
+			"Hold the key and drag over the big map to select the troops and heroes inside the box; hold the other one of Shift and Ctrl to add to your "
+			"selection. Without the key, a click takes you to that place, as in the original game.",
+			kDim);
+	}
+	if (ordersBanner) {
 		const int bx = kListX + 8, bw = kListW - 16, by = kTop, bh = kBannerH - 10;
 		p.Fill(bx, by, bw, bh, RGB(36, 28, 19));
 		p.Frame(bx, by, bw, bh, pal::divider);
@@ -1530,6 +1476,11 @@ void Activate(State &st, int action, int arg, POINT pt)
 		break;
 	case kKbGo:
 		GoToRow(st, arg);
+		break;
+	case kBoxMode:
+		ControlsSetZoomBoxMode(arg);
+		Refresh(st);
+		SetStatus(st, st.boxMode == kZoomBoxOff ? "Box selection on the big map is off." : "Box selection on the big map changed.", false);
 		break;
 	case kBarLetters:
 		ControlsSetBarLetters(!st.barLetters);

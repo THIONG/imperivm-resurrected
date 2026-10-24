@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "MinHook.h"
+#include "addr/media.h"
 #include "hooks/hookcount.h"
 #include "hooks/audio.h"
 #include "core/config.h"
@@ -112,6 +113,20 @@ RECT TargetMonitor()
 	if (list.empty()) return RECT{0, 0, DesktopW(), DesktopH()};
 	const int index = GetConfig().monitor;
 	return list[index >= 0 && index < static_cast<int>(list.size()) ? index : 0].rect;
+}
+
+bool Enabled();
+
+std::string TargetDevice()
+{
+	if (!Enabled()) return std::string();
+	const std::vector<MonitorEntry> list = Monitors();
+	if (list.empty()) return std::string();
+	const int index = GetConfig().monitor;
+	const std::wstring &device = list[index >= 0 && index < static_cast<int>(list.size()) ? index : 0].device;
+	char name[64] = {};
+	WideCharToMultiByte(CP_ACP, 0, device.c_str(), -1, name, sizeof(name), nullptr, nullptr);
+	return name;
 }
 
 bool Enabled() { return GetConfig().fakeModeChange && GetConfig().renderEnabled; }
@@ -219,9 +234,7 @@ bool FakeMode(int w, int h, DWORD bpp, bool testOnly)
 	if (!Enabled()) {
 		return false;
 	}
-	const int maxW = 2 * DesktopW() < 4096 ? 2 * DesktopW() : 4096;
-	const int maxH = 2 * DesktopH() < 2304 ? 2 * DesktopH() : 2304;
-	if (w <= 0 || h <= 0 || w > maxW || h > maxH) {
+	if (!DisplayModeAllowed(w, h)) {
 		return false;
 	}
 	if (testOnly) {
@@ -237,67 +250,133 @@ bool FakeMode(int w, int h, DWORD bpp, bool testOnly)
 	return true;
 }
 
+std::mutex g_modesMx;
+std::string g_modeDevice;
+std::vector<DEVMODEA> g_modes;
+bool g_modesReady = false;
+bool g_realHas16 = false;
+
+void PrepareModes();
+
 LONG WINAPI HookChangeDisplaySettingsA(DEVMODEA *mode, DWORD flags)
 {
 	if (!mode) {
-		LogD("display", "restore mode -> not needed, the monitor never changed");
 		g_faking = false;
+		if (!Enabled()) return g_origChange(nullptr, flags);
+		LogD("display", "restore mode -> not needed, the monitor never changed");
 		return DISP_CHANGE_SUCCESSFUL;
 	}
 	const int w = static_cast<int>(mode->dmPelsWidth), h = static_cast<int>(mode->dmPelsHeight);
 	if (FakeMode(w, h, mode->dmBitsPerPel, (flags & CDS_TEST) != 0)) {
 		return DISP_CHANGE_SUCCESSFUL;
 	}
-	LogD("display", "%dx%d outside the supported range -> real change", w, h);
+	LogD("display", "%dx%d -> real change", w, h);
 	g_faking = false;
-	return g_origChange(mode, flags);
+	PrepareModes();
+	DEVMODEA real = *mode;
+	if ((real.dmFields & DM_DISPLAYFREQUENCY) && real.dmDisplayFrequency == 0) real.dmFields &= ~static_cast<DWORD>(DM_DISPLAYFREQUENCY);
+	if (real.dmBitsPerPel == 16 && !g_realHas16) {
+		real.dmBitsPerPel = 32;
+		real.dmFields |= DM_BITSPERPEL;
+	}
+	LONG result = g_origChange(&real, flags);
+	if (result == DISP_CHANGE_BADMODE && real.dmBitsPerPel == 16) {
+		real.dmBitsPerPel = 32;
+		real.dmFields |= DM_BITSPERPEL;
+		result = g_origChange(&real, flags);
+	}
+	if (result != DISP_CHANGE_SUCCESSFUL) {
+		LogW("display", "Windows refused %dx%d at %lu bits (code %ld, flags 0x%lx, fields 0x%lx, frequency %lu)", w, h, real.dmBitsPerPel, result, flags,
+			real.dmFields, real.dmDisplayFrequency);
+		LogW("display", "  mode: device \"%s\", size %u, extra %u, version %u, display flags 0x%lx, orientation %lu, position %ld,%ld", real.dmDeviceName,
+			static_cast<unsigned>(real.dmSize), static_cast<unsigned>(real.dmDriverExtra), static_cast<unsigned>(real.dmSpecVersion), real.dmDisplayFlags,
+			real.dmDisplayOrientation, real.dmPosition.x, real.dmPosition.y);
+	}
+	return result;
 }
-
-std::mutex g_modesMx;
-std::vector<DWORD> g_modeMap;
-bool g_modesReady = false;
-bool g_realHas16 = false;
 
 void PrepareModes()
 {
+	const std::string target = TargetDevice();
 	std::lock_guard<std::mutex> lock(g_modesMx);
-	if (g_modesReady) return;
+	if (g_modesReady && target == g_modeDevice) return;
 	bool has16 = false;
+	g_modeDevice = target;
+	g_modes.clear();
+	const char *device = g_modeDevice.empty() ? nullptr : g_modeDevice.c_str();
+	const DWORD t0 = GetTickCount();
 	for (DWORD n = 0;; n++) {
 		DEVMODEA dm = {};
 		dm.dmSize = sizeof(dm);
-		if (!g_origEnum(nullptr, n, &dm)) break;
+		if (!g_origEnum(device, n, &dm)) break;
 		if (dm.dmBitsPerPel == 16) has16 = true;
-		g_modeMap.push_back(n);
+		dm.dmDriverExtra = 0;
+		g_modes.push_back(dm);
 	}
 	g_realHas16 = has16;
 	g_modesReady = true;
-	LogI("display", "Windows lists %d display modes%s", static_cast<int>(g_modeMap.size()),
-		has16 ? "" : ", none of 16 bits: the game is offered the 32-bit ones as 16");
+	LogI("display", "Windows lists %d display modes%s (%lu ms; kept for the next lists)", static_cast<int>(g_modes.size()),
+		has16 ? "" : ", none of 16 bits: the game is offered the 32-bit ones as 16", GetTickCount() - t0);
+}
+
+BOOL CopyMode(DWORD index, DEVMODEA *mode, bool as16)
+{
+	if (!mode) return FALSE;
+	const WORD size = mode->dmSize;
+	if (size != sizeof(DEVMODEA) || mode->dmDriverExtra != 0) {
+		const char *listed = g_modeDevice.empty() ? nullptr : g_modeDevice.c_str();
+		const BOOL ok = g_origEnum(listed, index, mode);
+		if (ok && as16) mode->dmBitsPerPel = 16;
+		return ok;
+	}
+	std::lock_guard<std::mutex> lock(g_modesMx);
+	if (index >= g_modes.size()) return FALSE;
+	memcpy(mode, &g_modes[index], sizeof(DEVMODEA));
+	mode->dmDriverExtra = 0;
+	if (as16) mode->dmBitsPerPel = 16;
+	return TRUE;
 }
 
 BOOL WINAPI HookEnumDisplaySettingsA(LPCSTR device, DWORD modeNum, DEVMODEA *mode)
 {
 	if (!device && modeNum != ENUM_CURRENT_SETTINGS && modeNum != ENUM_REGISTRY_SETTINGS) {
 		PrepareModes();
-		const DWORD n = static_cast<DWORD>(g_modeMap.size());
+		const DWORD n = static_cast<DWORD>(g_modes.size());
 		if (modeNum < n) {
-			return g_origEnum(device, g_modeMap[modeNum], mode);
+			return CopyMode(modeNum, mode, false);
 		}
 		if (g_realHas16 || modeNum >= 2 * n) {
 			return FALSE;
 		}
-		const BOOL real = g_origEnum(device, g_modeMap[modeNum - n], mode);
-		if (real) mode->dmBitsPerPel = 16;
-		return real;
+		return CopyMode(modeNum - n, mode, true);
 	}
-	BOOL ok = g_origEnum(device, modeNum, mode);
+	const std::string target = device ? std::string() : TargetDevice();
+	BOOL ok = g_origEnum(device ? device : target.empty() ? nullptr : target.c_str(), modeNum, mode);
 	if (ok && g_faking && modeNum == ENUM_CURRENT_SETTINGS && !device) {
 		mode->dmBitsPerPel = g_logBpp;
 		mode->dmPelsWidth = g_logW;
 		mode->dmPelsHeight = g_logH;
 	}
 	return ok;
+}
+
+typedef int(__fastcall *CurrentModeIndex_t)(void *os, void *edx);
+CurrentModeIndex_t g_origCurrentModeIndex = nullptr;
+
+int __fastcall HookCurrentModeIndex(void *os, void *edx)
+{
+	if (!g_faking) return g_origCurrentModeIndex(os, edx);
+	DEVMODEA dm = {};
+	for (DWORD i = 0;; i++) {
+		dm.dmSize = sizeof(dm);
+		dm.dmDriverExtra = 0;
+		if (!HookEnumDisplaySettingsA(nullptr, i, &dm)) break;
+		if (static_cast<int>(dm.dmPelsWidth) == g_logW && static_cast<int>(dm.dmPelsHeight) == g_logH && dm.dmBitsPerPel == g_logBpp) {
+			return static_cast<int>(i) + 1;
+		}
+	}
+	LogD("display", "current mode %dx%d %lubpp is not in the list; the game reads the monitor", g_logW, g_logH, g_logBpp);
+	return g_origCurrentModeIndex(os, edx);
 }
 
 int WINAPI HookGetSystemMetrics(int index)
@@ -365,10 +444,15 @@ BOOL WINAPI HookClipCursor(const RECT *rc)
 		Mapping(s, ox, oy);
 		POINT origin = {0, 0};
 		ClientToScreen(g_gameWnd, &origin);
-		RECT p = {static_cast<LONG>(origin.x + ox + (rc->left - origin.x) * s),
-			static_cast<LONG>(origin.y + oy + (rc->top - origin.y) * s),
-			static_cast<LONG>(origin.x + ox + (rc->right - origin.x) * s),
-			static_cast<LONG>(origin.y + oy + (rc->bottom - origin.y) * s)};
+		const RECT image = {static_cast<LONG>(origin.x + ox), static_cast<LONG>(origin.y + oy), static_cast<LONG>(origin.x + ox + g_logW * s),
+			static_cast<LONG>(origin.y + oy + g_logH * s)};
+		RECT p = image;
+		if (!IntersectRect(&p, rc, &image)) p = image;
+		static int logged = 0;
+		if (logged++ < 5) {
+			LogD("display", "mouse limited to %ld,%ld-%ld,%ld (the game asked for %ld,%ld-%ld,%ld)", p.left, p.top, p.right, p.bottom, rc->left, rc->top, rc->right,
+				rc->bottom);
+		}
 		return g_origClipCursor(&p);
 	}
 	return g_origClipCursor(rc);
@@ -378,6 +462,10 @@ LRESULT CALLBACK GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
 	if (msg == WM_LBUTTONDOWN) LogClick(lp);
 	if (msg == WM_SIZE || msg == WM_DISPLAYCHANGE || msg == WM_DPICHANGED) LogGeometry("window changed");
+	if (msg == WM_DISPLAYCHANGE) {
+		std::lock_guard<std::mutex> lock(g_modesMx);
+		g_modesReady = false;
+	}
 	if (Scaling() && msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) {
 		int x = static_cast<short>(LOWORD(lp)), y = static_cast<short>(HIWORD(lp));
 		PhysToLog(x, y);
@@ -427,14 +515,22 @@ bool InstallDisplayModeHooks()
 {
 	bool ok = Hook("GetSystemMetrics", reinterpret_cast<void *>(&HookGetSystemMetrics), reinterpret_cast<void **>(&g_origMetrics)) &&
 		Hook("GetClientRect", reinterpret_cast<void *>(&HookGetClientRect), reinterpret_cast<void **>(&g_origGetClientRect));
-	if (ok && Enabled()) {
+	if (ok && GetConfig().renderEnabled) {
 		ok = Hook("ChangeDisplaySettingsA", reinterpret_cast<void *>(&HookChangeDisplaySettingsA), reinterpret_cast<void **>(&g_origChange)) &&
 			Hook("EnumDisplaySettingsA", reinterpret_cast<void *>(&HookEnumDisplaySettingsA), reinterpret_cast<void **>(&g_origEnum)) &&
-			Hook("SetWindowPos", reinterpret_cast<void *>(&HookSetWindowPos), reinterpret_cast<void **>(&g_origSetWindowPos)) &&
+			Hook("SetWindowLongA", reinterpret_cast<void *>(&HookSetWindowLongA), reinterpret_cast<void **>(&g_origSetWindowLong));
+	}
+	if (ok && Enabled()) {
+		ok = Hook("SetWindowPos", reinterpret_cast<void *>(&HookSetWindowPos), reinterpret_cast<void **>(&g_origSetWindowPos)) &&
 			Hook("MoveWindow", reinterpret_cast<void *>(&HookMoveWindow), reinterpret_cast<void **>(&g_origMoveWindow)) &&
 			Hook("GetCursorPos", reinterpret_cast<void *>(&HookGetCursorPos), reinterpret_cast<void **>(&g_origGetCursorPos)) &&
-			Hook("ClipCursor", reinterpret_cast<void *>(&HookClipCursor), reinterpret_cast<void **>(&g_origClipCursor)) &&
-			Hook("SetWindowLongA", reinterpret_cast<void *>(&HookSetWindowLongA), reinterpret_cast<void **>(&g_origSetWindowLong));
+			Hook("ClipCursor", reinterpret_cast<void *>(&HookClipCursor), reinterpret_cast<void **>(&g_origClipCursor));
+		void *current = reinterpret_cast<void *>(addr::kCurrentDisplayModeIndex);
+		if (ok && !(HookCreate(current, reinterpret_cast<void *>(&HookCurrentModeIndex), reinterpret_cast<void **>(&g_origCurrentModeIndex)) == MH_OK &&
+					  HookEnable(current) == MH_OK)) {
+			LogE("display", "could not intercept the game's current display mode");
+			ok = false;
+		}
 	}
 	LogAt(ok ? kLogInfo : kLogError, "display", "hooks %s (FakeModeChange=%d, mode %s)", ok ? "installed" : "with errors",
 		GetConfig().fakeModeChange, GetConfig().windowed ? "windowed" : "full screen");
@@ -450,9 +546,11 @@ void DisplayAttachWindow(HWND hwnd)
 	g_originalStyle = GetWindowLongA(hwnd, GWL_STYLE);
 	LogGeometry("game window");
 	AudioSetBackgroundMute(false);
-	if (Enabled()) {
+	if (GetConfig().renderEnabled) {
 		g_gameWndProc = reinterpret_cast<WNDPROC>(
 			g_origSetWindowLong(hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(&GameWndProc)));
+	}
+	if (Enabled()) {
 		PlaceWindow();
 		if (Windowed() || !GetConfig().trapMouse) {
 			g_origClipCursor(nullptr);
@@ -513,6 +611,41 @@ LRESULT DisplayForwardMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 bool DisplayIsWindowed()
 {
 	return Windowed();
+}
+
+bool DisplayFakesModeChange()
+{
+	return Enabled();
+}
+
+bool DisplayModeAllowed(int w, int h)
+{
+	if (!Enabled()) return true;
+	int monitorW = 0, monitorH = 0;
+	DisplayTargetSize(monitorW, monitorH);
+	if (w <= 0 || h <= 0) return false;
+	if (w <= monitorW && h <= monitorH) return true;
+	if (!GetConfig().extendedView) return false;
+	return w <= (2 * monitorW < 4096 ? 2 * monitorW : 4096) && h <= (2 * monitorH < 2304 ? 2 * monitorH : 2304);
+}
+
+std::vector<POINT> DisplayExtendedSizes()
+{
+	int monitorW = 0, monitorH = 0;
+	DisplayTargetSize(monitorW, monitorH);
+	std::vector<POINT> sizes;
+	for (float factor : {1.25f, 1.5f, 2.0f}) {
+		const int w = static_cast<int>(monitorW * factor) / 8 * 8, h = static_cast<int>(monitorH * factor) / 8 * 8;
+		if (w <= 4096 && h <= 2304) sizes.push_back({w, h});
+	}
+	return sizes;
+}
+
+void DisplayTargetSize(int &w, int &h)
+{
+	const RECT monitor = TargetMonitor();
+	w = monitor.right - monitor.left;
+	h = monitor.bottom - monitor.top;
 }
 
 std::vector<std::string> DisplayMonitorLabels()

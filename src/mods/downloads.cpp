@@ -18,9 +18,11 @@
 #include "core/json.h"
 #include "core/guard.h"
 #include "core/pathsafe.h"
+#include "core/archivefile.h"
 #include "core/versioncmp.h"
 #include "core/zipfile.h"
 #include "mods/mods.h"
+#include "mods/mappack.h"
 #include "mods/catalogfilter.h"
 #include "mods/gbdownload.h"
 #include "mods/gbcache.h"
@@ -188,7 +190,7 @@ std::vector<CatalogEntry> g_catalog;
 bool g_catalogBusy = false;
 
 struct Job {
-	enum Kind { Entry, Archive } kind;
+	enum Kind { Entry, Archive, RoomPack } kind;
 	CatalogEntry entry;
 	std::string text;
 };
@@ -565,7 +567,7 @@ void GbFillDetails(GbMod &r, const Json &p, bool sound)
 	r.description = StripHtml(r.descriptionHtml);
 	r.downloads = static_cast<uint64_t>(p.GetNumber("_nDownloadCount"));
 	CatalogEntry &e = r.entry;
-	e.description = r.summary.empty() ? r.description.substr(0, 300) : r.summary;
+	e.description = r.description.empty() ? r.summary : r.description;
 	e.url.clear();
 	const Json *best = nullptr;
 	const Json *files = p.Get("_aFiles");
@@ -952,15 +954,19 @@ std::string InspectArchive(const std::string &archive)
 
 std::string Extract(const std::string &archive, const std::string &dest, const ZipProgress &progress)
 {
+	ZipLimits limits;
+	limits.maxEntries = kMaxArchiveEntries;
+	limits.maxBytes = kMaxArchiveBytes;
 	std::string ownError;
 	if (IsZipFile(archive)) {
-		ZipLimits limits;
-		limits.maxEntries = kMaxArchiveEntries;
-		limits.maxBytes = kMaxArchiveBytes;
 		ownError = ZipExtract(archive, dest, limits, progress);
 		if (!ZipNotUnderstood(ownError)) return ownError;
 	}
-	if (GetFileAttributesA(TarPath().c_str()) == INVALID_FILE_ATTRIBUTES) return !ownError.empty() ? ownError : "this system can only install .zip files, and this archive is in another format";
+	else if (IsArchiveFile(archive)) {
+		ownError = ArchiveExtract(archive, dest, limits, progress);
+		if (!ArchiveNotUnderstood(ownError)) return ownError;
+	}
+	if (GetFileAttributesA(TarPath().c_str()) == INVALID_FILE_ATTRIBUTES) return !ownError.empty() ? ownError : "this system can only install .zip, .rar and .7z files, and this archive is in another format";
 	const std::string bad = InspectArchive(archive);
 	if (!bad.empty()) return bad;
 	DWORD code = 1;
@@ -1002,7 +1008,44 @@ bool InstalledSource(const std::string &folder, uint64_t gbId, uint64_t &file, u
 	return file != 0;
 }
 
-bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, const Json &sources, std::string &msg)
+void ListRelativeFiles(const std::string &root, const std::string &rel, std::vector<std::string> &out)
+{
+	WIN32_FIND_DATAA fd;
+	HANDLE h = FindFirstFileA((root + (rel.empty() ? "" : "\\" + rel) + "\\*").c_str(), &fd);
+	if (h == INVALID_HANDLE_VALUE) return;
+	do {
+		const std::string name = fd.cFileName;
+		if (name == "." || name == "..") continue;
+		const std::string r = rel.empty() ? name : rel + "/" + name;
+		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ListRelativeFiles(root, r, out);
+		else out.push_back(Lower(r));
+	} while (FindNextFileA(h, &fd));
+	FindClose(h);
+}
+
+bool AcceptMapOnlyPack(const std::string &root, std::string &why)
+{
+	std::vector<std::string> paths;
+	ListRelativeFiles(root, "", paths);
+	paths.erase(std::remove(paths.begin(), paths.end(), "mod.json"), paths.end());
+	Json manifest;
+	if (ReadJsonFile(root + "\\mod.json", manifest) && manifest.type == Json::Object) {
+		const Json *needs = manifest.Get("requires");
+		if (ModsKindFromId(manifest.GetString("kind")) == kModRules || (needs && needs->type == Json::Array && !needs->arr.empty()) ||
+			manifest.Get("commands")) {
+			why = "the package brings more than maps";
+			return false;
+		}
+	}
+	if (!MapPackIsSimple(MapPackFacts(), paths)) {
+		why = "the package brings more than maps";
+		return false;
+	}
+	return true;
+}
+
+bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, const Json &sources, std::string &msg,
+	const std::function<bool(const std::string &, std::string &)> &accept = nullptr)
 {
 	const std::string tmp = WorkDir() + "\\tmp-" + Timestamp();
 	MakeDirs(tmp);
@@ -1031,6 +1074,14 @@ bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, con
 	}
 	PlaceLooseFiles(root, CatalogCategoryFromName(info.tags.empty() ? std::string() : info.tags.front()));
 	PlaceLooseVideos(root);
+	if (accept) {
+		std::string why;
+		if (!accept(root, why)) {
+			DeleteTree(tmp);
+			msg = why;
+			return false;
+		}
+	}
 	Json manifest;
 	const std::string manifestPath = root + "\\mod.json";
 	const bool hasManifest = ReadJsonFile(manifestPath, manifest) && manifest.type == Json::Object;
@@ -1116,7 +1167,10 @@ bool InstallArchiveNow(const std::string &archive, const CatalogEntry &info, con
 	SaveInstalledSource(folder, info);
 	ModsScan();
 	const std::string label = name + (version.empty() || name.find(version) != std::string::npos ? "" : " " + version);
-	msg = pending ? TrFmt("%s downloaded (applied on restart)", {label}) : TrFmt("%s installed", {label});
+	bool inUse = false;
+	for (const std::string &f : ModsMountedProfile().mods) inUse = inUse || _stricmp(f.c_str(), folder.c_str()) == 0;
+	inUse = inUse && !ModsLoadsWithoutRestart(folder);
+	msg = pending ? TrFmt("%s downloaded (applied on restart)", {label}) : inUse ? TrFmt("%s installed (applied on restart)", {label}) : TrFmt("%s installed", {label});
 	return true;
 }
 
@@ -1176,7 +1230,7 @@ void Worker()
 			g_status.unpacking = false;
 			g_status.unpacked = g_status.unpackTotal = 0;
 			g_status.queued = static_cast<int>(g_jobs.size());
-			g_status.what = job.kind == Job::Entry
+			g_status.what = job.kind != Job::Archive
 				? job.entry.name + (job.entry.version.empty() || job.entry.name.find(job.entry.version) != std::string::npos ? "" : " " + job.entry.version)
 				: job.text;
 		}
@@ -1192,6 +1246,15 @@ void Worker()
 				sources.Set("tags", tags);
 			}
 			RunInstall(job.entry, sources);
+		}
+		else if (job.kind == Job::RoomPack) {
+			Json sources = Json::MakeObject();
+			GbKeyToJson(sources, job.entry.gbId);
+			std::string msg;
+			const bool ok = InstallArchiveNow(job.text, job.entry, sources, msg, AcceptMapOnlyPack);
+			DeleteFileA(job.text.c_str());
+			if (ok) Finish(true, msg);
+			else LogI("download", "the package of the room's map was not installed (%s): only the map is kept", TrSource(msg).c_str());
 		}
 		else if (job.kind == Job::Archive) {
 			std::string msg;
@@ -2067,4 +2130,86 @@ std::string DlExtract(const std::string &archive, const std::string &dest)
 std::string DlFileSha256(const std::string &path)
 {
 	return HashFile(path, BCRYPT_SHA256_ALGORITHM);
+}
+
+namespace {
+bool FindFileNamed(const std::string &dir, const std::string &leaf, std::string &found)
+{
+	WIN32_FIND_DATAA fd;
+	HANDLE h = FindFirstFileA((dir + "\\*").c_str(), &fd);
+	if (h == INVALID_HANDLE_VALUE) return false;
+	bool ok = false;
+	do {
+		const std::string n = fd.cFileName;
+		if (n == "." || n == "..") continue;
+		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+			if (FindFileNamed(dir + "\\" + n, leaf, found)) ok = true;
+		}
+		else if (_stricmp(n.c_str(), leaf.c_str()) == 0) {
+			found = dir + "\\" + n;
+			ok = true;
+		}
+	} while (!ok && FindNextFileA(h, &fd));
+	FindClose(h);
+	return ok;
+}
+}
+
+std::string DlFetchRoomMap(uint64_t gbId, const std::string &version, const std::string &packId, const std::string &packName, const std::string &leaf,
+	const std::string &outFile, const std::function<void(uint64_t, uint64_t)> &progress, const std::function<bool()> &cancelled)
+{
+	const uint64_t kMaxBytes = 120ull << 20;
+	if (!gbId) return "the package is not from GameBanana";
+	FetchGbFiles(gbId, kFreshTtl);
+	GbFiles files;
+	{
+		std::lock_guard<std::mutex> lock(g_ioLock);
+		if (g_ioFiles[gbId].files) files = *g_ioFiles[gbId].files;
+	}
+	const GbFile *file = nullptr;
+	for (const GbFile &f : files.files) {
+		if (CompareVersions(f.version, version) == 0) {
+			file = &f;
+			break;
+		}
+	}
+	if (!file) return !files.error.empty() ? files.error : "GameBanana does not have version " + version;
+	if (file->bytes > kMaxBytes) return "the package is too big to download only for its map";
+	MakeDirs(WorkDir());
+	const std::string tmp = WorkDir() + "\\map-" + Timestamp();
+	const std::string archive = tmp + ".zip";
+	MakeDirs(tmp);
+	auto cleanup = [&](bool keepArchive) {
+		if (!keepArchive) DeleteFileA(archive.c_str());
+		DeleteTree(tmp);
+	};
+	DownloadHooks hooks;
+	hooks.progress = progress;
+	hooks.cancelled = cancelled;
+	bool usedOtherServers = false;
+	std::string err = DownloadFile("https://gamebanana.com/dl/" + std::to_string(file->id), file->bytes, archive, GameDir() + "\\imperivm-resurrected\\_cache", true, hooks,
+		usedOtherServers);
+	if (err.empty() && !file->md5.empty() && HashFile(archive, BCRYPT_MD5_ALGORITHM) != file->md5) err = "the downloaded file is not the published one (different hash)";
+	if (err.empty()) err = Extract(archive, tmp, [&](uint64_t, uint64_t) { return !cancelled(); });
+	std::string found;
+	if (err.empty() && !FindFileNamed(tmp, leaf, found)) err = "the package does not contain the map";
+	if (err.empty()) {
+		MakeDirs(outFile.substr(0, outFile.find_last_of('\\')));
+		if (!CopyFileA(found.c_str(), outFile.c_str(), FALSE)) err = "could not save the map";
+	}
+	cleanup(err.empty());
+	if (err.empty()) {
+		Job job;
+		job.kind = Job::RoomPack;
+		job.entry.id = packId;
+		job.entry.name = packName;
+		job.entry.version = version;
+		job.entry.gbId = gbId;
+		job.entry.fileId = file->id;
+		job.entry.fileDate = file->date;
+		job.entry.aside = true;
+		job.text = archive;
+		Enqueue(job);
+	}
+	return err;
 }

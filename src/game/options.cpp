@@ -19,6 +19,7 @@
 #include "i18n/tr.h"
 
 #include "addr/engine.h"
+#include "addr/media.h"
 #include "addr/ui.h"
 #include "core/uiport.h"
 
@@ -34,6 +35,8 @@ const int kIdAutosaveCombo = 0x110a;
 const int kIdAutosaveSlots = 0x1116;
 const int kIdSaveOnExit = 0x1119;
 const int kIdAlerts = 0x1113;
+const int kIdOk = 0x1002;
+const int kResolutionSlot = 0xd;
 const int kIdApply = 0x1114;
 const int kIdReset = 0x1115;
 const int kIdControls = 0x111B;
@@ -284,6 +287,15 @@ unsigned __fastcall HookOnMessage(void *dlg, void *edx, int *msg)
 		int id = sender ? reinterpret_cast<GetId_t>((*reinterpret_cast<void ***>(sender))[0x1c / 4])(sender) : 0;
 		if (id == 0x1003 || id == 0x1006) MutableConfig().brightness = g_brightOriginal;
 		if (id == kIdApply) {
+			reinterpret_cast<void(__fastcall *)(void *)>(addr::kReadControls)(dlg);
+			const int *chosen = reinterpret_cast<int *>(static_cast<char *>(dlg) + 0x60);
+			void *ok = FindCheck(dlg, kIdOk);
+			if (ok && chosen[kResolutionSlot] != *reinterpret_cast<int *>(addr::kCurrentResolutionIndex)) {
+				msg[0xc / 4] = reinterpret_cast<int>(ok);
+				id = kIdOk;
+			}
+		}
+		if (id == kIdApply) {
 			ApplyModOptions(dlg);
 			reinterpret_cast<void(__fastcall *)(void *)>(addr::kReadControls)(dlg);
 			reinterpret_cast<int(__cdecl *)(int *)>(addr::kApplyGameOptions)(reinterpret_cast<int *>(static_cast<char *>(dlg) + 0x60));
@@ -303,7 +315,7 @@ unsigned __fastcall HookOnMessage(void *dlg, void *edx, int *msg)
 			LogI("options", "controls reset to the factory values");
 			return 0;
 		}
-		if (id == 0x1002 || id == 0x1005) {
+		if (id == kIdOk || id == 0x1005) {
 			ApplyModOptions(dlg);
 			const bool laaNow = ModsExeIsLargeAddressAware();
 			const bool laaWanted = laaNow;

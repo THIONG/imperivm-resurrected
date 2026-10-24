@@ -2,7 +2,7 @@
 
 This repository holds the mod (`src/`, `tests/`, `tools/`) and its SDK (`sdk/`). The mod is GPL-3.0-or-later with an additional permission for Steamworks. The SDK is MIT for the code and CC BY-SA 4.0 for the guides. A contribution is published under the license of the part it changes, and by sending it you state that you have the right to do so.
 
-Issues and pull requests can be written in English or Spanish.
+Issues and pull requests must be written in English.
 
 ## Reporting a bug
 
@@ -18,11 +18,11 @@ Do not attach files of the game.
 
 ## Proposing a change
 
-For anything bigger than a small fix, open an issue first. It is cheaper to agree on the approach before the code is written than after.
+An issue is not required: we track them on [Discord](https://discord.gg/6kCatX3Zbc). For anything bigger than a small fix, talk it over there or in an issue first. It is cheaper to agree on the approach before the code is written than after.
 
 ## Building
 
-Windows, Visual Studio Build Tools 2022 (C++, x86) and Node.js 20 or newer. Building the DLL also needs the Steamworks SDK, which is Valve's and is not in this repository.
+Windows, Visual Studio Build Tools 2022 (C++, x86) and Node.js 24 or newer. Building the DLL also needs the Steamworks SDK, which is Valve's and is not in this repository.
 
 ```
 set STEAMWORKS_SDK=C:\path\to\steamworks_sdk
@@ -57,7 +57,7 @@ Addresses of `gbr.exe` are written only in `src/addr/*.h`, as `inline constexpr 
 
 Log with `LogI("channel", "text %s", value)`, `LogW`, `LogE` or `LogD`, never with `Log("Channel: text")`. The channel comes from the list in `src/core/logchannels.h`, and the message is English, without a trailing newline and never through `Tr()`. Use `LogE` when a feature failed and the player is affected, `LogW` for something unexpected that was handled, `LogI` for what happened in the session and `LogD` for detail. `tools/check-logs.js` checks all of this.
 
-There are no comments in `src/`; the check fails on them. The reason for a decision goes in the pull request, and the code is explained by its names.
+Comments are allowed where the code can't say why: an address, a patched byte, a workaround for the game. Don't restate what the code does; names do that.
 
 Formatting: UTF-8 without BOM, LF line ends, tabs, no trailing whitespace. Headers start with `#pragma once` and do not use `using namespace`. File names are lowercase letters, digits and underscores, and no two `.cpp` files share a name anywhere in `src/`, because the object files go to one folder. Project includes are written `"folder/file.h"` from `src/`. Functions and types are PascalCase, constants are `kName`, and file-private variables are `g_name` inside an anonymous namespace. Each file includes the standard headers it uses; `node tools/check-includes.js --fix` adds the missing ones.
 
@@ -85,7 +85,8 @@ The SDK is in English only and lives directly in `sdk/`: guides, `tools/`, `exam
 
 - Branch from `main`, and keep each pull request to one thing.
 - Run `tools\run-tests.bat` first. The CI has to pass.
-- Write commit messages with a short subject in the imperative (`Fix the rejoin slot after a drop`) and, when it is not obvious, a body that says why.
+- Big features and fixes go through a pull request. Small changes can go straight to `main` as a commit.
+- Write the PR title and the commit messages in English as [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): `type(scope): summary`, in the imperative and lowercase after the type (`fix(net): keep the rejoin slot after a drop`). Add a body when the why is not obvious. `AGENTS.md` lists the types and scopes.
 - In the description say what changes and why, how you tried it, and what you did not try.
 
-Releases are made by the maintainer. The update is signed with a key that never leaves their computer, so a pull request does not change the version number.
+Releases are made by the maintainer with the `Publish` workflow, whose signing key is in an environment that only they can approve, so a pull request does not change the version number.

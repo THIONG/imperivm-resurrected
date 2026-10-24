@@ -4,15 +4,82 @@
 #define NOMINMAX
 #include <windows.h>
 #include <cmath>
+#include <iterator>
+#include <vector>
+#include "addr/state.h"
 #include "net/spectator.h"
+#include "net/steamnet.h"
 
 #include "ui/modui_internal.h"
 
 using namespace modui_impl;
 
 namespace modui_impl {
+namespace {
+const int kHudTopBand = 80;
+const int kStatusTop = 10;
+const int kStatusLineHalf = 8;
+const int kStatusRightMargin = 14;
+const int kBadgeFontPx = 17;
+const ShapePoint kEyeOutline[] = {
+	{0.4945f, 0.0009f}, {0.4270f, 0.0092f}, {0.3588f, 0.0263f}, {0.2904f, 0.0518f}, {0.2222f, 0.0856f}, {0.1547f, 0.1276f},
+	{0.0883f, 0.1774f}, {0.0751f, 0.1884f}, {0.0620f, 0.1998f}, {0.0490f, 0.2113f}, {0.0365f, 0.2230f}, {0.0247f, 0.2345f},
+	{0.0136f, 0.2456f}, {0.0001f, 0.2595f}, {0.0072f, 0.2673f}, {0.0142f, 0.2746f}, {0.0236f, 0.2839f}, {0.0346f, 0.2944f},
+	{0.0464f, 0.3056f}, {0.0585f, 0.3167f}, {0.0699f, 0.3270f}, {0.1247f, 0.3721f}, {0.1801f, 0.4113f}, {0.2359f, 0.4444f},
+	{0.2919f, 0.4714f}, {0.3479f, 0.4922f}, {0.4039f, 0.5066f}, {0.4220f, 0.5099f}, {0.4388f, 0.5126f}, {0.4549f, 0.5145f},
+	{0.4712f, 0.5158f}, {0.4884f, 0.5165f}, {0.5070f, 0.5167f}, {0.5205f, 0.5167f}, {0.5318f, 0.5165f}, {0.5417f, 0.5161f},
+	{0.5512f, 0.5154f}, {0.5613f, 0.5143f}, {0.5730f, 0.5129f}, {0.6265f, 0.5032f}, {0.6795f, 0.4881f}, {0.7320f, 0.4675f},
+	{0.7837f, 0.4415f}, {0.8345f, 0.4102f}, {0.8841f, 0.3737f}, {0.9043f, 0.3571f}, {0.9242f, 0.3397f}, {0.9434f, 0.3216f},
+	{0.9617f, 0.3033f}, {0.9786f, 0.2851f}, {0.9940f, 0.2673f}, {1.0001f, 0.2601f}, {0.9980f, 0.2576f}, {0.9795f, 0.2361f},
+	{0.9605f, 0.2152f}, {0.9410f, 0.1950f}, {0.9213f, 0.1756f}, {0.9014f, 0.1572f}, {0.8815f, 0.1401f}, {0.8206f, 0.0944f},
+	{0.7580f, 0.0576f}, {0.6940f, 0.0299f}, {0.6287f, 0.0111f}, {0.5621f, 0.0014f}, {0.4945f, 0.0009f},
+};
+const ShapePoint kEyeIris[] = {
+	{0.5308f, 0.0465f}, {0.5446f, 0.0485f}, {0.5580f, 0.0512f}, {0.5711f, 0.0548f}, {0.5838f, 0.0591f}, {0.5965f, 0.0642f},
+	{0.6091f, 0.0702f}, {0.6439f, 0.0924f}, {0.6733f, 0.1200f}, {0.6968f, 0.1520f}, {0.7138f, 0.1877f}, {0.7238f, 0.2261f},
+	{0.7263f, 0.2664f}, {0.7243f, 0.2890f}, {0.7200f, 0.3109f}, {0.7134f, 0.3320f}, {0.7045f, 0.3524f}, {0.6933f, 0.3720f},
+	{0.6800f, 0.3906f}, {0.6758f, 0.3956f}, {0.6703f, 0.4015f}, {0.6641f, 0.4078f}, {0.6578f, 0.4140f}, {0.6518f, 0.4195f},
+	{0.6469f, 0.4237f}, {0.6307f, 0.4356f}, {0.6136f, 0.4458f}, {0.5956f, 0.4545f}, {0.5768f, 0.4616f}, {0.5572f, 0.4672f},
+	{0.5367f, 0.4712f}, {0.5274f, 0.4722f}, {0.5167f, 0.4729f}, {0.5053f, 0.4731f}, {0.4938f, 0.4729f}, {0.4829f, 0.4722f},
+	{0.4734f, 0.4712f}, {0.4520f, 0.4670f}, {0.4314f, 0.4611f}, {0.4118f, 0.4534f}, {0.3931f, 0.4440f}, {0.3753f, 0.4328f},
+	{0.3586f, 0.4199f}, {0.3535f, 0.4154f}, {0.3479f, 0.4099f}, {0.3421f, 0.4040f}, {0.3364f, 0.3979f}, {0.3313f, 0.3921f},
+	{0.3271f, 0.3869f}, {0.3162f, 0.3713f}, {0.3068f, 0.3549f}, {0.2990f, 0.3379f}, {0.2927f, 0.3201f}, {0.2879f, 0.3018f},
+	{0.2848f, 0.2828f}, {0.2839f, 0.2728f}, {0.2836f, 0.2618f}, {0.2838f, 0.2505f}, {0.2845f, 0.2391f}, {0.2858f, 0.2281f},
+	{0.2875f, 0.2179f}, {0.3014f, 0.1745f}, {0.3240f, 0.1357f}, {0.3540f, 0.1025f}, {0.3905f, 0.0759f}, {0.4322f, 0.0569f},
+	{0.4781f, 0.0466f}, {0.4855f, 0.0459f}, {0.4946f, 0.0456f}, {0.5045f, 0.0454f}, {0.5144f, 0.0455f}, {0.5234f, 0.0459f},
+	{0.5308f, 0.0465f},
+};
+const ShapePoint kEyePupil[] = {
+	{0.4941f, 0.1407f}, {0.4729f, 0.1447f}, {0.4531f, 0.1521f}, {0.4349f, 0.1627f}, {0.4189f, 0.1760f}, {0.4053f, 0.1919f},
+	{0.3946f, 0.2102f}, {0.3886f, 0.2252f}, {0.3848f, 0.2407f}, {0.3831f, 0.2564f}, {0.3836f, 0.2721f}, {0.3862f, 0.2877f},
+	{0.3909f, 0.3030f}, {0.3986f, 0.3191f}, {0.4085f, 0.3339f}, {0.4205f, 0.3471f}, {0.4341f, 0.3584f}, {0.4494f, 0.3677f},
+	{0.4659f, 0.3746f}, {0.4731f, 0.3769f}, {0.4792f, 0.3786f}, {0.4850f, 0.3797f}, {0.4912f, 0.3804f}, {0.4983f, 0.3807f},
+	{0.5070f, 0.3808f}, {0.5142f, 0.3808f}, {0.5194f, 0.3807f}, {0.5234f, 0.3805f}, {0.5268f, 0.3801f}, {0.5301f, 0.3795f},
+	{0.5340f, 0.3786f}, {0.5394f, 0.3773f}, {0.5441f, 0.3759f}, {0.5485f, 0.3745f}, {0.5529f, 0.3729f}, {0.5573f, 0.3710f},
+	{0.5621f, 0.3688f}, {0.5783f, 0.3593f}, {0.5928f, 0.3477f}, {0.6052f, 0.3341f}, {0.6155f, 0.3187f}, {0.6233f, 0.3018f},
+	{0.6287f, 0.2836f}, {0.6296f, 0.2773f}, {0.6301f, 0.2692f}, {0.6302f, 0.2602f}, {0.6299f, 0.2512f}, {0.6293f, 0.2430f},
+	{0.6284f, 0.2367f}, {0.6258f, 0.2269f}, {0.6225f, 0.2175f}, {0.6186f, 0.2086f}, {0.6139f, 0.2001f}, {0.6085f, 0.1918f},
+	{0.6023f, 0.1838f}, {0.5881f, 0.1697f}, {0.5718f, 0.1580f}, {0.5538f, 0.1491f}, {0.5345f, 0.1432f}, {0.5145f, 0.1403f},
+	{0.4941f, 0.1407f},
+};
+
+const std::vector<std::vector<ShapePoint>> &EyeShape()
+{
+	static const std::vector<std::vector<ShapePoint>> shape = {
+		{std::begin(kEyeOutline), std::end(kEyeOutline)},
+		{std::begin(kEyeIris), std::end(kEyeIris)},
+		{std::begin(kEyePupil), std::end(kEyePupil)},
+	};
+	return shape;
+}
+}
+}
+
+
+namespace modui_impl {
 void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 {
+	if (SpectatorCovering()) return;
 	SpectatorState st;
 	if (!SpectatorControls(st)) {
 		std::lock_guard<std::mutex> lock(g_lock);
@@ -72,6 +139,7 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 	RectF rCollapse{bx + pad, cy - 13 * s, 26 * s, 26 * s};
 	RectF rBack, rPlay, rFwd, rSpeed, rUi, rLive, rCur, rTotal, rTrack;
 	std::string tipFor;
+	std::vector<ControlKey> tipKeys;
 	float tipX = bx;
 
 	if (collapsed) {
@@ -80,7 +148,7 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 		button(rCollapse, false, false, h);
 		arrow(rCollapse.x + 16 * s, cy, 12 * s, false, label);
 		DrawLabel(buf, W, H, ClockText(shownCur), rCollapse.x + 30 * s, rCollapse.y, rCollapse.w - 36 * s, rCollapse.h, DT_LEFT, label, 1.0f);
-		if (h) { tipFor = "Show the bar  (Ctrl+B)"; tipX = rCollapse.x; }
+		if (h) { tipFor = "Show the bar"; tipKeys = {ControlsModKey(kModKeySpecBar)}; tipX = rCollapse.x; }
 	}
 	else {
 		float x = rCollapse.x + rCollapse.w + gap;
@@ -179,18 +247,18 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 			}
 		}
 		if (!drag) {
-			if (hCollapse) { tipFor = "Hide the bar  (Ctrl+B)"; tipX = rCollapse.x; }
-			else if (hBack) { tipFor = "Back 10 s  (Ctrl+Left)"; tipX = rBack.x; }
-			else if (hPlay) { tipFor = st.paused ? "Resume  (Ctrl+Space)" : "Pause  (Ctrl+Space)"; tipX = rPlay.x; }
-			else if (hFwd) { tipFor = "Forward 10 s  (Ctrl+Right)"; tipX = rFwd.x; }
-			else if (hSpeed) { tipFor = "Speed  (click, or Ctrl+Up / Ctrl+Down)"; tipX = rSpeed.x - 120 * s; }
-			else if (hUi) { tipFor = st.uiHidden ? "Show the game interface  (Ctrl+H)" : "Hide the game interface  (Ctrl+H)"; tipX = rUi.x - 100 * s; }
-			else if (hLive) { tipFor = st.ended ? "Leave to the menu  (Ctrl+End)" : "Jump to live  (Ctrl+End)"; tipX = rLive.x - 40 * s; }
+			if (hCollapse) { tipFor = "Hide the bar"; tipKeys = {ControlsModKey(kModKeySpecBar)}; tipX = rCollapse.x; }
+			else if (hBack) { tipFor = "Back 10 s"; tipKeys = {ControlsModKey(kModKeySpecBack)}; tipX = rBack.x; }
+			else if (hPlay) { tipFor = st.paused ? "Resume" : "Pause"; tipKeys = {ControlsModKey(kModKeySpecPause)}; tipX = rPlay.x; }
+			else if (hFwd) { tipFor = "Forward 10 s"; tipKeys = {ControlsModKey(kModKeySpecForward)}; tipX = rFwd.x; }
+			else if (hSpeed) { tipFor = "Speed: click, or"; tipKeys = {ControlsModKey(kModKeySpecFaster), ControlsModKey(kModKeySpecSlower)}; tipX = rSpeed.x - 120 * s; }
+			else if (hUi) { tipFor = st.uiHidden ? "Show the game interface" : "Hide the game interface"; tipKeys = {ControlsModKey(kModKeySpecUi)}; tipX = rUi.x - 100 * s; }
+			else if (hLive) { tipFor = st.ended ? "Leave to the menu" : "Jump to live"; tipKeys = {ControlsModKey(kModKeySpecLive)}; tipX = rLive.x - 40 * s; }
 		}
 	}
 	if (!tipFor.empty()) {
 		const float tipY = by + barH + 30 * s > H - 40 * s ? by - 30 * s : by + barH + 30 * s;
-		ModUiDrawHoverCard(buf, W, H, tipFor, kGold, static_cast<int>(std::max(4.0f, tipX)), static_cast<int>(tipY));
+		ModUiDrawHoverCard(buf, W, H, tipFor, kGold, static_cast<int>(std::max(4.0f, tipX)), static_cast<int>(tipY), KnownKeys(tipKeys));
 	}
 	std::lock_guard<std::mutex> lock(g_lock);
 	auto store = [&](int i, const RectF &r) { g_spec.btn[i] = {static_cast<LONG>(r.x), static_cast<LONG>(r.y), static_cast<LONG>(r.x + r.w), static_cast<LONG>(r.y + r.h)}; };
@@ -213,5 +281,29 @@ void DrawSpectatorBar(uint32_t *buf, int W, int H, float s, int topY)
 	g_spec.winW = W;
 	g_spec.winH = H;
 	g_spec.barShown = true;
+}
+
+void DrawWatchersBadge(uint32_t *buf, int W, int H)
+{
+	const int watchers = SteamRoomWatchers();
+	if (watchers <= 0 || !*reinterpret_cast<void **>(addr::kGame)) return;
+	SpectatorState watching;
+	if (SpectatorControls(watching)) return;
+	static HFONT font = CreateFontW(-kBadgeFontPx, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
+	const COLORREF panel = pal::dialog, frame = kGold, ink = RGB(240, 226, 180);
+	wchar_t text[16];
+	swprintf_s(text, L"%d", watchers);
+	if (!g_spec.text.Ensure(400, 64)) return;
+	SelectObject(g_spec.text.dc, font);
+	SIZE size = {};
+	GetTextExtentPoint32W(g_spec.text.dc, text, static_cast<int>(wcslen(text)), &size);
+	const float pad = 9, gap = 6, eyeW = 21, h = 25, textW = static_cast<float>(size.cx), w = pad + eyeW + gap + textW + pad;
+	const float x = static_cast<float>(W - kStatusRightMargin) - w, y = static_cast<float>(kHudTopBand + kStatusTop + kStatusLineHalf) - h / 2;
+	FillRound(buf, W, H, x, y, w, h, 4, panel, 0.88f);
+	StrokeRound(buf, W, H, x, y, w, h, 4, 1.0f, frame, 1.0f);
+	const float eyeH = eyeW * 0.5172f;
+	FillShape(buf, W, H, EyeShape(), x + pad, y + (h - eyeH) / 2, eyeW, ink, 1.0f);
+	DrawLabel(buf, W, H, text, x + pad + eyeW + gap, y, textW + 2, h, DT_LEFT, ink, 1.0f, font);
 }
 }

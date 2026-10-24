@@ -36,6 +36,190 @@ bool g_swallowUp = false, g_escArmed = false;
 std::vector<Hit> g_hits;
 int g_tabAction = -1;
 
+const int kNotesMaxH = 260;
+const int kNotesBarW = 8;
+const int kNotesWheelStep = 48;
+
+struct NotesScroll {
+	std::string version;
+	float scroll = 0, maxScroll = 0, scale = 1;
+	RECT view = {}, track = {};
+	int thumbTop = 0, thumbH = 0;
+	bool dragging = false;
+	int grab = 0;
+} g_notes;
+
+void ScrollNotesTo(float value) { g_notes.scroll = std::max(0.0f, std::min(g_notes.maxScroll, value)); }
+
+void DragNotesTo(int mouseY)
+{
+	const int span = (g_notes.track.bottom - g_notes.track.top) - g_notes.thumbH;
+	if (span <= 0) return;
+	ScrollNotesTo(static_cast<float>(mouseY - g_notes.grab - g_notes.track.top) / span * g_notes.maxScroll);
+}
+
+void ReplaceAll(std::string &text, const std::string &from, const std::string &to)
+{
+	for (size_t at = text.find(from); at != std::string::npos; at = text.find(from, at + to.size())) text.replace(at, from.size(), to);
+}
+
+enum NoteStyle { kNoteText, kNoteBold, kNoteCode, kNoteHeading };
+enum NoteBlockKind { kBlockParagraph, kBlockBullet, kBlockHeading };
+
+struct NotePiece {
+	std::wstring text;
+	int style;
+};
+
+struct NoteBlock {
+	int kind;
+	std::vector<std::vector<NotePiece>> words;
+};
+
+struct NoteWord {
+	int x, y, style;
+	std::wstring text;
+};
+
+struct NotesLayout {
+	std::vector<NoteWord> words;
+	std::vector<int> bullets;
+	int lineH = 0, height = 0;
+};
+
+const int kNotesIndent = 16;
+
+void AddInline(NoteBlock &block, const std::string &line, bool heading)
+{
+	const std::wstring ws = W(line);
+	bool bold = false, code = false, newWord = true;
+	std::wstring cur;
+	auto style = [&]() { return heading ? kNoteHeading : code ? kNoteCode : bold ? kNoteBold : kNoteText; };
+	auto flush = [&]() {
+		if (cur.empty()) return;
+		if (newWord || block.words.empty()) block.words.push_back({});
+		block.words.back().push_back({cur, style()});
+		cur.clear();
+		newWord = false;
+	};
+	for (size_t i = 0; i < ws.size(); i++) {
+		if (!code && ws.compare(i, 2, L"**") == 0) {
+			flush();
+			bold = !bold;
+			i++;
+		}
+		else if (ws[i] == L'`') {
+			flush();
+			code = !code;
+		}
+		else if (ws[i] == L' ') {
+			flush();
+			newWord = true;
+		}
+		else cur += ws[i];
+	}
+	flush();
+}
+
+std::vector<NoteBlock> ParseNotes(const std::string &text)
+{
+	std::vector<NoteBlock> blocks;
+	bool open = false;
+	size_t start = 0;
+	while (start <= text.size()) {
+		size_t end = text.find('\n', start);
+		if (end == std::string::npos) end = text.size();
+		std::string line = text.substr(start, end - start);
+		start = end + 1;
+		const size_t lead = line.find_first_not_of(' ');
+		if (lead == std::string::npos) {
+			open = false;
+			continue;
+		}
+		line = line.substr(lead);
+		if (line[0] == '#') {
+			blocks.push_back({kBlockHeading, {}});
+			AddInline(blocks.back(), line.substr(std::min(line.size(), line.find_first_not_of('#'))), true);
+			open = false;
+		}
+		else if (line.rfind("- ", 0) == 0 || line.rfind("* ", 0) == 0) {
+			blocks.push_back({kBlockBullet, {}});
+			AddInline(blocks.back(), line.substr(2), false);
+			open = true;
+		}
+		else {
+			if (!open) blocks.push_back({kBlockParagraph, {}});
+			AddInline(blocks.back(), line, false);
+			open = true;
+		}
+	}
+	return blocks;
+}
+
+int NoteFont(int style) { return style == kNoteText || style == kNoteCode ? 3 : 4; }
+
+COLORREF NoteColor(int style) { return style == kNoteText ? kDim : style == kNoteCode ? RGB(232, 192, 104) : kText; }
+
+NotesLayout LayoutNotes(Painter &p, const std::vector<NoteBlock> &blocks, int width)
+{
+	NotesLayout out;
+	TEXTMETRICW tm = {};
+	p.Font(3);
+	GetTextMetricsW(p.dc, &tm);
+	out.lineH = static_cast<int>(tm.tmHeight / p.s + 0.99f) + 2;
+	auto widthOf = [&](const std::wstring &s, int style) {
+		p.Font(NoteFont(style));
+		SIZE sz = {};
+		GetTextExtentPoint32W(p.dc, s.c_str(), static_cast<int>(s.size()), &sz);
+		return static_cast<int>(sz.cx / p.s + 0.99f);
+	};
+	const int space = widthOf(L" ", kNoteText);
+	int y = 0;
+	for (size_t b = 0; b < blocks.size(); b++) {
+		const NoteBlock &block = blocks[b];
+		if (b > 0) y += block.kind == kBlockHeading ? 10 : block.kind == kBlockBullet && blocks[b - 1].kind == kBlockBullet ? 2 : 6;
+		const int indent = block.kind == kBlockBullet ? kNotesIndent : 0;
+		if (block.kind == kBlockBullet) out.bullets.push_back(y);
+		int x = indent;
+		for (const std::vector<NotePiece> &word : block.words) {
+			int w = 0;
+			for (const NotePiece &piece : word) w += widthOf(piece.text, piece.style);
+			if (x > indent && x + w > width) {
+				y += out.lineH;
+				x = indent;
+			}
+			for (const NotePiece &piece : word) {
+				out.words.push_back({x, y, piece.style, piece.text});
+				x += widthOf(piece.text, piece.style);
+			}
+			x += space;
+		}
+		y += out.lineH;
+	}
+	out.height = y;
+	return out;
+}
+
+std::string NotesForPlayer(const std::string &raw)
+{
+	std::string text = raw;
+	const size_t comment = text.find("<!--");
+	if (comment != std::string::npos) {
+		const size_t close = text.find("-->", comment);
+		if (close != std::string::npos) text.erase(comment, close + 3 - comment);
+	}
+	size_t heading = text.find(Tr("## English"));
+	if (heading == std::string::npos) heading = text.find("## English");
+	if (heading != std::string::npos) {
+		const size_t body = text.find('\n', heading);
+		const size_t next = body == std::string::npos ? std::string::npos : text.find("\n## ", body);
+		text = body == std::string::npos ? std::string() : text.substr(body + 1, next == std::string::npos ? std::string::npos : next - body - 1);
+	}
+	ReplaceAll(text, "\r", "");
+	const size_t first = text.find_first_not_of(" \n"), last = text.find_last_not_of(" \n");
+	return first == std::string::npos ? std::string() : text.substr(first, last - first + 1);
+}
+
 void TabStep(bool back)
 {
 	const FocusItem next = FocusStep(FocusOrder(g_hits, [](int a) { return a == kNone; }), {g_tabAction, 0}, back);
@@ -187,19 +371,38 @@ void UpdateUiDrawPanel(uint32_t *buf, int w, int h)
 		break;
 	default: return;
 	}
-	if (notes.size() > 700) notes = notes.substr(0, 700) + "...";
+	notes = NotesForPlayer(notes);
 	const int x = 28, w2 = kPanelW - 56;
 	const float sw = std::max(0.6f, std::min(1.6f, (w - 24) / static_cast<float>(kPanelW)));
 	EnsureFonts(sw);
-	int lineH, notesH;
+	int lineH, notesH = 0, viewH = 0, contentH = 0;
+	NotesLayout layout;
 	{
 		HDC measure = CreateCompatibleDC(nullptr);
 		Painter pm{measure, sw, 0, 0, nullptr};
 		std::copy(std::begin(g_fonts), std::end(g_fonts), std::begin(pm.fonts));
 		pm.Font(3);
 		lineH = pm.Measure(w2, line) + 6;
-		notesH = notes.empty() ? 0 : 30 + pm.Measure(w2, notes) + 8;
+		if (!notes.empty()) {
+			const std::vector<NoteBlock> blocks = ParseNotes(notes);
+			layout = LayoutNotes(pm, blocks, w2);
+			if (layout.height > kNotesMaxH) layout = LayoutNotes(pm, blocks, w2 - kNotesBarW - 10);
+			contentH = layout.height;
+			viewH = std::min(contentH, kNotesMaxH);
+			notesH = 30 + viewH + 8;
+		}
 		DeleteDC(measure);
+	}
+	float scroll = 0;
+	{
+		std::lock_guard<std::mutex> lock(g_lock);
+		if (g_notes.version != info.newVersion) {
+			g_notes = NotesScroll();
+			g_notes.version = info.newVersion;
+		}
+		g_notes.maxScroll = static_cast<float>(std::max(0, contentH - viewH));
+		ScrollNotesTo(g_notes.scroll);
+		scroll = g_notes.scroll;
 	}
 	const int barH = info.state == UpdaterInfo::kDownloading ? 34 : 0;
 	const int H = 24 + 40 + lineH + notesH + barH + 80;
@@ -227,7 +430,46 @@ void UpdateUiDrawPanel(uint32_t *buf, int w, int h)
 		p.Text(x, y + 4, w2, 22, "What's new", kText);
 		p.Fill(x, y + 28, w2, 1, pal::lineDim);
 		p.Font(3);
-		p.TextWrapped(x, y + 34, w2, notesH - 34, notes, kDim);
+		const int top = y + 34, offset = static_cast<int>(scroll);
+		p.Clip(x, top, w2, viewH);
+		for (int by : layout.bullets) {
+			const int dot = std::max(4, layout.lineH / 4);
+			p.Ellipse(x + 4, top - offset + by + (layout.lineH - dot) / 2, dot, dot, RGB(214, 170, 84));
+		}
+		for (const NoteWord &word : layout.words) {
+			if (word.y + layout.lineH < offset || word.y > offset + viewH) continue;
+			p.Font(NoteFont(word.style));
+			p.LineW(x + word.x, top - offset + word.y, w2, layout.lineH, word.text, NoteColor(word.style));
+		}
+		p.Unclip();
+		RECT view = {}, track = {};
+		int thumbTop = 0, thumbH = 0;
+		if (contentH > viewH) {
+			const int bx = x + w2 - kNotesBarW, th = std::max(28, viewH * viewH / contentH);
+			const int ty = top + static_cast<int>((viewH - th) * (scroll / (contentH - viewH)));
+			bool grabbing;
+			{
+				std::lock_guard<std::mutex> lock(g_lock);
+				grabbing = g_notes.dragging;
+			}
+			const bool hot = grabbing || p.Hover(bx - 4, top, kNotesBarW + 8, viewH, mx, my);
+			p.Fill(bx, top, kNotesBarW, viewH, RGB(30, 24, 16));
+			p.Fill(bx, ty, kNotesBarW, th, hot ? RGB(232, 192, 104) : RGB(150, 118, 58));
+			track = p.R(bx - 4, top, kNotesBarW + 8, viewH);
+			OffsetRect(&track, ox, oy);
+			thumbTop = oy + p.S(ty);
+			thumbH = p.S(ty + th) - p.S(ty);
+		}
+		view = p.R(x, top, w2, viewH);
+		OffsetRect(&view, ox, oy);
+		{
+			std::lock_guard<std::mutex> lock(g_lock);
+			g_notes.view = view;
+			g_notes.track = track;
+			g_notes.thumbTop = thumbTop;
+			g_notes.thumbH = thumbH;
+			g_notes.scale = p.s;
+		}
 		y += notesH;
 	}
 	if (barH) {
@@ -255,6 +497,10 @@ bool UpdateUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 	if (msg == WM_MOUSEMOVE) {
 		g_mx = static_cast<short>(LOWORD(lp));
 		g_my = static_cast<short>(HIWORD(lp));
+		if (g_open && g_notes.dragging) {
+			DragNotesTo(g_my);
+			return true;
+		}
 	}
 	if (GetTickCount() - g_cornerTick >= 300) return false;
 	if (!g_open) {
@@ -294,6 +540,14 @@ bool UpdateUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 	case WM_LBUTTONDBLCLK: {
 		const POINT pt = {static_cast<short>(LOWORD(lp)), static_cast<short>(HIWORD(lp))};
 		g_tabAction = -1;
+		if (g_notes.maxScroll > 0 && PtInRect(&g_notes.track, pt)) {
+			const bool onThumb = pt.y >= g_notes.thumbTop && pt.y < g_notes.thumbTop + g_notes.thumbH;
+			g_notes.grab = onThumb ? pt.y - g_notes.thumbTop : g_notes.thumbH / 2;
+			g_notes.dragging = true;
+			DragNotesTo(pt.y);
+			g_swallowUp = true;
+			return true;
+		}
 		int action = kNone;
 		for (auto it = g_hits.rbegin(); it != g_hits.rend(); ++it) {
 			if (PtInRect(&it->r, pt)) {
@@ -307,6 +561,15 @@ bool UpdateUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 		return true;
 	}
 	case WM_KEYDOWN:
+		if (g_notes.maxScroll > 0 && (wp == VK_UP || wp == VK_DOWN || wp == VK_PRIOR || wp == VK_NEXT || wp == VK_HOME || wp == VK_END)) {
+			const float page = static_cast<float>(kNotesMaxH - kNotesWheelStep);
+			if (wp == VK_UP) ScrollNotesTo(g_notes.scroll - kNotesWheelStep);
+			else if (wp == VK_DOWN) ScrollNotesTo(g_notes.scroll + kNotesWheelStep);
+			else if (wp == VK_PRIOR) ScrollNotesTo(g_notes.scroll - page);
+			else if (wp == VK_NEXT) ScrollNotesTo(g_notes.scroll + page);
+			else ScrollNotesTo(wp == VK_HOME ? 0.0f : g_notes.maxScroll);
+			return true;
+		}
 		if (wp == VK_ESCAPE) g_escArmed = true;
 		else if (wp == VK_TAB) TabStep((GetKeyState(VK_SHIFT) & 0x8000) != 0);
 		else if (g_tabAction >= 0 && !(lp & (1 << 30)) && (wp == VK_RETURN || wp == VK_SPACE)) perform(g_tabAction);
@@ -319,6 +582,13 @@ bool UpdateUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 		return true;
 	case WM_LBUTTONUP:
 		g_swallowUp = false;
+		g_notes.dragging = false;
+		return true;
+	case WM_MOUSEWHEEL:
+		if (g_notes.maxScroll > 0) {
+			const POINT pt = {g_mx, g_my};
+			if (PtInRect(&g_panel, pt)) ScrollNotesTo(g_notes.scroll - GET_WHEEL_DELTA_WPARAM(wp) * kNotesWheelStep / static_cast<float>(WHEEL_DELTA));
+		}
 		return true;
 	case WM_CHAR:
 	case WM_SYSKEYDOWN:
@@ -328,7 +598,6 @@ bool UpdateUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp)
 	case WM_RBUTTONDBLCLK:
 	case WM_MBUTTONDOWN:
 	case WM_MBUTTONUP:
-	case WM_MOUSEWHEEL:
 		return true;
 	default:
 		return false;

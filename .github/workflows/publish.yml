@@ -1,0 +1,160 @@
+name: Publish
+
+# Pushing a tag v<version> publishes that version: winmm.dll and the installer are built here, version.json is signed here with the key
+# of the release environment (it waits for the maintainer's approval), and the release is created with the notes of
+# release-notes/<version>.md, the three files and the linker map. Then the Release workflow verifies it again, attaches the SDK zip and
+# the checksums, uploads the files to VirusTotal and announces the version on Discord; if the verification fails, the release goes back
+# to draft. The tag must match IMPERIVM_VERSION_TEXT and point to a commit of main.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: checks
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag, version, notes and branch
+        id: version
+        shell: bash
+        run: |
+          version=$(sed -n 's/.*IMPERIVM_VERSION_TEXT[[:space:]]*"\([^"]*\)".*/\1/p' src/core/version_info.h)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" != "v$version" ]]; then
+            echo "::error::the tag is $TAG but src/core/version_info.h says $version: tag the commit that has the version (v$version)"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$TAG is not on main: tag a commit of main"
+            exit 1
+          fi
+          if [[ ! -f "release-notes/$version.md" ]]; then
+            echo "::error::release-notes/$version.md is missing: merge the notes of $version first"
+            exit 1
+          fi
+          if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" == "false" ]]; then
+            echo "::error::$TAG is already published"
+            exit 1
+          fi
+
+      - name: Steamworks SDK headers (private repository, read only)
+        uses: actions/checkout@v4
+        with:
+          repository: imperivm-resurrected/steamworks-headers
+          ssh-key: ${{ secrets.STEAMWORKS_HEADERS_KEY }}
+          path: third_party/steamworks_sdk
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Build winmm.dll
+        shell: cmd
+        env:
+          STEAMWORKS_SDK: ${{ github.workspace }}\third_party\steamworks_sdk
+        run: build.bat
+
+      - name: Build the installer stub
+        shell: cmd
+        run: installer\build.bat
+
+      - name: steam_api.dll of the latest release (Valve's redistributable, the same file in every release)
+        shell: pwsh
+        run: |
+          gh release download --pattern 'imperivm-resurrected-[0-9]*.zip' --dir previous
+          Expand-Archive (Get-ChildItem previous/*.zip | Select-Object -First 1).FullName previous/content
+          Copy-Item previous/content/steam_api.dll build/steam_api.dll
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: |
+            build/winmm.dll
+            build/winmm.map
+            build/installer-stub.exe
+            build/steam_api.dll
+          if-no-files-found: error
+
+  sign:
+    needs: build
+    runs-on: windows-latest
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: build
+
+      - name: Zip, signed version.json and installer (verified with tools/verify-release.js)
+        env:
+          UPDATES_PRIVATE_KEY: ${{ secrets.UPDATES_PRIVATE_KEY }}
+        run: node tools/build-release.js --dll build/winmm.dll --steam-api build/steam_api.dll --out release
+
+      - name: Linker map, to read the crash logs of this build
+        shell: pwsh
+        run: Compress-Archive build/winmm.map "release/winmm-$env:VERSION.map.zip"
+
+      - name: Attest that these files were built by this workflow from this commit
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/*
+
+      - name: Create the release (as a draft until every file is attached, then published as the latest)
+        shell: bash
+        run: |
+          if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" == "true" ]]; then
+            gh release delete "$TAG" --yes
+          fi
+          gh release create "$TAG" release/* --draft --verify-tag \
+            --title "Imperivm Resurrected $VERSION" --notes-file "release-notes/$VERSION.md"
+          gh release edit "$TAG" --draft=false --latest
+          echo "Published $TAG: the Release workflow verifies it and announces it." >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    needs: sign
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ github.ref_name }}
+      announce: true
+      withdraw: true
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    secrets: inherit

@@ -9,7 +9,7 @@ namespace mods_impl {
 
 const char kGameId[] = "gbr-hd-1.0";
 
-const int kSimLevel = 1;
+const int kSimLevel = 2;
 
 const int kRulesSchema = 2;
 
@@ -26,6 +26,7 @@ std::string SafeFileName(const std::string &name);
 std::string MakeId(const std::string &folder);
 
 bool AllowedExtension(const std::string &rel);
+bool IsDocumentation(const std::string &rel);
 
 bool IsGameplayPath(const std::string &p);
 

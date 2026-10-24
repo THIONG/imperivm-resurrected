@@ -5,8 +5,11 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
+
+#include "game/controls.h"
 
 void ModUiOpen();
 void ModUiAskRestart(const std::string &reason = "", int largeAddress = -1, const std::vector<std::string> &items = {},
@@ -15,6 +18,8 @@ bool ModUiIsOpen();
 int ModUiUpdatesAvailable();
 void ModUiResetUpdates();
 void ModUiToast(const std::string &text, bool error = false);
+void ModUiNotice(const std::string &title, const std::string &text);
+void ModUiAsk(const std::string &title, const std::string &text, const std::string &yes, std::function<void()> onYes);
 
 bool ModUiHandleMessage(UINT msg, WPARAM wp, LPARAM lp);
 bool ModUiHandleCornerMessage(UINT msg, WPARAM wp, LPARAM lp);
@@ -22,4 +27,5 @@ bool ModUiHandleCornerMessage(UINT msg, WPARAM wp, LPARAM lp);
 bool ModUiNeedsDraw();
 void ModUiDraw(uint32_t *buf, int w, int h);
 
-void ModUiDrawHoverCard(uint32_t *buf, int w, int h, const std::string &text, COLORREF accent, int atX, int centerY);
+void ModUiDrawHoverCard(uint32_t *buf, int w, int h, const std::string &text, COLORREF accent, int atX, int centerY,
+	const std::vector<ControlKey> &keys = {});

@@ -33,6 +33,8 @@ namespace {
 const unsigned kMagic = 0x76787367;
 
 const size_t kBucketSize = 0xf8;
+const size_t kBucketHashes = 0xc8;
+const int kBucketHashCount = 8;
 const size_t kBucketTick = 0xf0;
 const size_t kGameTick = 0x1258;
 const size_t kGameSpeed = 0x1244;
@@ -253,8 +255,11 @@ enum : uint8_t {
 	kSpEnd = 47,
 	kSpBye = 48,
 	kSpWait = 49,
+	kSpResend = 50,
 };
-static_assert(kSpectatorMessages.Has(kSpHello) && kSpectatorMessages.Has(kSpWait), "spectator messages out of their range");
+static_assert(kSpectatorMessages.Has(kSpHello) && kSpectatorMessages.Has(kSpResend), "spectator messages out of their range");
+const DWORD kResendWaitMs = 6000;
+const DWORD kCoverMaxMs = 60000;
 const size_t kChunk = 48 * 1024;
 const size_t kCaptureChunk = 128;
 const size_t kTicksMsgMax = 192 * 1024;
@@ -413,6 +418,23 @@ void HostHello(uint64_t peer, const std::string &hello, bool open, int delaySec)
 	LogI("spectator", "%llu watches the game (delay %d s, %s)", peer, delaySec, g_h.armed ? "already started" : "not started yet");
 }
 
+void HostResend(uint64_t peer, const std::string &data)
+{
+	size_t pos = 0;
+	uint32_t from = 0;
+	const auto it = g_h.clients.find(peer);
+	if (it == g_h.clients.end() || it->second.state != 2 || !Get32(data, pos, from)) return;
+	Client &c = it->second;
+	for (size_t i = 0; i < g_h.recs.size(); i++) {
+		if (g_h.recs[i].first != from) continue;
+		LogI("spectator", "%llu lost data from bucket %u: sending it again", peer, from);
+		c.next = i;
+		c.nextBucket = from;
+		return;
+	}
+	LogW("spectator", "%llu asked for bucket %u again, which the host no longer has", peer, from);
+}
+
 void HostTick(std::deque<Msg> &msgs)
 {
 	int delaySec = 0;
@@ -424,6 +446,7 @@ void HostTick(std::deque<Msg> &msgs)
 			g_h.clients.erase(m.peer);
 			LogI("spectator", "%llu stops watching", m.peer);
 		}
+		else if (m.type == kSpResend) HostResend(m.peer, m.data);
 	}
 	if (!g_h.clients.empty()) {
 		const std::vector<uint64_t> ids = SteamSpectatorIds();
@@ -437,6 +460,7 @@ void HostTick(std::deque<Msg> &msgs)
 		}
 	}
 	g_clientCount = static_cast<int>(g_h.clients.size());
+	SteamPublishWatchers(g_clientCount);
 	if (g_h.armed && (!game || game != g_h.game || IsDemo())) HostFinish();
 }
 
@@ -558,6 +582,9 @@ struct Viewer {
 	uint32_t catchFrom = 0;
 	DWORD catchSince = 0;
 	size_t buckets = 0;
+	DWORD resendAt = 0, mismatchSince = 0;
+	bool covering = false;
+	DWORD coverSince = 0;
 	std::string error;
 	DWORD lastRoom = 0;
 	uint8_t *game = nullptr;
@@ -567,7 +594,7 @@ struct Viewer {
 Viewer g_v;
 std::mutex g_viewMx;
 std::string g_status;
-std::atomic<bool> g_viewing{false}, g_watching{false};
+std::atomic<bool> g_viewing{false}, g_watching{false}, g_covering{false};
 std::atomic<int> g_progress{-1};
 
 struct Controls {
@@ -622,6 +649,8 @@ std::atomic<unsigned> g_effMs{0};
 std::atomic<bool> g_busy{false};
 
 typedef void(__fastcall *ThisInt2_t)(void *obj, void *edx, int a, int b);
+typedef void(__fastcall *SetFocus_t)(void *root, void *edx, void *window);
+const unsigned kUiRootSetFocusSlot = 0x6c / 4;
 typedef unsigned(__fastcall *EndMenuShow_t)(void *dlg);
 typedef void *(__fastcall *GetChild_t)(void *dlg, void *edx, int id, const char *cls);
 typedef unsigned(__fastcall *GetFlags_t)(void *win, void *edx, int redraw);
@@ -643,6 +672,9 @@ void ApplyGameUi(bool hidden)
 			*state = 1;
 		}
 		reinterpret_cast<ThisInt2_t>(addr::kSetInterfaceHidden)(mgr, nullptr, hidden ? 1 : 0, hidden ? 1 : 0);
+		void *root = *reinterpret_cast<void **>(addr::kUIRoot);
+		void *map = *reinterpret_cast<void **>(addr::kMapView);
+		if (root && map) reinterpret_cast<SetFocus_t>((*reinterpret_cast<void ***>(root))[kUiRootSetFocusSlot])(root, nullptr, map);
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {
 	}
@@ -683,14 +715,29 @@ void SetStatus(const std::string &s)
 	g_status = s;
 }
 
+struct ReplayCheck {
+	unsigned matched = 0, differed = 0;
+	bool reported = false;
+};
+ReplayCheck g_check;
+
+void ReplayCheckSummary()
+{
+	if (!g_check.matched && !g_check.differed) return;
+	LogI("spectator", "the replay matched the game in %u buckets and differed in %u", g_check.matched, g_check.differed);
+	g_check = ReplayCheck();
+}
+
 void ViewerReset()
 {
+	ReplayCheckSummary();
 	if (g_v.phase != kIdle) LogI("spectator", "stopped watching");
 	const std::string snap = DiskOf(ScratchVfs("live.dmo"));
 	DeleteFileA(snap.c_str());
 	g_v = Viewer();
 	g_viewing = false;
 	g_watching = false;
+	g_covering = false;
 	g_progress = -1;
 	std::lock_guard<std::mutex> lock(g_viewMx);
 	g_status.clear();
@@ -721,7 +768,24 @@ void ViewerApplyTicks(const std::string &data)
 	if (!game || !Get32(data, pos, V) || !Get32(data, pos, first) || !Get32(data, pos, count) || !Get32(data, pos, speed) || !Get32(data, pos, flags)) return;
 	if (speed >= 1 && speed <= 100000) g_v.hostSpeed = speed;
 	g_v.hostPaused = (flags & 1) != 0;
-	if (first != g_v.buckets) LogD("spectator", "bucket %u arrived and %u was expected", first, static_cast<unsigned>(g_v.buckets));
+	if (first != g_v.buckets) {
+		const DWORD now = GetTickCount();
+		if (!g_v.mismatchSince) g_v.mismatchSince = now;
+		if (now - g_v.mismatchSince < kResendWaitMs) {
+			if (first > g_v.buckets && now - g_v.resendAt > 1500) {
+				g_v.resendAt = now;
+				std::string ask;
+				Put32(ask, static_cast<uint32_t>(g_v.buckets));
+				Send(g_v.host, kSpResend, ask);
+				LogW("spectator", "data from bucket %u was lost on the way: asking the host to send it again", static_cast<unsigned>(g_v.buckets));
+			}
+			return;
+		}
+		LogW("spectator", "bucket %u arrived and %u was expected for %u s: following the host's numbering", first, static_cast<unsigned>(g_v.buckets),
+			kResendWaitMs / 1000);
+		g_v.buckets = first;
+	}
+	g_v.mismatchSince = 0;
 	EnsureScratchDir();
 	const std::string vfs = ScratchVfs("received-bucket.tmp");
 	for (uint32_t i = 0; i < count; i++) {
@@ -829,6 +893,9 @@ void ViewerAdopt(uint8_t *game)
 	g_v.game = game;
 	g_v.phase = kViewing;
 	g_v.flow = kFlowWaiting;
+	g_v.covering = true;
+	g_v.coverSince = GetTickCount();
+	g_covering = true;
 	const size_t n = BucketCount(game);
 	if (n != g_v.buckets) LogD("spectator", "the replay has %u buckets and %u were expected", static_cast<unsigned>(n), static_cast<unsigned>(g_v.buckets));
 	g_v.buckets = n;
@@ -937,7 +1004,7 @@ void ViewerTick(std::deque<Msg> &msgs)
 				g_v.ended = true;
 				g_v.endTick = g_v.limit;
 				if (game) At<uint32_t>(game, kReplayEnd) = g_v.endTick;
-				UiToast("The host has left the game: the broadcast ends");
+				UiNotice("The game has ended", "The host has left the game, so the broadcast is over. You can look back over what you saw with the bar, or leave with Esc.");
 				LogI("spectator", "the host left the spectator room");
 			}
 		}
@@ -1192,7 +1259,7 @@ void __fastcall HookRunTicks(void *timer, void *edx, unsigned target)
 	if (g_v.ended && cur >= g_v.endTick) {
 		if (!g_v.endShown) {
 			g_v.endShown = true;
-			UiToast("The game has ended. You can review it with the bar or leave with Esc");
+			UiNotice("The game has ended", "The players have left the game or it has finished. You can look back over it with the bar, or leave with Esc.");
 		}
 		g_origRunTicks(timer, edx, target);
 		return;
@@ -1241,6 +1308,7 @@ void __fastcall HookRunTicks(void *timer, void *edx, unsigned target)
 			QueryPerformanceCounter(&b);
 			if ((b.QuadPart - a.QuadPart) * 1000.0 / f.QuadPart > kCatchUpBudget) break;
 		}
+		if (g_v.covering && goal > g_v.catchFrom) g_progress = static_cast<int>((std::min<unsigned>(goal, cur) - g_v.catchFrom) * 100ULL / (goal - g_v.catchFrom));
 		if (cur >= goal) {
 			const DWORD ms = GetTickCount() - g_v.catchSince;
 			LogI("spectator", "caught up; %u s of game in %.1f s", (cur - g_v.catchFrom) / 1000, ms / 1000.0);
@@ -1261,6 +1329,21 @@ void __fastcall HookRunTicks(void *timer, void *edx, unsigned target)
 		}
 		if (want < cur) want = cur;
 		g_origRunTicks(timer, edx, want);
+	}
+	if (g_v.covering) {
+		if (g_v.flow == kFlowLive || g_v.ended || GetTickCount() - g_v.coverSince > kCoverMaxMs) {
+			g_v.covering = false;
+			g_covering = false;
+			g_progress = -1;
+			SetStatus("");
+		}
+		else if (g_v.flow == kFlowCatching) {
+			SetStatus("Catching up with the live game...");
+		}
+		else {
+			g_progress = -1;
+			SetStatus("Preparing the live view...");
+		}
 	}
 	g_ctl.atLive = g_v.flow == kFlowLive && mult == 1 && !g_v.ended && !g_v.timeshift && limit <= cur + Gentle() + Buf();
 	g_curMs = cur;
@@ -1471,6 +1554,7 @@ int SpectatorDelaySec()
 
 bool SpectatorWantsWake() { return g_watching && (!g_viewing || g_v.flow == kFlowWaiting); }
 bool SpectatorViewing() { return g_viewing; }
+bool SpectatorCovering() { return g_covering; }
 int SpectatorCount() { return g_clientCount; }
 
 std::string SpectatorStatusText()
@@ -1479,9 +1563,95 @@ std::string SpectatorStatusText()
 	return g_status;
 }
 
+typedef void(__fastcall *PlaybackTick_t)(void *pump);
+PlaybackTick_t g_origPlayback = nullptr;
+
+bool DifferingHashes(const uint32_t *recorded, const uint32_t *now, unsigned &mask)
+{
+	__try {
+		for (int i = 0; i < kBucketHashCount; i++) {
+			if (recorded[i] != now[i]) mask |= 1u << i;
+		}
+		return true;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return false;
+	}
+}
+
+typedef int(__fastcall *CommandSynced_t)(void *registry, void *edx, void *command);
+
+void DescribeBucket(const uint8_t *bucket, char *out, size_t cap)
+{
+	out[0] = 0;
+	size_t used = 0;
+	__try {
+		void *registry = *reinterpret_cast<void **>(addr::kCmdRegistry);
+		auto synced = reinterpret_cast<CommandSynced_t>((*reinterpret_cast<void ***>(registry))[0x30 / 4]);
+		int shown = 0, total = 0;
+		for (int queue = 0; queue < 16; queue++) {
+			const int *list = reinterpret_cast<const int *>(bucket + 4 + queue * 12);
+			const int *head = reinterpret_cast<const int *>(list[0]);
+			for (const int *node = reinterpret_cast<const int *>(head[0]); node != head && total < 400; node = reinterpret_cast<const int *>(node[0]), total++) {
+				void *command = reinterpret_cast<void *>(node[2]);
+				if (shown >= 12) continue;
+				const int *definition = reinterpret_cast<const int *>(reinterpret_cast<const int *>(command)[1]);
+				const int written = _snprintf_s(out + used, cap - used, _TRUNCATE, "%s[player %d id %u param %d%s]", shown ? " " : "", queue,
+					static_cast<unsigned>(definition[2]), reinterpret_cast<const int *>(command)[2], synced(registry, nullptr, command) ? "" : " not synced");
+				if (written < 0) break;
+				used += static_cast<size_t>(written);
+				shown++;
+			}
+		}
+		if (total > shown) _snprintf_s(out + used, cap - used, _TRUNCATE, " ... %d commands in total", total);
+		else if (!shown) _snprintf_s(out, cap, _TRUNCATE, "no commands");
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		_snprintf_s(out, cap, _TRUNCATE, "could not read the commands");
+	}
+}
+
+void __fastcall HookPlaybackTick(void *pump)
+{
+	uint8_t *game = Game();
+	const unsigned before = game ? At<unsigned>(game, kReplayData) : 0;
+	g_origPlayback(pump);
+	if (!game || g_v.phase != kViewing || game != g_v.game) return;
+	const unsigned after = At<unsigned>(game, kReplayData);
+	if (after != before + 1) return;
+	uint8_t *buckets = At<uint8_t *>(game, kBucketsBegin);
+	if (!buckets || before >= BucketCount(game)) return;
+	const uint32_t *recorded = reinterpret_cast<const uint32_t *>(buckets + before * kBucketSize + kBucketHashes);
+	const uint32_t *now = reinterpret_cast<const uint32_t *>(addr::kSyncHashes);
+	static const char *const kNames[kBucketHashCount] = {"object positions", "checksums", "sync 3", "sync 4", "sync 5", "commands", "fire and smoke", "sync 8"};
+	unsigned mask = 0;
+	if (!DifferingHashes(recorded, now, mask)) return;
+	std::string different;
+	for (int i = 0; i < kBucketHashCount; i++) {
+		if (mask & (1u << i)) different += (different.empty() ? "" : ", ") + std::string(kNames[i]);
+	}
+	if (different.empty()) {
+		g_check.matched++;
+		return;
+	}
+	g_check.differed++;
+	if (!g_check.reported) {
+		g_check.reported = true;
+		LogW("spectator", "the replay no longer matches the game at tick %u (bucket %u, %u buckets matched before): differs in %s", BucketTickAt(game, before), before,
+			g_check.matched, different.c_str());
+		for (unsigned i = before >= 3 ? before - 3 : 0; i <= before; i++) {
+			char text[900];
+			DescribeBucket(buckets + i * kBucketSize, text, sizeof(text));
+			LogI("spectator", "bucket %u (tick %u): %s", i, BucketTickAt(game, i), text);
+		}
+	}
+}
+
 void InstallSpectator(bool knownExe)
 {
 	if (!knownExe) return;
+	HookCreate(reinterpret_cast<void *>(addr::kPlaybackRecordedTick), reinterpret_cast<void *>(&HookPlaybackTick), reinterpret_cast<void **>(&g_origPlayback));
+	if (g_origPlayback) HookEnable(reinterpret_cast<void *>(addr::kPlaybackRecordedTick));
 	GetModuleFileNameA(nullptr, g_ini, MAX_PATH);
 	if (char *slash = strrchr(g_ini, '\\')) strcpy_s(slash + 1, MAX_PATH - (slash + 1 - g_ini), "imperivm-mod.ini");
 	const bool ok = HookCreate(reinterpret_cast<void *>(addr::kRunTicksUpTo), reinterpret_cast<void *>(&HookRunTicks),

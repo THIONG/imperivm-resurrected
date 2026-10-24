@@ -213,7 +213,6 @@ void BuildRows()
 		if (FindMod(folder)) continue;
 		Row r;
 		r.folder = folder;
-		r.active = true;
 		g_s.rows.push_back(r);
 	}
 	const auto key = [](const Row &r) {
@@ -314,6 +313,7 @@ namespace modui_impl {
 void SwitchProfile(const std::string name)
 {
 	ModsSetActiveProfileName(name);
+	ModsApplyWithoutRestart();
 	Reload();
 	SetStatus(ModsRestartNeeded() ? Tr("Profile \"") + ModsProfileLabel(name) + Tr("\" selected: applied on restart") : "");
 }
@@ -331,6 +331,7 @@ void CommitProfile()
 	}
 	ModsSaveProfile(g_s.profile);
 	ModsSetActiveProfileName(g_s.profile.name);
+	ModsApplyWithoutRestart();
 	g_s.profileNames = ModsProfileNames();
 	BuildRows();
 	BuildUsage();
@@ -583,7 +584,7 @@ HoverState g_hover;
 SpectatorBarState g_spec;
 }
 
-void ModUiDrawHoverCard(uint32_t *buf, int w, int h, const std::string &text, COLORREF accent, int atX, int centerY)
+void ModUiDrawHoverCard(uint32_t *buf, int w, int h, const std::string &text, COLORREF accent, int atX, int centerY, const std::vector<ControlKey> &keys)
 {
 	static Canvas canvas;
 	const float s = std::max(0.6f, std::min(1.6f, h / 1080.0f * 1.2f));
@@ -592,6 +593,7 @@ void ModUiDrawHoverCard(uint32_t *buf, int w, int h, const std::string &text, CO
 	card.accent = accent;
 	card.atX = atX;
 	card.atCenterY = centerY;
+	card.keys = keys;
 	DrawCard(canvas, buf, w, h, card, s, 235);
 }
 
@@ -611,6 +613,12 @@ void ModUiOpen()
 		DlRefreshCatalogs();
 	}
 	g_s.restartReason.clear();
+	const std::vector<std::string> pruned = ModsTakePruned();
+	if (!pruned.empty()) {
+		std::string names;
+		for (const std::string &f : pruned) names += (names.empty() ? "" : ", ") + f;
+		SetStatus(TrFmt("Removed from the profiles because they are no longer in the content folder: %s", {names}));
+	}
 	ModsWatchStart();
 	LogI("content", "mod manager: open (profile \"%s\", %u mods installed)", g_s.profile.name.c_str(),
 		static_cast<unsigned>(g_s.mods.size()));
@@ -631,6 +639,36 @@ void ModUiAskRestart(const std::string &reason, int largeAddress, const std::vec
 	g_s.confirmItems = items;
 	g_s.confirmItemsTitle = itemsTitle;
 	g_s.confirmList = ListState();
+}
+
+void ModUiNotice(const std::string &title, const std::string &text)
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	if (!g_s.open) {
+		g_s.open = true;
+		g_s.confirmOnly = true;
+	}
+	g_s.confirm = true;
+	g_s.confirmKind = kConfirmNotice;
+	g_s.noticeTitle = title;
+	g_s.noticeText = text;
+	g_s.confirmItems.clear();
+}
+
+void ModUiAsk(const std::string &title, const std::string &text, const std::string &yes, std::function<void()> onYes)
+{
+	std::lock_guard<std::mutex> lock(g_lock);
+	if (!g_s.open) {
+		g_s.open = true;
+		g_s.confirmOnly = true;
+	}
+	g_s.confirm = true;
+	g_s.confirmKind = kConfirmAction;
+	g_s.noticeTitle = title;
+	g_s.noticeText = text;
+	g_s.actionYes = yes;
+	g_s.action = std::move(onYes);
+	g_s.confirmItems.clear();
 }
 
 int ModUiUpdatesAvailable()

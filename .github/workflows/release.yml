@@ -3,6 +3,17 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      announce:
+        type: boolean
+        default: false
+      withdraw:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       tag:
@@ -37,7 +48,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Download what was attached to the release
         shell: bash
@@ -50,7 +61,8 @@ jobs:
         shell: bash
         run: |
           rm -f assets/SHA256SUMS.txt
-          node tools/verify-release.js assets --tag "$TAG" --write-sums
+          gh release view "$TAG" --json body --jq .body > "$RUNNER_TEMP/release-body.md"
+          node tools/verify-release.js assets --tag "$TAG" --body "$RUNNER_TEMP/release-body.md" --write-sums
 
       - name: Attach the SDK zip and the checksums
         shell: bash
@@ -63,14 +75,37 @@ jobs:
 
   withdraw:
     needs: [checks, assets]
-    if: always() && github.event_name == 'release' && (needs.checks.result == 'failure' || needs.assets.result == 'failure')
+    if: always() && (github.event_name == 'release' || inputs.withdraw) && (needs.checks.result == 'failure' || needs.assets.result == 'failure')
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ github.event.release.tag_name }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - name: Back to draft (a release that failed verification must not be the latest one)
         run: gh release edit "$TAG" --draft --repo "$GITHUB_REPOSITORY"
+
+  virustotal:
+    needs: assets
+    runs-on: ubuntu-latest
+    environment: virustotal
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      VT_API_KEY: ${{ secrets.VT_API_KEY }}
+    steps:
+      - name: Download the mod zip and the installer of this release
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'imperivm-resurrected-[0-9]*.zip' --dir vt
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'imperivm-resurrected-setup-*.exe' --dir vt || echo "No installer in $TAG"
+
+      - name: Upload them to VirusTotal (the website links to the report by SHA-256)
+        run: |
+          for file in vt/*; do
+            sha256sum "$file"
+            curl -sS --fail-with-body -X POST https://www.virustotal.com/api/v3/files -H "x-apikey: $VT_API_KEY" -F "file=@$file"
+          done
 
   discord:
     needs: assets
@@ -90,7 +125,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Announce the release in the Discord channels of new versions (links to the website)
         run: node tools/announce-release.js --tag "$TAG"

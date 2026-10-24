@@ -154,6 +154,7 @@ extern LeaveState g_leave;
 void RequestLobbySearch();
 void Leave();
 void RefuseForContent(uint64 lobby, const OnlineLobby &info, RoomContent content);
+void RememberLobby(uint64 lobby);
 void ResolvePendingJoin();
 void Join(uint64 lobby);
 struct SpectatorLobbyState {

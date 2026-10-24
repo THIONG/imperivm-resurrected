@@ -49,7 +49,7 @@ enum Action {
 	kPickRow, kPickOk, kPickCancel,
 	kRecoverYes, kRecoverNo, kRejoinCancel, kRejoinClose,
 	kGKick, kGKickJoining, kDiscord, kPassOk, kPassCancel, kGSeat, kGMove, kGMoveTo, kGSwapAsk, kSwapAccept, kSwapDecline, kDropYes, kDropNo, kPassShow, kGSiteToggle, kGRuleToggle, kSpectate, kReturnGame,
-	kFieldPickSearch, kPickDelete, kPickDeleteYes, kPickDeleteNo,
+	kFieldPickSearch, kPickDelete, kPickDeleteYes, kPickDeleteNo, kGResync,
 };
 
 typedef int(__cdecl *HostGame_t)(int, unsigned, int);
@@ -170,6 +170,9 @@ struct State {
 	DWORD connectStart = 0;
 	GameRoomSnapshot game;
 	bool gameWasActive = false;
+	int roomLimit = 0;
+	bool readySeen = false;
+	std::string readyConfig;
 	bool gameWasOnline = false;
 	DWORD gameClosedAt = 0;
 	struct Predicted {
@@ -190,6 +193,7 @@ struct State {
 	int createSpec = 1;
 	bool syncConfirm = false;
 	OnlineLobby syncLobby;
+	uint64_t forcePackLobby = 0;
 	bool syncWatch = false;
 	bool syncLive = false;
 	std::string syncPass;
@@ -391,6 +395,10 @@ void ApplySeatDisplay(GameRoomSnapshot &g);
 int RaceIdToCombo(int id);
 void ApplySaveLook(GameRoomSnapshot &g);
 bool RaceEditable(const GameRoomSnapshot &g, const GameRoomSlot &s, bool load);
+bool LocalReady(const GameRoomSnapshot &g);
+std::string RoomConfigKey(const OnlineLobby &l);
+bool SlotFrozen(const GameRoomSnapshot &g, const GameRoomSlot &s);
+bool RoomActionFrozen(const GameRoomSnapshot &g, int action, int arg);
 void RedirectReplacedRaces(GameRoomSnapshot &g);
 void ApplyPredicted(GameRoomSnapshot &g, std::vector<State::Predicted> &list);
 typedef unsigned(__fastcall *GameMenuMsg_t)(void *dlg, void *edx, int *msg);

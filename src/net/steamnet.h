@@ -30,6 +30,10 @@ struct OnlineLobby {
 	std::string name, host, map, mode;
 	std::string gameplayKey;
 	std::string scenModId, scenModVersion, scenModName;
+	bool scenSimple = false;
+	bool scenShareable = false;
+	uint64_t scenGbId = 0;
+	uint64_t scenMapSize = 0;
 	int players = 0, maxPlayers = 0;
 	bool password = false;
 	int visibility = 0;
@@ -54,6 +58,7 @@ struct OnlineLobby {
 	uint64_t specLobby = 0;
 	bool specOnly = false;
 	int spectators = 0;
+	int watching = 0;
 	int specDelay = 0;
 	long long started = 0;
 };
@@ -130,7 +135,8 @@ void SteamResetModDownload();
 struct OnlineMapStatus {
 	int state = 0;
 	bool ready = false;
-	std::string name, error;
+	bool needsPack = false;
+	std::string name, error, packName;
 	uint64_t got = 0, total = 0;
 };
 void SteamPublishScenario(const std::string &path);
@@ -151,6 +157,8 @@ void SteamSendChat(const std::string &text);
 void SteamInviteFriends();
 void SteamSetHosting(bool hosting);
 void SteamSetPlaying(bool playing);
+void SteamPublishWatchers(int count);
+int SteamRoomWatchers();
 void SteamKick(uint64_t member);
 struct NetPeerStat {
 	uint64_t id = 0;
@@ -178,8 +186,8 @@ void SteamPublishSlots(const std::string &text);
 void SteamPublishSaveColors(const std::string &text);
 std::string SteamTakeNotice();
 std::string SteamOwnGameplayKey();
-RoomContent SteamRoomContent(const OnlineLobby &lobby, const std::string &ownKey);
-void SteamLeaveForContent();
+RoomContent SteamRoomContent(const OnlineLobby &lobby, const std::string &ownKey, bool strictMap = false, bool watching = false);
+void SteamLeaveForContent(bool strictMap = false);
 
 void SteamRejoinSend(uint64_t peer, uint8_t type, const std::string &data);
 void SteamRejoinAllow(uint64_t peer);

@@ -104,7 +104,7 @@ const Action kActions[] = {
 
 	{"minimap", kPageInterface, "Minimap", "a tap opens or closes it; held down, only while you press it", VK_SPACE, 0, kGeneral, kRuleAny},
 
-	{"performance_panel", kPageMod, "Performance panel", "show or hide; works everywhere", 'F', kCtrl, kMod, kRuleShortcut},
+	{"performance_panel", kPageMod, "Performance panel", "show or hide; works everywhere", 'P', kCtrl, kMod, kRuleShortcut},
 	{"replay_pause", kPageMod, "Replay: pause", "pause or resume while watching a replay or a broadcast", VK_SPACE, kCtrl, kMod, kRuleShortcut},
 	{"replay_faster", kPageMod, "Replay: faster", "x1, x2, x4 and x8", VK_UP, kCtrl, kMod, kRuleShortcut},
 	{"replay_slower", kPageMod, "Replay: slower", "", VK_DOWN, kCtrl, kMod, kRuleShortcut},
@@ -181,6 +181,7 @@ std::vector<Order> g_orders;
 
 bool g_gridMode = false;
 bool g_barLetters = true;
+int g_zoomBoxMode = kZoomBoxCtrl;
 const char kGridKeys[] = "QWERTYUIOPASDFGHJKLZXCVBNM";
 
 FILETIME g_fileTime = {};
@@ -515,6 +516,11 @@ void LoadControls()
 	GetPrivateProfileStringA("General", "Layout", "", mode, sizeof(mode), path.c_str());
 	g_gridMode = _stricmp(mode, "grid") == 0;
 	g_barLetters = GetPrivateProfileIntA("General", "LettersOnBar", 1, path.c_str()) != 0;
+	{
+		char box[16];
+		GetPrivateProfileStringA("General", "ZoomBox", "ctrl", box, sizeof(box), path.c_str());
+		g_zoomBoxMode = _stricmp(box, "alt") == 0 ? kZoomBoxAlt : _stricmp(box, "shift") == 0 ? kZoomBoxShift : _stricmp(box, "off") == 0 ? kZoomBoxOff : kZoomBoxCtrl;
+	}
 	g_orderOverrides.clear();
 	std::vector<char> section(32768);
 	const DWORD n = GetPrivateProfileSectionA("Commands", section.data(), static_cast<DWORD>(section.size()), path.c_str());
@@ -911,6 +917,13 @@ bool ControlsModKeyPressed(int id, unsigned vk)
 	return false;
 }
 
+ControlKey ControlsModKey(int id)
+{
+	if (id < kModKeyPanel || id > kModKeyCheats) return {};
+	const int index = kFirstModAction + id;
+	return g_bind[index].vk ? g_bind[index] : g_bind2[index];
+}
+
 void InstallControls(bool knownExe)
 {
 	LoadControls();
@@ -1003,6 +1016,11 @@ void SaveControls()
 	}
 	if (!g_barLetters) {
 		WritePrivateProfileStringA("General", "LettersOnBar", "0", path.c_str());
+		count++;
+	}
+	if (g_zoomBoxMode != kZoomBoxCtrl) {
+		static const char *const kNames[kZoomBoxModes] = {"ctrl", "alt", "shift", "off"};
+		WritePrivateProfileStringA("General", "ZoomBox", kNames[g_zoomBoxMode], path.c_str());
 		count++;
 	}
 	for (int i = 0; i < kActionCount; i++) {
@@ -1203,6 +1221,7 @@ void ControlsResetAll()
 	g_orderOverrides.clear();
 	g_gridMode = false;
 	g_barLetters = true;
+	g_zoomBoxMode = kZoomBoxCtrl;
 	ApplyOrders();
 	SaveControls();
 	LogI("controls", "everything as in the original game");
@@ -1817,6 +1836,32 @@ void ControlsSetBarLetters(bool on)
 {
 	g_barLetters = on;
 	SaveControls();
+}
+
+int ControlsZoomBoxMode()
+{
+	return g_zoomBoxMode;
+}
+
+void ControlsSetZoomBoxMode(int mode)
+{
+	g_zoomBoxMode = mode >= 0 && mode < kZoomBoxModes ? mode : kZoomBoxCtrl;
+	SaveControls();
+}
+
+unsigned ControlsZoomBoxVk()
+{
+	switch (g_zoomBoxMode) {
+	case kZoomBoxAlt: return VK_MENU;
+	case kZoomBoxShift: return VK_SHIFT;
+	case kZoomBoxOff: return 0;
+	default: return VK_CONTROL;
+	}
+}
+
+unsigned ControlsZoomBoxAddVk()
+{
+	return g_zoomBoxMode == kZoomBoxShift ? VK_CONTROL : VK_SHIFT;
 }
 
 std::string ControlsExport()

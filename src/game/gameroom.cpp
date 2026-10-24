@@ -166,6 +166,46 @@ void SelectCombo(void *combo, int index)
 	if (combo) reinterpret_cast<ComboSetSelected_t>(addr::kComboSetSelected)(combo, nullptr, index, 1);
 }
 
+const int kMapSizeCombo = 0x01000008;
+const int kMapSizes = 3;
+const size_t kTemplateEntrySize = 0x44;
+const size_t kTemplateSizeField = 0x38;
+
+const char *TemplateName(const char *entry)
+{
+	const unsigned capacity = *reinterpret_cast<const unsigned *>(entry + 0x34);
+	return capacity < 0x10 ? entry + 0x20 : *reinterpret_cast<const char *const *>(entry + 0x20);
+}
+
+bool SizesOfMapType(void *options, void *typeCombo, int selected, bool fits[kMapSizes])
+{
+	for (int i = 0; i < kMapSizes; i++) fits[i] = false;
+	__try {
+		const char *list = *reinterpret_cast<char *const *>(static_cast<char *>(typeCombo) + 0x64);
+		const unsigned count = *reinterpret_cast<const unsigned *>(list + 0x58);
+		if (selected <= 0 || static_cast<unsigned>(selected) >= count) return false;
+		const char *items = *reinterpret_cast<const char *const *>(list + 0x94);
+		const unsigned chosen = *reinterpret_cast<const unsigned *>(items + selected * 0x14 + 0xc);
+		const char *begin = *reinterpret_cast<char *const *>(static_cast<char *>(options) + 0x6c);
+		const char *end = *reinterpret_cast<char *const *>(static_cast<char *>(options) + 0x70);
+		if (!begin || end <= begin) return false;
+		const unsigned total = static_cast<unsigned>((end - begin) / kTemplateEntrySize);
+		if (chosen >= total) return false;
+		const char *want = TemplateName(begin + chosen * kTemplateEntrySize);
+		for (unsigned i = 0; i < total; i++) {
+			const char *entry = begin + i * kTemplateEntrySize;
+			if (_stricmp(TemplateName(entry), want) != 0) continue;
+			const int size = *reinterpret_cast<const int *>(entry + kTemplateSizeField);
+			if (size >= 0 && size < kMapSizes) fits[size] = true;
+		}
+		return true;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return false;
+	}
+}
+
+
 struct OptionDef {
 	int id;
 	const char *label;
@@ -430,6 +470,14 @@ void TakeSnapshot()
 						s.optionsText += std::string(d.label) + ": " + o.items[o.sel] + "\n";
 					}
 				}
+				if (d.id == kMapSizeCombo && !d.checkbox) {
+					void *typeCombo = Combo(opts, 0x1000);
+					bool fits[kMapSizes];
+					if (typeCombo && SizesOfMapType(opts, typeCombo, ComboSel(typeCombo), fits)) {
+						o.itemDisabled.assign(o.items.size(), 0);
+						for (size_t k = 0; k < o.items.size() && k < kMapSizes; k++) o.itemDisabled[k] = fits[k] ? 0 : 1;
+					}
+				}
 				s.options.push_back(o);
 			}
 			if (!g_optionsLogged && !s.options.empty()) {
@@ -477,20 +525,18 @@ void TakeSnapshot()
 				const char *label;
 			} kSites[] = {{kSiteRuins, "No ruins"}, {kSiteCaves, "No caves"}, {kSiteItems, "No item sites"},
 				{kSiteStrongholds, "No neutral strongholds"}};
-			for (const auto &site : kSites) {
-				if (s.siteFlags & site.bit) s.optionsText += std::string(site.label) + ": yes\n";
-			}
+			for (const auto &site : kSites) s.optionsText += std::string(site.label) + ": " + ((s.siteFlags & site.bit) ? "yes" : "no") + "\n";
 		}
 		if (s.host) {
-			if (s.rules & kRuleBlindPick) s.optionsText += "Hidden civilizations: yes\n";
-			if (s.rules & kRuleFreeAttach) s.optionsText += "Free unit attachment: yes\n";
-			if (s.rules & kRuleLockDiplomacy) s.optionsText += "Diplomacy locked: yes\n";
-			if (s.rules & kRuleCheats) s.optionsText += "Cheats: yes\n";
+			s.optionsText += std::string("Hidden civilizations: ") + ((s.rules & kRuleBlindPick) ? "yes" : "no") + "\n";
+			s.optionsText += std::string("Free unit attachment: ") + ((s.rules & kRuleFreeAttach) ? "yes" : "no") + "\n";
+			s.optionsText += std::string("Diplomacy locked: ") + ((s.rules & kRuleLockDiplomacy) ? "yes" : "no") + "\n";
+			s.optionsText += std::string("Cheats: ") + ((s.rules & kRuleCheats) ? "yes" : "no") + "\n";
 			for (const ModOption &o : ModOptions()) {
 				if (o.id == kSeasonOptionId && !s.randomMap) continue;
 				const int v = ModOptionGet(o, s.rules);
 				if (o.values.empty()) {
-					if (v) s.optionsText += o.name + ": yes\n";
+					s.optionsText += o.name + (v ? ": yes\n" : ": no\n");
 				}
 				else s.optionsText += o.name + ": " + o.values[v < static_cast<int>(o.values.size()) ? v : 0] + "\n";
 			}
@@ -515,6 +561,7 @@ void TakeSnapshot()
 	std::lock_guard<std::mutex> lock(g_lock);
 	g_snap = std::move(s);
 }
+
 
 void Queue(std::function<void()> fn)
 {
@@ -590,6 +637,26 @@ void __fastcall HookSetSlotInfo(void *room, void *edx, unsigned slot, const char
 	g_origSetSlotInfo(room, edx, slot, name, type, color, ready, race, team, extra);
 }
 
+void LogApplied(const char *opts)
+{
+	const bool random = *reinterpret_cast<const int *>(opts + 0x18) != 0;
+	const unsigned positions = *reinterpret_cast<const unsigned short *>(opts + 0x48);
+	char mapName[0x20] = {};
+	if (random) strncpy_s(mapName, opts + 0x24, _TRUNCATE);
+	char mode[0x21] = {};
+	strncpy_s(mode, opts + 0x60, _TRUNCATE);
+	void *dialog = *reinterpret_cast<void **>(addr::kGameOptionsDialog);
+	void *sizeCombo = dialog ? Combo(dialog, kMapSizeCombo) : nullptr;
+	const int size = sizeCombo ? ComboSel(sizeCombo) : -1;
+	char line[300];
+	sprintf_s(line, "%s%s, size %d, %u positions, mode \"%s\", flags 0x%x, %u mods loaded", random ? "random map " : "scenario", random ? mapName : "", size, positions, mode,
+		*reinterpret_cast<const unsigned *>(opts + 0x34), static_cast<unsigned>(ModsMountedProfile().mods.size()));
+	static std::string last;
+	if (last == line) return;
+	last = line;
+	LogI("room", "options applied: %s", line);
+}
+
 int __fastcall HookApplyToGame(void *self, void *edx, char *opts)
 {
 	char *prev = g_applyOpts;
@@ -603,6 +670,7 @@ int __fastcall HookApplyToGame(void *self, void *edx, char *opts)
 		const bool random = *reinterpret_cast<int *>(opts + 0x18) != 0;
 		flags = (flags & ~(kSiteMask | kRuleMask)) | (random ? g_siteFlags : 0) | (g_ruleFlags & (random ? ~0u : ~kSeasonBits));
 		if (!NetMultiplayerSaveLoading()) GameModeApplyOptions(opts);
+		LogApplied(opts);
 	}
 	return r;
 }
@@ -1030,7 +1098,8 @@ void GameRoomSetOption(int id, int index)
 		if (LockedByMode(id)) return;
 		void *opts = *reinterpret_cast<void **>(addr::kGameOptionsDialog);
 		void *combo = Combo(opts, id);
-		const std::vector<int> order = DisplayOrder(id, ComboItems(combo));
+		const std::vector<std::string> items = ComboItems(combo);
+		const std::vector<int> order = DisplayOrder(id, items);
 		SelectCombo(combo, index >= 0 && index < static_cast<int>(order.size()) ? order[index] : index);
 	});
 }

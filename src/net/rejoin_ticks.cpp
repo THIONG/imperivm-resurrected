@@ -175,6 +175,9 @@ void __stdcall HookDesync(unsigned tick, unsigned hash, unsigned compared)
 	LogE("match", "DESYNC at tick %u: my fingerprint %08x, the other's %08x. Fingerprints: slots %08x threads %08x "
 		"pathfinder %08x exploration %08x scriptstate %08x netcmds %08x extra %08x ai %08x",
 		tick, hash, compared, h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
+	if (WriteMoves(static_cast<int>(tick) - kMovesTicksWritten)) {
+		LogI("match", "object moves of the last %d ticks in %s (send the problem report of every player)", kMovesTicksWritten, kMovesFile);
+	}
 	if (GetConfig().rejoinTrace) {
 		if (g_trace.active && WriteTrace(static_cast<int>(tick) - kTraceTicksWritten)) {
 			LogI("rejoin", "trace of the last %d ticks in %s", kTraceTicksWritten, kTraceFile);
@@ -223,13 +226,22 @@ void __fastcall HookMsgExecute(void *cmd)
 
 void __fastcall HookSetPosition(void *self, void *edx, uint32_t *pt, int a, int b)
 {
+	const uint32_t before = PositionsHash();
 	g_orig.setPosition(self, edx, pt, a, b);
+	if (!KeepLocalOutOfPositionsHash(self, before)) MovePush('M', self, before, _ReturnAddress());
 	int tick;
 	if (!g_trace.active || !Tracing(tick)) return;
 	char *mgr = ThreadManager(0);
 	TracePush({tick, 'M', *reinterpret_cast<uint16_t *>(static_cast<char *>(self) + 8), mgr ? *reinterpret_cast<uint32_t *>(mgr) : 0,
 		*reinterpret_cast<uint32_t *>(static_cast<char *>(self) + 0x24), *reinterpret_cast<uint32_t *>(static_cast<char *>(self) + 0x28), 0,
 		static_cast<uint32_t>(reinterpret_cast<uintptr_t>(_ReturnAddress())), *reinterpret_cast<uint32_t *>(addr::kSyncState + 8)});
+}
+
+void __fastcall HookRemoveFromMap(void *self)
+{
+	const uint32_t before = PositionsHash();
+	g_orig.removeFromMap(self);
+	if (!KeepLocalOutOfPositionsHash(self, before)) MovePush('R', self, before, _ReturnAddress());
 }
 
 }

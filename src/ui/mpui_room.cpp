@@ -291,6 +291,50 @@ bool RaceEditable(const GameRoomSnapshot &g, const GameRoomSlot &s, bool load)
 	return !load && (s.local || (g.host && s.type == 1)) && !s.raceNames.empty() && s.fixedRace < 0;
 }
 
+bool LocalReady(const GameRoomSnapshot &g)
+{
+	for (const GameRoomSlot &s : g.slots) {
+		if (s.local && s.used && s.ready) return true;
+	}
+	return false;
+}
+
+std::string RoomConfigKey(const OnlineLobby &l)
+{
+	std::string key = l.optionsText + "|" + std::to_string(l.rules) + "|" + l.map + "|" + l.mode;
+	for (const OnlineSlot &s : l.slots) {
+		if (s.type != 3) key += "|" + std::to_string(s.type) + ":" + s.name;
+	}
+	return key;
+}
+
+bool SlotFrozen(const GameRoomSnapshot &g, const GameRoomSlot &s)
+{
+	if (!g.online) return false;
+	return s.local ? s.ready : g.host && s.type == 1 && LocalReady(g);
+}
+
+bool RoomActionFrozen(const GameRoomSnapshot &g, int action, int arg)
+{
+	if (!g.online) return false;
+	switch (action) {
+	case kGTeam:
+	case kGColor: return SlotFrozen(g, g.slots[arg & 7]);
+	case kGRuleToggle:
+	case kGSiteToggle:
+	case kGOptToggle: return g.host && LocalReady(g);
+	case kGDropOpen: {
+		const int kind = arg & 15, slot = (arg >> 4) & 7;
+		if (kind == kDropRace || kind == kDropBonus || kind == kDropColor) return SlotFrozen(g, g.slots[slot]);
+		if (kind == kDropOption || kind == kDropPreset || kind == kDropSites || kind == kDropModOption || kind == kDropSpectators || kind == kDropSlot) {
+			return g.host && LocalReady(g);
+		}
+		return false;
+	}
+	default: return false;
+	}
+}
+
 void RedirectReplacedRaces(GameRoomSnapshot &g)
 {
 	if (!g.active) return;

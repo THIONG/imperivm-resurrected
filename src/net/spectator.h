@@ -10,6 +10,7 @@ void SpectatorGameThreadTick();
 
 bool SpectatorWatching();
 bool SpectatorViewing();
+bool SpectatorCovering();
 std::string SpectatorStatusText();
 int SpectatorProgress();
 bool SpectatorWantsWake();

@@ -1,0 +1,4 @@
+@game-file-sha256 f40f57b4db91da515e8f59dbf935439607684751f6c9560115743c7d26beafad
+<patch>
+	<set select="/class" entity_winter="Buildings/Townhall/Townhall_w.ent.xml"/>
+</patch>

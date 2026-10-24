@@ -28,6 +28,12 @@ void UiToast(const std::string &text, bool error)
 	else Missing("toast");
 }
 
+void UiNotice(const std::string &title, const std::string &text)
+{
+	if (g_port.notice) g_port.notice(title, text);
+	else Missing("notice");
+}
+
 void UiAskRestart(const std::string &reason, int largeAddress, const std::vector<std::string> &items, const std::string &itemsTitle)
 {
 	if (g_port.askRestart) g_port.askRestart(reason, largeAddress, items, itemsTitle);

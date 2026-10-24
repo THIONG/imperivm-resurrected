@@ -23,6 +23,7 @@
 #include "core/version.h"
 #include "hooks/media.h"
 #include "net/mpsave.h"
+#include "app/compat.h"
 #include "app/overlay.h"
 #include "app/render.h"
 #include "hooks/tweaks.h"
@@ -34,6 +35,7 @@
 #include "mods/netmods.h"
 #include "mods/downloads.h"
 #include "game/autosave.h"
+#include "game/seasondecors.h"
 #include "net/steamnet.h"
 #include "ui/mpui.h"
 #include "net/vnet.h"
@@ -196,6 +198,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 		InstallNetModsHooks(knownExe);
 		DlStartUpdateCheck();
 		InstallAutosave(knownExe);
+		InstallSeasonDecors(knownExe);
 		MediaInstall(knownExe);
 		InstallMpSave(knownExe);
 		InstallOnlineSaves(knownExe);
@@ -213,6 +216,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 		InstallQuickIcons(knownExe);
 		InstallZoomView(knownExe);
 		InstallSavesUi(knownExe);
+		CheckCompatibilityLayers();
 		if (knownExe && GetConfig().largeAddress && !ModsExeIsLargeAddressAware()) ModsPatchExeAtExit(1);
 		InstallMpUi(knownExe);
 		VnetInstallHooks(knownExe);

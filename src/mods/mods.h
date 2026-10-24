@@ -73,6 +73,7 @@ struct ModInfo {
 	uint64_t installedTime = 0;
 	bool newSinceStart = false;
 	unsigned fileCount = 0;
+	bool noGameFiles = false;
 	std::string hash;
 	std::string gameplayHash;
 };
@@ -124,8 +125,19 @@ std::string ModsActiveProfileName();
 void ModsSetActiveProfileName(const std::string &name);
 const ModProfile &ModsMountedProfile();
 bool ModsScenarioProvider(const std::string &scenarioPath, std::string &id, std::string &version, std::string &name);
+
+struct ModsMapPack {
+	std::string id, version, name, file;
+	uint64_t gbId = 0;
+	bool simple = false;
+	bool shareable = false;
+};
+bool ModsScenarioPack(const std::string &scenarioPath, ModsMapPack &out);
+std::string ModsInstalledPackMap(const std::string &id, const std::string &version, const std::string &scenarioPath);
 bool ModsMountedHasExact(const std::string &id, const std::string &version);
 bool ModsRestartNeeded();
+bool ModsLoadsWithoutRestart(const std::string &folder);
+bool ModsApplyWithoutRestart();
 bool ModsRenameProfile(const std::string &from, const std::string &to);
 std::string ModsProfileLabel(const std::string &name);
 bool ModsIsReservedProfileName(const std::string &name);
@@ -135,6 +147,8 @@ void ModsNoteReceivedMap(const std::string &fullPath);
 bool ModsUninstallPending(const std::string &folder);
 void ModsCancelUninstall(const std::string &folder);
 void ModsApplyPendingUninstalls();
+void ModsPruneMissing();
+std::vector<std::string> ModsTakePruned();
 int ModsCompareVersions(const std::string &a, const std::string &b);
 void ModsQueueSwap(const std::string &newFolder, const std::string &oldFolder);
 void ModsApplyPendingSwaps();
@@ -149,7 +163,6 @@ void ModsOpenFolder(const std::string &folder);
 
 void ModsOnSaveWritten(const std::string &gamePath, bool online = false);
 std::string ModsCheckSaveOnLoad(const std::string &gamePath);
-void ModsOnMapWritten(const std::string &gamePath);
 
 struct ModNeed {
 	std::string folder, id, name, version;
@@ -163,7 +176,6 @@ struct ModNeeds {
 	std::vector<std::string> folders;
 	bool Satisfied() const;
 	bool AllInstalled() const;
-	std::string Text(bool onlyMissing) const;
 	std::vector<std::string> Names(bool onlyMissing) const;
 };
 ModNeeds ModsNeededFor(const std::string &gamePath, const std::string &profile = "");

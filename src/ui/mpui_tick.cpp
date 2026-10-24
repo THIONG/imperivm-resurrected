@@ -104,17 +104,37 @@ void MpUiGameThreadTick()
 					GameRoomSetColor(snap.localSlot, want);
 				}
 			}
+			if (g_s.roomLimit > 0 && snap.host && snap.online && !snap.busy && snap.localSlot >= 0 && g_s.hostSave.name.empty()) {
+				int seats = 0;
+				for (const GameRoomSlot &s : snap.slots) {
+					if (s.exists && ((s.used && s.type == 3) || (!s.used && s.type == 0))) seats++;
+				}
+				for (int i = 7; i >= 0 && seats > g_s.roomLimit; i--) {
+					const GameRoomSlot &s = snap.slots[i];
+					if (!s.exists || s.used || s.local || s.type != 0) continue;
+					GameRoomSetSlotType(i, 2);
+					seats--;
+				}
+				LogI("room", "the room was created for %d players: the other open slots are closed", g_s.roomLimit);
+				g_s.roomLimit = 0;
+			}
+			if (snap.online && !snap.host) {
+				if (!LocalReady(snap)) {
+					g_s.readySeen = false;
+				}
+				else if (!g_s.readySeen) {
+					g_s.readySeen = true;
+					g_s.readyConfig = RoomConfigKey(g_s.room.info);
+				}
+				else if (RoomConfigKey(g_s.room.info) != g_s.readyConfig) {
+					g_s.readySeen = false;
+					DoAction(kGReady, 0);
+					ModUiToast("The host changed the game: press \"Ready\" again when you agree.");
+					LogI("room", "the host changed the game options: ready taken back");
+				}
+			}
 			if (snap.host && snap.online) {
 				std::string opts = snap.optionsText;
-				if (!snap.scenario.empty() && !g_s.hostSavePublished) {
-					static std::string lastScenario;
-					static std::string mapMods;
-					if (snap.scenario != lastScenario) {
-						lastScenario = snap.scenario;
-						mapMods = ModsNeededFor(snap.scenario + ".bfhp").Text(false);
-					}
-					if (!mapMods.empty()) opts += Tr("Map content: ") + mapMods + "\n";
-				}
 				{
 					uint64_t seatMember = 0;
 					int seatSlot = -1;
@@ -237,7 +257,7 @@ void MpUiGameThreadTick()
 					}
 				}
 				SteamPublishOptions(opts);
-				SteamPublishRules(snap.rules);
+				SteamPublishRules(snap.randomMap ? snap.rules : snap.rules & ~kSeasonBits);
 				{
 					std::string slotsText;
 					for (int i = 0; i < 8; i++) {

@@ -47,6 +47,7 @@ struct GameRoomOption {
 	bool checkbox = false;
 	bool value = false;
 	std::vector<std::string> items;
+	std::vector<char> itemDisabled;
 	int sel = -1;
 };
 

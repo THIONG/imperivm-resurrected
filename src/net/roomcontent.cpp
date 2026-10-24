@@ -7,7 +7,7 @@ RoomContent CompareRoomContent(const RoomContentFacts &facts)
 {
 	const bool keysKnown = !facts.roomKey.empty() && !facts.ownKey.empty();
 	if (keysKnown && facts.roomKey != facts.ownKey) return RoomContent::kOtherGameplay;
-	if (!facts.mapModId.empty() && !facts.haveMapMod) return RoomContent::kOtherMap;
+	if (!facts.mapModId.empty() && !facts.haveMapMod && !facts.mapSimple) return RoomContent::kOtherMap;
 	return keysKnown ? RoomContent::kSame : RoomContent::kChecking;
 }
 

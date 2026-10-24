@@ -19,14 +19,15 @@ const firstExisting = (list) => list.find((p) => p && fs.existsSync(p));
 const minhook = firstExisting([path.join(ROOT, 'third_party', 'minhook', 'include'), path.join(ROOT, '..', 'tools', 'minhook', 'include')]);
 const miniaudio = firstExisting([path.join(ROOT, 'third_party', 'miniaudio'), path.join(ROOT, '..', 'tools', 'miniaudio')]);
 const miniz = firstExisting([path.join(ROOT, 'third_party', 'miniz'), path.join(ROOT, '..', 'tools', 'miniz')]);
+const libarchive = firstExisting([path.join(ROOT, 'third_party', 'libarchive', 'libarchive'), path.join(ROOT, '..', 'tools', 'libarchive', 'libarchive')]);
 const steamRoot = NO_STEAM ? undefined : firstExisting([process.env.STEAMWORKS_SDK && path.join(process.env.STEAMWORKS_SDK, 'public'), path.join(ROOT, '..', 'tools', 'steamworks_sdk', 'public')]);
 
 if (spawnSync('cl.exe', ['/?'], { encoding: 'utf8' }).error) {
   console.error('cl.exe was not found: run this from a Visual Studio Developer Command Prompt (x86).');
   process.exit(2);
 }
-if (!minhook || !miniaudio || !miniz) {
-  console.error('MinHook, miniaudio or miniz were not found (third_party\\ in the public repository, ..\\tools\\ in the private workspace).');
+if (!minhook || !miniaudio || !miniz || !libarchive) {
+  console.error('MinHook, miniaudio, miniz or libarchive were not found (third_party\\ in the public repository, ..\\tools\\ in the private workspace).');
   process.exit(2);
 }
 
@@ -40,7 +41,7 @@ const walk = (dir, rel, out) => {
 };
 const files = walk(SRC, '', []).sort();
 
-const include = ['/I' + SRC, '/I' + minhook, '/I' + miniaudio, '/I' + miniz];
+const include = ['/I' + SRC, '/I' + minhook, '/I' + miniaudio, '/I' + miniz, '/I' + libarchive];
 if (steamRoot) include.push('/I' + steamRoot);
 const flags = ['/nologo', '/Zs', '/std:c++17', '/utf-8', '/EHsc', '/W3', '/DNDEBUG', ...include];
 

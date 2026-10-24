@@ -11,6 +11,7 @@
 #include "i18n/tr.h"
 #include "mods/mods.h"
 #include "net/modlist.h"
+#include "net/scenvalue.h"
 
 #include "net/steamnet_internal.h"
 
@@ -120,11 +121,15 @@ OnlineLobby ReadLobby(uint64 id)
 	l.mode = Data(id, "mode");
 	l.gameplayKey = Data(id, "key");
 	{
-		const std::vector<std::string> scen = SplitTabs(Data(id, "scen"));
-		if (scen.size() >= 6 && !scen[3].empty()) {
-			l.scenModId = scen[3];
-			l.scenModVersion = scen[4];
-			l.scenModName = scen[5];
+		ScenValue scen;
+		if (ScenValueParse(Data(id, "scen"), scen) && !scen.modId.empty()) {
+			l.scenModId = scen.modId;
+			l.scenModVersion = scen.modVersion;
+			l.scenModName = scen.modName;
+			l.scenSimple = scen.simple;
+			l.scenShareable = scen.shareable;
+			l.scenGbId = scen.gbId;
+			l.scenMapSize = scen.mapSize;
 		}
 	}
 	l.password = !Data(id, "pw").empty();
@@ -188,6 +193,7 @@ OnlineLobby ReadLobby(uint64 id)
 		}
 	}
 	if (l.spectate) l.spectators = (std::max)(0, l.players - 1);
+	l.watching = (std::max)(0, atoi(Data(id, "watching").c_str()));
 	if (!l.slots.empty()) {
 		int taken = 0, open = 0;
 		for (const OnlineSlot &s : l.slots) {

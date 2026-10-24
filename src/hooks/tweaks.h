@@ -5,6 +5,8 @@
 
 void InstallTweaks(bool knownExe);
 
+bool TweaksIntendedResolution(int &w, int &h);
+
 void TweaksApplySmoothScroll();
 void TweaksFrameTick();
 bool TweaksOnlyHumanOnline(void *game);

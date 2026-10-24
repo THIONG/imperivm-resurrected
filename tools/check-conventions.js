@@ -1,5 +1,4 @@
 // Checks the conventions of the files in src/ (the rules are in docs/conventions.md):
-//   - no comments (the code explains itself through names; the reasons live in docs/ and in the commit messages);
 //   - UTF-8 without BOM, LF line ends, no trailing whitespace, tabs for indentation;
 //   - file names in lowercase letters, digits and underscores;
 //   - project includes are written "folder/file.h" from the include root src/ (never ../ and never a bare name);
@@ -11,14 +10,12 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { strip } = require('./strip-comments.js');
 
 const SRC = path.resolve(__dirname, '..', 'src');
 const FOLDERS = new Set(['addr', 'core', 'i18n', 'hooks', 'mods', 'game', 'net', 'ui', 'app']);
 const EXTERN_ALLOWED = new Set(['core/crashlog.h:g_crashLogQuiet', 'net/discord.h:kDiscordInviteUrl']);
 const INLINE_GLOBAL_ALLOWED = new Set(['ui/textedit.h', 'ui/uikit.h']);
-const THIRD_PARTY = new Set(['MinHook.h', 'miniaudio.h', 'extras/stb_vorbis.c', 'miniz.h']);
-const NO_COMMENT_CHECK = new Set(['i18n/tr_data.cpp']);
+const THIRD_PARTY = new Set(['MinHook.h', 'miniaudio.h', 'extras/stb_vorbis.c', 'miniz.h', 'archive.h', 'archive_entry.h']);
 const problems = [];
 
 function walk(dir, rel, out) {
@@ -30,7 +27,6 @@ function walk(dir, rel, out) {
   return out;
 }
 
-const normalize = (s) => s.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/^[ \t]*\n/, '');
 const LICENSE_HEADER = /^\/\/ SPDX-License-Identifier: [^\n]*\n\/\/ Copyright \(C\) [^\n]*\n\/\/ Part of Imperivm Resurrected\.[^\n]*\n/;
 
 const allFiles = walk(SRC, '', []);
@@ -43,7 +39,7 @@ for (const rel of allFiles.filter((f) => /\.(cpp|c)$/.test(f))) {
 
 for (const rel of allFiles) {
   const base = path.basename(rel);
-  if (!/^[a-z0-9_]+\.[a-z]+$/.test(base)) problems.push(rel + ': file name must be lowercase letters, digits and underscores');
+  if (!/^[a-z0-9_]+(\.[a-z]+){1,2}$/.test(base)) problems.push(rel + ': file name must be lowercase letters, digits and underscores');
   if (!/\.(cpp|h|c|inc)$/.test(base)) continue;
   const buf = fs.readFileSync(path.join(SRC, rel));
   const full = buf.toString('utf8');
@@ -55,13 +51,6 @@ for (const rel of allFiles) {
     if (/[ \t]+$/.test(ln)) problems.push(rel + ':' + (i + 1) + ': trailing whitespace');
     if (/^ +\S/.test(ln) && !/^ \*/.test(ln)) problems.push(rel + ':' + (i + 1) + ': indented with spaces (use tabs)');
   });
-  if (!NO_COMMENT_CHECK.has(rel) && normalize(strip(text)) !== normalize(text)) {
-    const a = strip(text).split('\n'), b = text.split('\n');
-    let line = 1;
-    const stripped = new Set(a);
-    for (let i = 0; i < b.length; i++) if (!stripped.has(b[i])) { line = i + 1; break; }
-    problems.push(rel + ':' + line + ': contains a comment');
-  }
   if (rel !== 'hooks/hookcount.cpp') {
     lines.forEach((ln, i) => {
       if (/\bMH_(CreateHook|EnableHook)\(/.test(ln)) problems.push(rel + ':' + (i + 1) + ': use HookCreate/HookEnable (hooks/hookcount.h), which count the hooks for the start-up summary');

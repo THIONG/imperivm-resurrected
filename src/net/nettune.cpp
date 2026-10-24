@@ -5,7 +5,11 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstdarg>
 #include <cstdint>
+#include <cstdio>
+#include <map>
+#include <string>
 #include <cstring>
 #include <mutex>
 #include <vector>
@@ -14,7 +18,9 @@
 #include "hooks/hookcount.h"
 #include "core/log.h"
 #include "net/nettune.h"
+#include "net/steamnet.h"
 #include "addr/net.h"
+#include "addr/state.h"
 
 namespace {
 const unsigned kMinTickMs = 120;
@@ -83,6 +89,74 @@ void *__fastcall HookCtor(void *self, void *edx, unsigned long a, int b, unsigne
 	return r;
 }
 
+struct PeerArrival {
+	unsigned samples = 0, late = 0, maxDelay = 0;
+	double sum = 0;
+};
+std::mutex g_arrivalMx;
+std::map<unsigned, PeerArrival> g_arrivals;
+unsigned g_resends = 0;
+
+typedef void(__cdecl *TransportLog_t)(const char *fmt, ...);
+TransportLog_t g_origLog = nullptr;
+
+void NoteTransportLine(const char *text)
+{
+	unsigned tick = 0, a = 0, b = 0, c = 0, d = 0, delay = 0;
+	if (strstr(text, "PEER DELAY") && sscanf_s(text, "%*d - PEER DELAY - tick %u - %u.%u.%u.%u - realtime delay %u", &tick, &a, &b, &c, &d, &delay) == 6) {
+		if (delay > 100000) return;
+		std::lock_guard<std::mutex> lock(g_arrivalMx);
+		PeerArrival &p = g_arrivals[(c << 8) | d];
+		p.samples++;
+		p.sum += delay;
+		p.maxDelay = std::max(p.maxDelay, delay);
+		if (delay > 250) p.late++;
+	}
+	else if (strstr(text, "NACK SEND")) {
+		std::lock_guard<std::mutex> lock(g_arrivalMx);
+		g_resends++;
+	}
+}
+
+void __cdecl HookLog(const char *fmt, ...)
+{
+	char text[512];
+	va_list args;
+	va_start(args, fmt);
+	const int n = _vsnprintf_s(text, sizeof(text), _TRUNCATE, fmt, args);
+	va_end(args);
+	if (n < 0 && text[0] == 0) return;
+	NoteTransportLine(text);
+	g_origLog("%s", text);
+}
+
+void LogArrivals()
+{
+	std::map<unsigned, PeerArrival> arrivals;
+	unsigned resends = 0;
+	{
+		std::lock_guard<std::mutex> lock(g_arrivalMx);
+		arrivals.swap(g_arrivals);
+		resends = g_resends;
+		g_resends = 0;
+	}
+	if (arrivals.empty() && !resends) return;
+	std::map<unsigned, std::string> names;
+	for (const OnlineMember &m : SteamCurrentRoom().members) names[static_cast<unsigned>(m.number)] = m.name;
+	std::string text;
+	for (const auto &entry : arrivals) {
+		const PeerArrival &p = entry.second;
+		const auto name = names.find(entry.first);
+		char line[160];
+		sprintf_s(line, "%s%s: mean %.0f ms, max %u ms, %u of %u turns over 250 ms", text.empty() ? "" : "; ",
+			name != names.end() ? name->second.c_str() : ("127.77.0." + std::to_string(entry.first)).c_str(), p.sum / p.samples, p.maxDelay, p.late, p.samples);
+		text += line;
+	}
+	const char *gameBase = *reinterpret_cast<const char **>(addr::kGame);
+	const unsigned speed = gameBase ? *reinterpret_cast<const unsigned *>(gameBase + 0x1244) : 0;
+	LogI("net", "game network: when each player's data arrived after it was due: %s; game speed %u; resend requests: %u", text.c_str(), speed, resends);
+}
+
 LARGE_INTEGER g_freq = {};
 LARGE_INTEGER g_last = {};
 unsigned g_lastTick = 0;
@@ -105,6 +179,7 @@ void FlushWindow()
 		g_win = Window();
 		return;
 	}
+	LogArrivals();
 	std::vector<unsigned> v = g_win.intervals;
 	std::sort(v.begin(), v.end());
 	double sum = 0;
@@ -127,6 +202,8 @@ void InstallNetTune(bool knownExe)
 							reinterpret_cast<void **>(&g_origCtor)) == MH_OK &&
 		HookEnable(reinterpret_cast<void *>(addr::kTransportCtor)) == MH_OK;
 	QueryPerformanceFrequency(&g_freq);
+	HookCreate(reinterpret_cast<void *>(addr::kTransportLog), reinterpret_cast<void *>(&HookLog), reinterpret_cast<void **>(&g_origLog));
+	if (g_origLog) HookEnable(reinterpret_cast<void *>(addr::kTransportLog));
 	LogAt(g_patched && hooked ? kLogInfo : kLogError, "net", "game network: turn adjustment %s", g_patched && hooked ? "ready" : "NOT available");
 	if (!hooked) g_patched = false;
 }

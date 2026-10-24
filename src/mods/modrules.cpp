@@ -62,6 +62,18 @@ std::string MakeId(const std::string &folder)
 	return id.empty() ? "mod" : id;
 }
 
+bool IsDocumentation(const std::string &rel)
+{
+	static const char *kDocuments[] = {".txt", ".md", ".pdf", ".html", ".htm", ".rtf"};
+	const size_t dot = rel.find_last_of('.');
+	if (dot == std::string::npos || rel.find('/') != std::string::npos) return false;
+	const std::string ext = rel.substr(dot);
+	for (const char *d : kDocuments) {
+		if (ext == d) return true;
+	}
+	return false;
+}
+
 bool AllowedExtension(const std::string &rel)
 {
 	static const char *kAllowed[] = {".pak", ".bfhp", ".xml", ".ini", ".vs", ".bmp", ".tga", ".png", ".jpg", ".wav",
