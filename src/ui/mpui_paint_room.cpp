@@ -4,6 +4,8 @@
 #include "ui/textedit.h"
 #include "MinHook.h"
 #include "core/names.h"
+#include "game/civs.h"
+#include "mods/civsets.h"
 #include "mods/modoptions.h"
 #include "net/rejoin.h"
 #include "net/spectator.h"
@@ -504,6 +506,16 @@ void PaintGameRoom(Painter &p, const State &st)
 			if (g.online) {
 				section("CONTENT");
 				y = PaintLinesInline(p, OnlineLobbyLines(st, st.room.info, false), ix, y, iw, 20) + 4;
+				if (const std::vector<std::string> sets = CivRoomSets(); !sets.empty()) {
+					const std::vector<CivSet> known = CivsSets();
+					std::vector<ListLine> lines;
+					for (const std::string &id : sets) {
+						const auto it = std::find_if(known.begin(), known.end(), [&](const CivSet &s) { return s.id == id; });
+						lines.push_back({"\xE2\x80\xA2  " + (it != known.end() ? it->name : id), kText, false});
+					}
+					section("CIVILIZATIONS");
+					y = PaintLinesInline(p, lines, ix, y, iw, 20) + 4;
+				}
 			}
 
 			if (!host && st.map.state == 1) {

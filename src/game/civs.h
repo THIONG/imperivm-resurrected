@@ -28,6 +28,8 @@ struct Civ {
 	std::string folder;
 	std::vector<std::pair<std::string, std::string>> names;
 	std::string modFolder;
+	// The id of the content pack (its set in a room). The folder can differ between computers; the id does not.
+	std::string modId;
 };
 
 inline constexpr char kGameCivPrefixes[] = "grcimbet";

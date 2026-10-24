@@ -240,7 +240,7 @@ bool GameInRoom()
 // A civilization that comes from no content pack (the civs folder of the mod itself) is not in any set: it is always allowed.
 bool CivInRoom(const Civ &c)
 {
-	return c.modFolder.empty() || CivSetsAllow(CivRoomSets(), c.modFolder);
+	return c.modId.empty() || CivSetsAllow(CivRoomSets(), c.modId);
 }
 
 std::vector<RandomCiv> RandomCivs(const std::vector<const Civ *> &civs, bool filter)
@@ -656,6 +656,10 @@ void LoadCivFile(const std::string &folder, const std::string &path, const std::
 	}
 	auto civ = std::make_unique<Civ>();
 	civ->modFolder = folder;
+	if (!folder.empty()) {
+		ModInfo owner;
+		civ->modId = ModsFind(folder, owner) && !owner.id.empty() ? owner.id : folder;
+	}
 	std::string spelled = j.GetString("id");
 	if (spelled.empty()) spelled = fileName.substr(0, fileName.rfind('.'));
 	civ->id = Lower(spelled);
@@ -1000,10 +1004,10 @@ std::vector<CivSet> CivsSets()
 {
 	std::vector<CivSet> out = {{kCivSetGame, Tr("Game")}};
 	for (const Civ *c : SortedCivs()) {
-		if (c->modFolder.empty()) continue;
-		if (std::any_of(out.begin(), out.end(), [&](const CivSet &s) { return s.id == c->modFolder; })) continue;
+		if (c->modId.empty()) continue;
+		if (std::any_of(out.begin(), out.end(), [&](const CivSet &s) { return s.id == c->modId; })) continue;
 		ModInfo m;
-		out.push_back({c->modFolder, ModsFind(c->modFolder, m) && !m.name.empty() ? m.name : c->modFolder});
+		out.push_back({c->modId, ModsFind(c->modFolder, m) && !m.name.empty() ? m.name : c->modFolder});
 	}
 	return out;
 }
