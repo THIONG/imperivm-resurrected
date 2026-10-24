@@ -6,6 +6,7 @@
 #include "core/names.h"
 #include "mods/modoptions.h"
 #include "game/civs.h"
+#include "mods/civsets.h"
 #include "net/rejoin.h"
 
 #include "ui/mpui_internal.h"
@@ -470,13 +471,25 @@ void PaintCreate(Painter &p, const State &st)
 	p.Text(lx, y, 140, 30, "Content", kDim);
 	Combo(p, st, fx, y, fw, 30, ModsProfileLabel(st.createProfile), kDropProfile, 0, st.profiles.size() > 1);
 	y += 38;
+	// The sets are those of the content that is loaded now; a game that is loaded keeps the ones it was saved with.
+	const std::vector<CivSet> civSets = CivsSets();
+	const bool showCivSets = civSets.size() > 1 && st.createProfile == ModsMountedProfile().name && st.createSave < 0;
 	{
 		const std::vector<ListLine> lines = BuildModLines(st.createProfileInfo.rows, "None: the original game.");
-		const int rows = std::min<int>(6, static_cast<int>(lines.size()));
+		const int rows = std::min<int>(showCivSets ? 4 : 6, static_cast<int>(lines.size()));
 		g_createModsGeomOut = ListGeom();
 		ListState ls = st.createModsList;
 		ListPaint(p, fx, y, fw, rows * 22 + 8, lines, ls, g_createModsGeomOut, 3, 22);
 		y += rows * 22 + 14;
+	}
+	if (showCivSets) {
+		std::vector<std::string> names;
+		for (const CivSet &s : civSets) {
+			if (CivSetsAllow(st.createCivSets, s.id)) names.push_back(s.name);
+		}
+		p.Text(lx, y, 140, 30, "Civilizations", kDim);
+		Combo(p, st, fx, y, fw, 30, st.createCivSets.empty() ? Tr("All") : ShortList(names, 2), kDropCivSets, 0, true);
+		y += 42;
 	}
 	if (st.createSave >= 0 && st.createSave < static_cast<int>(st.saves.size())) {
 		const ModNeeds &needs = CreateSaveNeeds(st.saves[st.createSave].vfsPath, st.createProfile);
@@ -710,6 +723,12 @@ std::vector<std::string> DropItems(const State &st, int &sel)
 	if (st.dropKind == kDropPlayers) {
 		sel = st.createPlayers - 2;
 		return {"2 players", "3 players", "4 players", "5 players", "6 players", "7 players", "8 players"};
+	}
+	if (st.dropKind == kDropCivSets) {
+		sel = -1;
+		std::vector<std::string> items;
+		for (const CivSet &s : CivsSets()) items.push_back(std::string(CivSetsAllow(st.createCivSets, s.id) ? "✓  " : "     ") + s.name);
+		return items;
 	}
 	if (st.dropKind == kDropProfile) {
 		std::vector<std::string> labels;

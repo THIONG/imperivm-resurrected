@@ -91,7 +91,7 @@ enum Field { kNoField, kChatField, kNameField, kPassField, kJoinPassField, kSear
 
 enum { kPredTeam, kPredRace, kPredAi, kPredReady, kPredOptSel, kPredOptVal, kPredColor };
 
-enum { kDropRace, kDropAi, kDropOption, kDropColor, kDropSlot, kDropSites, kDropModOption, kDropPreset, kDropFilter, kDropPlayers, kDropProfile, kDropVisibility, kDropSaveGame, kDropSpectators, kDropPickSort, kDropBonus };
+enum { kDropRace, kDropAi, kDropOption, kDropColor, kDropSlot, kDropSites, kDropModOption, kDropPreset, kDropFilter, kDropPlayers, kDropProfile, kDropVisibility, kDropSaveGame, kDropSpectators, kDropPickSort, kDropBonus, kDropCivSets };
 
 struct SaveEntry {
 	std::string name, vfsPath, file;
@@ -189,6 +189,7 @@ struct State {
 	std::string createProfile;
 	std::vector<std::string> profiles;
 	ProfileSummary createProfileInfo;
+	std::vector<std::string> createCivSets;
 	int createVisibility = 0;
 	int createSpec = 1;
 	bool syncConfirm = false;

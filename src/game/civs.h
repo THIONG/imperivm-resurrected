@@ -61,6 +61,13 @@ void CivsRegisterConstants(void *engine);
 void CivsOnRoomShown(void *dlg);
 const char *CivsRoomSeparator();
 std::vector<int> CivsRoomOrder(int items);
+// Whether the room's sets (CivRoomSets) allow the civilization. "Random" is always allowed.
+bool CivsRoomAllows(int race);
+struct CivSet {
+	std::string id, name;
+};
+// The sets the host can pick for a room: the game's, and one per content pack that has civilizations.
+std::vector<CivSet> CivsSets();
 int CivsRoomReplacement(int item, int items);
 int CivsRaceOfRoomItem(int item);
 int CivsRoomItemOfRace(int race);
