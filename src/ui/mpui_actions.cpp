@@ -232,6 +232,7 @@ void DoAction(int action, int arg)
 				g_s.createProfile = g_s.profiles[arg];
 				g_s.createProfileInfo = ProfileSummaryFor(g_s.createProfile), g_s.createModsList = ListState();
 				g_s.createCivSets.clear();
+				g_s.createCivList = ListState();
 				const std::string chosen = g_s.createSave >= 0 && g_s.createSave < static_cast<int>(g_s.saves.size()) ? g_s.saves[g_s.createSave].vfsPath : "";
 				g_s.saves = ListSaves();
 				g_s.createSave = -1;
@@ -261,17 +262,6 @@ void DoAction(int action, int arg)
 			s.nameSel = arg;
 			Predict(kPredAi, idx & 7, arg);
 			GameRoomSetSlotItem(idx & 7, arg);
-		}
-		else if (g_s.dropKind == kDropCivSets) {
-			const std::vector<CivSet> sets = CivsSets();
-			if (arg >= 0 && arg < static_cast<int>(sets.size())) {
-				std::vector<std::string> chosen;
-				for (const CivSet &s : sets) {
-					if (CivSetsAllow(g_s.createCivSets, s.id) != (s.id == sets[arg].id)) chosen.push_back(s.id);
-				}
-				if (!chosen.empty()) g_s.createCivSets = chosen.size() == sets.size() ? std::vector<std::string>() : chosen;
-				g_s.dropOpen = true;
-			}
 		}
 		else if (g_s.dropKind == kDropSites) {
 			if (arg >= 0 && arg < static_cast<int>(sizeof(kSiteChoices) / sizeof(kSiteChoices[0]))) {
@@ -637,6 +627,16 @@ void DoAction(int action, int arg)
 		g_s.searchStart = GetTickCount();
 		g_s.found = false;
 		break;
+	case kCivSetToggle: {
+		const std::vector<CivSet> sets = CivsSets();
+		if (arg < 0 || arg >= static_cast<int>(sets.size())) break;
+		std::vector<std::string> chosen;
+		for (const CivSet &s : sets) {
+			if (CivSetsAllow(g_s.createCivSets, s.id) != (s.id == sets[arg].id)) chosen.push_back(s.id);
+		}
+		if (!chosen.empty()) g_s.createCivSets = chosen.size() == sets.size() ? std::vector<std::string>() : chosen;
+		break;
+	}
 	case kPlayersPrev: g_s.createPlayers = std::max(2, g_s.createPlayers - 1); break;
 	case kPlayersNext: g_s.createPlayers = std::min(8, g_s.createPlayers + 1); break;
 	case kMapPrev: g_s.createMap = (g_s.createMap + 4) % 5; break;
